@@ -57,9 +57,13 @@ function PostComposer({ onClose, onPosted }) {
     reader.readAsDataURL(croppedBlob);
   };
 
+  // ✅ FIXED: use trimmed URL from FFmpeg
   const handleTrimDone = (trimData) => {
-    console.log("Trim data:", trimData);
-    setVideo(videoPreview);
+    console.log("Trimmed video result:", trimData);
+    if (trimData?.url) {
+      setVideo(trimData.url);
+      setVideoPreview(trimData.url);
+    }
     setShowTrim(false);
   };
 
@@ -81,7 +85,7 @@ function PostComposer({ onClose, onPosted }) {
     if (!text.trim() && !image && !video) { setError("Write something or add a photo/video."); return; }
     setPosting(true);
     try {
-      const res = await api.post("/posts", { text, image, video: videoPreview, visibility });
+      const res = await api.post("/posts", { text, image, video, visibility });
       setNewPost(res.data);
       setPosted(true);
       playSound("post");
@@ -153,13 +157,8 @@ function PostComposer({ onClose, onPosted }) {
         </div>
       </div>
 
-      {/* Nested modals - rendered after backdrop, higher z-index */}
-      {showCrop && (
-        <ImageCropper image={imagePreview} onCrop={handleCropDone} onCancel={() => setShowCrop(false)} />
-      )}
-      {showTrim && (
-        <VideoTrimmer videoSrc={videoPreview} onTrim={handleTrimDone} onCancel={handleTrimCancel} />
-      )}
+      {showCrop && <ImageCropper image={imagePreview} onCrop={handleCropDone} onCancel={() => setShowCrop(false)} />}
+      {showTrim && <VideoTrimmer videoSrc={videoPreview} onTrim={handleTrimDone} onCancel={handleTrimCancel} />}
       {showBoost && <BoostModal post={newPost} onClose={() => { setShowBoost(false); onPosted?.(newPost); onClose(); }} />}
     </>
   );
