@@ -27,7 +27,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const app = express();
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: process.env.CLIENT_ORIGIN || "*", credentials: true }));
 app.use(express.json({ limit: "50mb" }));
 
 app.use("/api/auth", authRoutes);
@@ -54,8 +54,10 @@ async function ensureAIUser() {
       email: "ai@omnixra.ai",
       password: "AIUserPassword123!",
       accountType: "admin",
-      verified: true
+      verified: true,
+      headline: "AI Career Assistant"
     });
+    console.log("Created AI user:", aiUser._id);
   }
   return aiUser._id;
 }
@@ -83,10 +85,21 @@ async function generateDailyNewsIfNeeded() {
       text: aiResponse,
       visibility: "public"
     });
-    console.log("AI news generated as one post.");
+    console.log("AI news generated.");
   } catch (error) {
     console.error("News generation failed:", error);
   }
+}
+
+// Serve frontend in production
+const frontendPath = path.join(__dirname, "..", "frontend", "dist");
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(frontendPath));
+  app.get("*", (req, res) => {
+    if (!req.path.startsWith("/api")) {
+      res.sendFile(path.join(frontendPath, "index.html"));
+    }
+  });
 }
 
 const PORT = process.env.PORT || 5000;
@@ -95,8 +108,8 @@ connectDB().then(() => {
     console.log(`Server running on port ${PORT}`);
     generateDailyNewsIfNeeded();
     setInterval(generateDailyNewsIfNeeded, 24 * 60 * 60 * 1000);
-    // Run scraper every 6 hours
-    runScraper();
-    setInterval(runScraper, 6 * 60 * 60 * 1000);
+    // Run scraper on startup and every 6 hours
+    runScraper().catch(err => console.error("Scraper error:", err.message));
+    setInterval(() => runScraper().catch(err => console.error("Scraper error:", err.message)), 6 * 60 * 60 * 1000);
   });
 });
