@@ -19,10 +19,13 @@ const jobSchema = new mongoose.Schema(
       enum: ["omnixra", "seed", "scraped", "jsearch", "ai-generated"],
       default: "omnixra"
     },
+    slug: { type: String, unique: true, sparse: true },
     active: { type: Boolean, default: true }
   },
   { timestamps: true }
 );
+
+jobSchema.index({ slug: 1 }, { unique: true, sparse: true });
 
 const Job = mongoose.model("Job", jobSchema);
 export default Job;

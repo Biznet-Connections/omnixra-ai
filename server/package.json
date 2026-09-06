@@ -16,6 +16,7 @@
     "express": "latest",
     "jsonwebtoken": "latest",
     "mongoose": "latest",
+    "multer": "^2.3.0",
     "path": "latest"
   }
 }

@@ -4,8 +4,9 @@ import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import ApplyModal from "./ApplyModal";
 import PremiumModal from "./PremiumModal";
+import { BASE_URL } from "../utils/baseUrl";
 
-function JobCard({ job, matchPercentage }) {
+function JobCard({ job }) {
   const { user } = useAuth();
   const [saved, setSaved] = useState(false);
   const [applied, setApplied] = useState(false);
@@ -14,7 +15,6 @@ function JobCard({ job, matchPercentage }) {
   const [showDetail, setShowDetail] = useState(false);
 
   const calculateMatch = () => {
-    if (matchPercentage) return matchPercentage;
     if (!user?.category || !job.category) return 30;
     const userCat = user.category.toLowerCase();
     const jobCat = job.category.toLowerCase();
@@ -29,24 +29,17 @@ function JobCard({ job, matchPercentage }) {
   const matchColor = match >= 80 ? "text-emerald-400" : match >= 50 ? "text-amber-400" : "text-red-400";
 
   const handleApplyForMe = async () => {
-    if (!user?.isPremium) {
-      setShowPremium(true);
-      return;
-    }
-    try {
-      await api.post(`/jobs/${job._id}/apply-for-me`);
-      setApplied(true);
-    } catch (err) {
-      console.error(err);
-      setShowPremium(true);
-    }
+    if (!user?.isPremium) { setShowPremium(true); return; }
+    try { await api.post(`/jobs/${job._id}/apply-for-me`); setApplied(true); }
+    catch (err) { console.error(err); setShowPremium(true); }
   };
 
   const handleShare = async () => {
+    const shareUrl = job.slug ? `${BASE_URL}/jobs/${job.slug}` : `${BASE_URL}/jobs/${job._id}`;
     const shareData = {
       title: `${job.title} at ${job.company}`,
-      text: `${job.title}\n${job.company}\n${job.location}\nApply now on Omnixra!`,
-      url: `http://localhost:5173/job/${job._id}`
+      text: `${job.title}\n${job.company}\n${job.location}\nApply now on Omnixra! ${shareUrl}`,
+      url: shareUrl
     };
     if (navigator.share) await navigator.share(shareData);
     else await navigator.clipboard.writeText(shareData.text);
@@ -62,10 +55,11 @@ function JobCard({ job, matchPercentage }) {
               <div>
                 <div className="font-semibold text-sm truncate">{job.title}</div>
                 <div className="text-[11px] text-slate-600 mt-1">{job.company}</div>
+                {job.source && job.source !== "omnixra" && (
+                  <div className="text-[9px] text-slate-500 mt-0.5">via {job.source}</div>
+                )}
               </div>
-              <div className={`match-badge ${matchColor}`}>
-                {match}% Match
-              </div>
+              <div className={`match-badge ${matchColor}`}>{match}% Match</div>
             </div>
             <div className="flex flex-wrap gap-3 mt-3 text-[10px] text-slate-600">
               <span className="flex items-center gap-1"><MapPin size={11} />{job.location}</span>
@@ -104,6 +98,7 @@ function JobCard({ job, matchPercentage }) {
               {job.deadline && <span>📅 {new Date(job.deadline).toLocaleDateString()}</span>}
             </div>
             <p className="text-sm text-slate-300 leading-7">{job.description}</p>
+            {job.source && job.source !== "omnixra" && <p className="text-xs text-slate-500 mt-3">Source: {job.source}</p>}
             <div className="flex gap-2 mt-5">
               <button onClick={() => { setShowDetail(false); setShowApply(true); }} className="apply-button flex-1">Apply Now</button>
               <button onClick={handleShare} className="outline-button">Share</button>

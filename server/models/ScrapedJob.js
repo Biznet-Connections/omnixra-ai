@@ -7,12 +7,14 @@ const scrapedJobSchema = new mongoose.Schema(
     location: { type: String },
     country: { type: String, default: "Zimbabwe" },
     employmentType: { type: String, default: "Full-time" },
-    category: { type: String },
+    category: { type: String, default: "General" },
     description: { type: String },
     requirements: [{ type: String }],
+    responsibilities: [{ type: String }],
     skills: [{ type: String }],
     education: { type: String },
     experience: { type: String },
+    salary: { type: String },
     salaryMin: { type: Number },
     salaryMax: { type: Number },
     currency: { type: String, default: "USD" },
@@ -33,6 +35,7 @@ const scrapedJobSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+scrapedJobSchema.index({ fingerprint: 1 }, { unique: true });
 
 const ScrapedJob = mongoose.model("ScrapedJob", scrapedJobSchema);
 export default ScrapedJob;

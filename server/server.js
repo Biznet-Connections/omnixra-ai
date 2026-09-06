@@ -17,6 +17,7 @@ import newsRoutes from "./routes/news.js";
 import messageRoutes from "./routes/messages.js";
 import boostRoutes from "./routes/boosts.js";
 import scrapedJobRoutes from "./routes/scrapedJobs.js";
+import videoRoutes from "./routes/video.js";
 import Post from "./models/Post.js";
 import User from "./models/User.js";
 import { askAI } from "./utils/aiService.js";
@@ -29,6 +30,7 @@ dotenv.config({ path: path.join(__dirname, "..", ".env") });
 const app = express();
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || "*", credentials: true }));
 app.use(express.json({ limit: "50mb" }));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/jobs", jobRoutes);
@@ -43,6 +45,7 @@ app.use("/api/news", newsRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/boosts", boostRoutes);
 app.use("/api/scraped-jobs", scrapedJobRoutes);
+app.use("/api/video", videoRoutes);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
@@ -90,6 +93,37 @@ async function generateDailyNewsIfNeeded() {
     console.error("News generation failed:", error);
   }
 }
+
+
+// Dynamic Open Graph for job pages
+app.get("/jobs/:slug", async (req, res, next) => {
+  try {
+    const slug = req.params.slug;
+    const Job = (await import("./models/Job.js")).default;
+    const job = await Job.findOne({ slug });
+    if (job) {
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta property="og:title" content="${job.title} at ${job.company}" />
+  <meta property="og:description" content="Apply now on Omnixra" />
+  <meta property="og:image" content="https://omnixra-ai.com/favicon.svg" />
+  <meta property="og:url" content="https://omnixra-ai.com/jobs/${job.slug}" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <title>${job.title} - Omnixra</title>
+</head>
+<body>
+  <script>window.location.href="/job/${job.slug}";</script>
+</body>
+</html>`;
+      return res.send(html);
+    }
+    next();
+  } catch (e) {
+    next();
+  }
+});
 
 // Serve frontend in production
 const frontendPath = path.join(__dirname, "..", "frontend", "dist");

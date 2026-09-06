@@ -7,6 +7,7 @@ import ModernVideoPlayer from "./ModernVideoPlayer";
 import VerifiedBadge from "./VerifiedBadge";
 import AIAvatar from "./AIAvatar";
 import { timeAgo, playSound } from "../utils/helpers";
+import { BASE_URL } from "../utils/baseUrl";
 
 function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onViewProfile }) {
   const { user } = useAuth();

@@ -6,14 +6,12 @@ export function slugify(text) {
     .replace(/(^-|-$)/g, "");
 }
 
-export function generateJobSlug(category, title, id) {
-  const catSlug = slugify(category || "general");
-  const titleSlug = slugify(title || "job");
+export function generateJobSlug(category, title, company, id) {
+  const base = slugify(`${title}-${company}`);
   const shortId = id.toString().slice(-6);
-  return `${catSlug}/${titleSlug}-${shortId}`;
+  return `${base}-${shortId}`;
 }
 
-export function generateShareUrl(category, title, id) {
-  const slug = generateJobSlug(category, title, id);
-  return `http://localhost:5173/jobs/${slug}`;
+export function generateShareUrl(slug) {
+  return `https://omnixra-ai.com/jobs/${slug}`;
 }

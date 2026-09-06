@@ -2961,3 +2961,15 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
   height: 10px;
   stroke-width: 3;
 }
+
+/* Force modals above everything */
+.modal-backdrop {
+  z-index: 99999 !important;
+}
+
+.modal-box,
+.profile-menu-panel,
+.comments-bottom-sheet,
+[class*="fixed inset-0"] {
+  z-index: 100000 !important;
+}
