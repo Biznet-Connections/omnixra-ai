@@ -1,10 +1,6 @@
 #!/bin/bash
 set -e
 
-echo "Installing FFmpeg..."
-apt-get update -y
-apt-get install -y ffmpeg
-
 echo "Building frontend..."
 cd frontend
 npm install
