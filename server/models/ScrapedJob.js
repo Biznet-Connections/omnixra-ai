@@ -1,0 +1,38 @@
+import mongoose from "mongoose";
+
+const scrapedJobSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    company: { type: String, required: true },
+    location: { type: String },
+    country: { type: String, default: "Zimbabwe" },
+    employmentType: { type: String, default: "Full-time" },
+    category: { type: String },
+    description: { type: String },
+    requirements: [{ type: String }],
+    skills: [{ type: String }],
+    education: { type: String },
+    experience: { type: String },
+    salaryMin: { type: Number },
+    salaryMax: { type: Number },
+    currency: { type: String, default: "USD" },
+    postedDate: { type: Date },
+    closingDate: { type: Date },
+    applicationUrl: { type: String },
+    applicationEmail: { type: String },
+    source: { type: String },
+    sourceUrl: { type: String },
+    sourceJobId: { type: String },
+    fingerprint: { type: String, unique: true },
+    isExpired: { type: Boolean, default: false },
+    lastChecked: { type: Date, default: Date.now },
+    dateScraped: { type: Date, default: Date.now },
+    slug: { type: String },
+    active: { type: Boolean, default: true }
+  },
+  { timestamps: true }
+);
+
+
+const ScrapedJob = mongoose.model("ScrapedJob", scrapedJobSchema);
+export default ScrapedJob;

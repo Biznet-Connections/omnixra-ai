@@ -1,0 +1,17 @@
+{
+  "name": "omnixra-ai",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"wait-on tcp:5000 && npm run client\"",
+    "server": "cd server && node server.js",
+    "client": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd server && node server.js",
+    "seed": "cd server && node seed/seedCompanies.js"
+  },
+  "dependencies": {
+    "concurrently": "latest",
+    "wait-on": "latest"
+  }
+}

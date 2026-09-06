@@ -1,0 +1,14 @@
+node_modules/
+.env
+dist/
+package-lock.json
+frontend/node_modules/
+server/node_modules/
+frontend/dist/
+.vite/
+*.log
+server/*debug*.js
+server/*test*.js
+server/fix-*.js
+server/update-*.js
+fix-and-run.sh

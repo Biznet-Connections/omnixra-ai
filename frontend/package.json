@@ -1,0 +1,23 @@
+{
+  "name": "omnixra-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "latest",
+    "@vitejs/plugin-react": "latest",
+    "axios": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-easy-crop": "^6.2.3",
+    "react-router-dom": "^7.18.3",
+    "tailwindcss": "latest",
+    "vite": "latest"
+  }
+}

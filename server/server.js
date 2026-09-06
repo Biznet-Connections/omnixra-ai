@@ -1,0 +1,102 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+import { connectDB } from "./config/db.js";
+import authRoutes from "./routes/auth.js";
+import jobRoutes from "./routes/jobs.js";
+import companyRoutes from "./routes/companies.js";
+import voucherRoutes from "./routes/vouchers.js";
+import chatRoutes from "./routes/chats.js";
+import aiRoutes from "./routes/ai.js";
+import adminRoutes from "./routes/admin.js";
+import postRoutes from "./routes/posts.js";
+import profileRoutes from "./routes/profile.js";
+import newsRoutes from "./routes/news.js";
+import messageRoutes from "./routes/messages.js";
+import boostRoutes from "./routes/boosts.js";
+import scrapedJobRoutes from "./routes/scrapedJobs.js";
+import Post from "./models/Post.js";
+import User from "./models/User.js";
+import { askAI } from "./utils/aiService.js";
+import { runScraper } from "./scraper/index.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
+
+const app = express();
+app.use(cors({ origin: process.env.CLIENT_ORIGIN || "http://localhost:5173", credentials: true }));
+app.use(express.json({ limit: "50mb" }));
+
+app.use("/api/auth", authRoutes);
+app.use("/api/jobs", jobRoutes);
+app.use("/api/companies", companyRoutes);
+app.use("/api/vouchers", voucherRoutes);
+app.use("/api/chats", chatRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/profile", profileRoutes);
+app.use("/api/news", newsRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/boosts", boostRoutes);
+app.use("/api/scraped-jobs", scrapedJobRoutes);
+
+app.get("/api/health", (req, res) => res.json({ status: "ok" }));
+
+async function ensureAIUser() {
+  let aiUser = await User.findOne({ email: "ai@omnixra.ai" });
+  if (!aiUser) {
+    aiUser = await User.create({
+      name: "Omnixra AI",
+      email: "ai@omnixra.ai",
+      password: "AIUserPassword123!",
+      accountType: "admin",
+      verified: true
+    });
+  }
+  return aiUser._id;
+}
+
+async function generateDailyNewsIfNeeded() {
+  console.log("Checking daily news...");
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const existing = await Post.findOne({ authorType: "ai", createdAt: { $gte: today } });
+  if (existing) {
+    console.log("News already generated today.");
+    return;
+  }
+  console.log("Generating AI news...");
+  try {
+    const aiUserId = await ensureAIUser();
+    const systemPrompt = "You are Omnixra AI. Generate a comprehensive daily career news update with sections: Industry Trends, Skills in Demand, Career Tip, Industry News, Employment Advice. Use markdown headings.";
+    const aiResponse = await askAI([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: "Create the daily news update." }
+    ]);
+    await Post.create({
+      author: aiUserId,
+      authorType: "ai",
+      text: aiResponse,
+      visibility: "public"
+    });
+    console.log("AI news generated as one post.");
+  } catch (error) {
+    console.error("News generation failed:", error);
+  }
+}
+
+const PORT = process.env.PORT || 5000;
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    generateDailyNewsIfNeeded();
+    setInterval(generateDailyNewsIfNeeded, 24 * 60 * 60 * 1000);
+    // Run scraper every 6 hours
+    runScraper();
+    setInterval(runScraper, 6 * 60 * 60 * 1000);
+  });
+});
