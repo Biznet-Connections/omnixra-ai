@@ -65,7 +65,7 @@ async function ensureAIUser() {
 async function generateDailyNewsIfNeeded() {
   console.log("Checking daily news...");
   const today = new Date();
-  today.setHours(0,0,0,0);
+  today.setHours(0, 0, 0, 0);
   const existing = await Post.findOne({ authorType: "ai", createdAt: { $gte: today } });
   if (existing) {
     console.log("News already generated today.");
@@ -95,9 +95,11 @@ async function generateDailyNewsIfNeeded() {
 const frontendPath = path.join(__dirname, "..", "frontend", "dist");
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(frontendPath));
-  app.get("*", (req, res) => {
+  app.use((req, res, next) => {
     if (!req.path.startsWith("/api")) {
       res.sendFile(path.join(frontendPath, "index.html"));
+    } else {
+      next();
     }
   });
 }
@@ -108,7 +110,6 @@ connectDB().then(() => {
     console.log(`Server running on port ${PORT}`);
     generateDailyNewsIfNeeded();
     setInterval(generateDailyNewsIfNeeded, 24 * 60 * 60 * 1000);
-    // Run scraper on startup and every 6 hours
     runScraper().catch(err => console.error("Scraper error:", err.message));
     setInterval(() => runScraper().catch(err => console.error("Scraper error:", err.message)), 6 * 60 * 60 * 1000);
   });
