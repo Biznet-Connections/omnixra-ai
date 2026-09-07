@@ -57,7 +57,6 @@ function PostComposer({ onClose, onPosted }) {
     reader.readAsDataURL(croppedBlob);
   };
 
-  // ✅ FIXED: use trimmed URL from FFmpeg
   const handleTrimDone = (trimData) => {
     console.log("Trimmed video result:", trimData);
     if (trimData?.url) {
@@ -71,12 +70,37 @@ function PostComposer({ onClose, onPosted }) {
     setShowTrim(false);
   };
 
+  // ✅ FIXED: Clean AI response - remove "Certainly! Here's..."
   const enhanceWithAI = async () => {
     if (!text.trim()) { setError("Write something first."); return; }
     setEnhancing(true);
     try {
-      const res = await api.post("/ai/chat", { messages: [{ role: "system", content: "Enhance this post." }, { role: "user", content: text }] });
-      setText(res.data.text);
+      const res = await api.post("/ai/chat", {
+        messages: [
+          { 
+            role: "system", 
+            content: "Enhance the user's post. Return ONLY the enhanced text. Do NOT include phrases like 'Certainly' or 'Here's an enhanced version' or any explanations. Just the enhanced text." 
+          },
+          { role: "user", content: `Enhance this post: "${text}"` }
+        ]
+      });
+      
+      // Clean the response
+      let enhancedText = res.data.text;
+      
+      // Remove common AI prefixes
+      enhancedText = enhancedText
+        .replace(/Certainly! Here's an enhanced version of the post:?/gi, "")
+        .replace(/Here's an enhanced version:?/gi, "")
+        .replace(/Here is an enhanced version:?/gi, "")
+        .replace(/Enhanced version:?/gi, "")
+        .replace(/Sure! Here's an enhanced version:?/gi, "")
+        .trim();
+      
+      // Remove surrounding quotes if present
+      enhancedText = enhancedText.replace(/^["']|["']$/g, "").trim();
+      
+      setText(enhancedText);
     } catch (err) { setError("Could not enhance."); }
     finally { setEnhancing(false); }
   };
