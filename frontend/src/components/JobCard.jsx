@@ -48,8 +48,11 @@ function JobCard({ job }) {
               <div>
                 <div className="font-semibold text-sm truncate">{job.title}</div>
                 <div className="text-[11px] text-slate-600 mt-1">{job.company}</div>
-                {job.source && job.source !== "omnixra" && (
+                {job.source === "scraped" && (
                   <div className="text-[9px] text-slate-500 mt-0.5">via {job.source}</div>
+                )}
+                {job.source === "ai-generated" && (
+                  <div className="text-[9px] text-slate-500 mt-0.5">Omnixra Job</div>
                 )}
               </div>
               <div className={`match-badge ${matchColor}`}>{match}% Match</div>

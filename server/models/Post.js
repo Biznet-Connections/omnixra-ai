@@ -17,18 +17,17 @@ const postSchema = new mongoose.Schema(
     text: { type: String },
     image: { type: String },
     video: { type: String },
+    thumbnailUrl: { type: String },
+    mediaType: { type: String, enum: ["text", "image", "video"], default: "text" },
     visibility: { type: String, enum: ["public", "connections", "onlyme"], default: "public" },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     comments: [commentSchema],
     shares: { type: Number, default: 0 },
     mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    deleted: { type: Boolean, default: false },
-    expiresAt: { type: Date, default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }
+    deleted: { type: Boolean, default: false }
   },
   { timestamps: true }
 );
-
-postSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const Post = mongoose.model("Post", postSchema);
 export default Post;
