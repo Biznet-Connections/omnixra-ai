@@ -4,7 +4,6 @@ import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import ApplyModal from "./ApplyModal";
 import PremiumModal from "./PremiumModal";
-import { BASE_URL } from "../utils/baseUrl";
 import { shareJob } from "../utils/share";
 
 function JobCard({ job }) {
@@ -36,15 +35,7 @@ function JobCard({ job }) {
   };
 
   const handleShare = async () => {
-    await shareJob(job);
-    const shareUrl = job.slug ? `${BASE_URL}/jobs/${job.slug}` : `${BASE_URL}/jobs/${job._id}`;
-    const shareData = {
-      title: `${job.title} at ${job.company}`,
-      text: `${job.title}\n${job.company}\n${job.location}\nApply now on Omnixra! ${shareUrl}`,
-      url: shareUrl
-    };
-    if (navigator.share) await navigator.share(shareData);
-    else await navigator.clipboard.writeText(shareData.text);
+    try { await shareJob(job); } catch (err) { console.error(err); }
   };
 
   return (
