@@ -7,7 +7,7 @@ import ModernVideoPlayer from "./ModernVideoPlayer";
 import VerifiedBadge from "./VerifiedBadge";
 import AIAvatar from "./AIAvatar";
 import { timeAgo, playSound } from "../utils/helpers";
-import { BASE_URL } from "../utils/baseUrl";
+import { sharePost } from "../utils/share";
 
 function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onViewProfile }) {
   const { user } = useAuth();
@@ -49,9 +49,11 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
 
   const handleShare = async () => {
     playSound("comment");
-    const text = `${authorName} on Omnixra:\n\n${post.text}\n\nhttp://localhost:5173`;
-    if (navigator.share) await navigator.share({ text });
-    else { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }
+    try {
+      await sharePost(post);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) { console.error(err); }
   };
 
   const handleDelete = async () => {
@@ -85,9 +87,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
         )}
         <div className="flex gap-3">
           <button onClick={() => onViewProfile?.(post.author)} className="flex-shrink-0">
-            {isAI ? (
-              <AIAvatar size="medium" />
-            ) : (
+            {isAI ? <AIAvatar size="medium" /> : (
               <div className="avatar avatar-medium bg-gradient-to-br from-indigo-500 to-purple-600">
                 {authorPicLocked ? <Lock size={18} /> : authorProfilePic ? <img src={authorProfilePic} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : authorInitial}
               </div>

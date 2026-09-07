@@ -148,3 +148,38 @@ connectDB().then(() => {
     setInterval(() => runScraper().catch(err => console.error("Scraper error:", err.message)), 6 * 60 * 60 * 1000);
   });
 });
+
+// Dynamic OG tags for jobs
+app.get("/jobs/:slug", async (req, res, next) => {
+  try {
+    const slug = req.params.slug;
+    const Job = (await import("./models/Job.js")).default;
+    const job = await Job.findOne({ slug });
+    if (job) {
+      const title = `${job.title} at ${job.company}`;
+      const description = `${job.location}${job.salary ? " · " + job.salary : ""} · Apply now on Omnixra`;
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>${title}</title>
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="https://omnixra-ai.com/favicon.svg" />
+  <meta property="og:url" content="https://omnixra-ai.com/jobs/${job.slug}" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${title}" />
+  <meta name="twitter:description" content="${description}" />
+  <meta name="twitter:image" content="https://omnixra-ai.com/favicon.svg" />
+</head>
+<body>
+  <script>window.location.href="/job/${job.slug}";</script>
+</body>
+</html>`;
+      return res.send(html);
+    }
+    next();
+  } catch (e) {
+    next();
+  }
+});
