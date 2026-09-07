@@ -4,25 +4,18 @@ import fs from "fs";
 import path from "path";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
+import ffmpegPath from "ffmpeg-static";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-const uploadDir = path.join(__dirname, "..", "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const upload = multer({
-  dest: uploadDir,
-  limits: { fileSize: 100 * 1024 * 1024 }
-});
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 router.post("/trim", upload.single("video"), async (req, res) => {
-  let inputPath = null;
-  let outputPath = null;
+  let tempInput = null;
+  let tempOutput = null;
 
   try {
     if (!req.file) return res.status(400).json({ message: "No video uploaded" });
@@ -30,25 +23,26 @@ router.post("/trim", upload.single("video"), async (req, res) => {
     const start = Number(req.body.start);
     const end = Number(req.body.end);
 
-    if (!Number.isFinite(start) || !Number.isFinite(end)) {
-      return res.status(400).json({ message: "Invalid start or end time" });
-    }
-    if (start < 0 || end <= start) {
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) {
       return res.status(400).json({ message: "Invalid trim range" });
     }
 
-    inputPath = req.file.path;
-    outputPath = path.join(uploadDir, `trimmed-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`);
+    // Write buffer to temp file
+    const tempDir = "/tmp";
+    tempInput = path.join(tempDir, `input-${Date.now()}.mp4`);
+    tempOutput = path.join(tempDir, `output-${Date.now()}.mp4`);
+
+    fs.writeFileSync(tempInput, req.file.buffer);
 
     await new Promise((resolve, reject) => {
-      const ffmpeg = spawn("ffmpeg", [
-        "-y", "-i", inputPath,
+      const ffmpeg = spawn(ffmpegPath, [
+        "-y", "-i", tempInput,
         "-ss", String(start),
         "-t", String(end - start),
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
         "-c:a", "aac",
         "-movflags", "+faststart",
-        outputPath
+        tempOutput
       ]);
 
       let stderr = "";
@@ -56,31 +50,32 @@ router.post("/trim", upload.single("video"), async (req, res) => {
       ffmpeg.on("error", reject);
       ffmpeg.on("close", (code) => {
         if (code === 0) resolve();
-        else reject(new Error(`FFmpeg failed with code ${code}\n${stderr}`));
+        else reject(new Error(`FFmpeg failed: ${stderr}`));
       });
     });
 
-    if (!fs.existsSync(outputPath)) {
-      throw new Error("FFmpeg did not create output file");
-    }
+    // Read output and convert to base64
+    const outputBuffer = fs.readFileSync(tempOutput);
+    const base64 = outputBuffer.toString("base64");
+    const dataUrl = `data:video/mp4;base64,${base64}`;
 
-    const filename = path.basename(outputPath);
+    // Clean up temp files
+    if (tempInput && fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
+    if (tempOutput && fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
+
     res.json({
       success: true,
-      message: "Video trimmed successfully",
-      start, end,
+      url: dataUrl,
       duration: end - start,
-      url: `/uploads/${filename}`,
-      filename
+      start,
+      end
     });
 
   } catch (error) {
     console.error("VIDEO TRIM ERROR:", error);
+    if (tempInput && fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
+    if (tempOutput && fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
     res.status(500).json({ success: false, message: "Failed to trim video", error: error.message });
-  } finally {
-    if (inputPath && fs.existsSync(inputPath)) {
-      try { fs.unlinkSync(inputPath); } catch {}
-    }
   }
 });
 
