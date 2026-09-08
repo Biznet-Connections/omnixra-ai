@@ -35,9 +35,11 @@ export function normalizeJob(rawJob, source) {
     sourceUrl: rawJob.sourceUrl || "",
     sourceJobId: rawJob.sourceJobId || `job-${Date.now()}`,
     fingerprint,
+    active: true,
     closingDate: rawJob.closingDate || null,
     postedDate: rawJob.postedDate || new Date(),
-    isExpired: false
+    isExpired: false,
+    dateScraped: new Date()
   };
 }
 

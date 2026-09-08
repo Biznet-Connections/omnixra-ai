@@ -1,29 +1,7 @@
-import React, { useState } from "react";
-import { Sparkles, Mail, Lock, MapPin, Building2, User, ArrowRight, ArrowLeft } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Sparkles, Mail, Lock, MapPin, Building2, User, ArrowRight, ArrowLeft, Search, Check } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
-
-const categories = [
-  "Information Technology",
-  "Finance & Accounting",
-  "Marketing & Sales",
-  "Healthcare",
-  "Education",
-  "Engineering",
-  "Plumbing",
-  "Electrical",
-  "Welding & Fabrication",
-  "Mechanics",
-  "Carpentry",
-  "Housekeeping",
-  "Gardening",
-  "Nanny / Childcare",
-  "Driving",
-  "Security",
-  "Farm Work",
-  "Construction Labour",
-  "General"
-];
 
 function AuthScreen() {
   const [mode, setMode] = useState("signin");
@@ -37,18 +15,63 @@ function AuthScreen() {
     password: "",
     companyName: "",
     location: "",
-    category: "General",
+    category: "",
     discoverable: true
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
+  
+  // Industry search states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [industries, setIndustries] = useState([]);
+  const [searching, setSearching] = useState(false);
 
   const { signup, signin } = useAuth();
 
+  const popularIndustries = [
+    { name: "Information Technology", emoji: "💻" },
+    { name: "Finance & Accounting", emoji: "💰" },
+    { name: "Healthcare", emoji: "🏥" },
+    { name: "Education", emoji: "📚" },
+    { name: "Construction", emoji: "🏗️" },
+    { name: "Driving", emoji: "🚗" }
+  ];
+
+  // Search industries with debounce
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setIndustries([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await api.post("/ai/industries", { query: searchQuery });
+        setIndustries(res.data.industries || []);
+        setShowSuggestions(true);
+      } catch (err) {
+        console.error("Industry search error:", err);
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const selectIndustry = (industry) => {
+    setFormData({ ...formData, category: industry });
+    setSearchQuery(industry);
+    setShowSuggestions(false);
   };
 
   const handleSubmit = async () => {
@@ -68,7 +91,7 @@ function AuthScreen() {
           accountType,
           companyName: accountType === "company" ? formData.companyName : undefined,
           location: formData.location,
-          category: formData.category,
+          category: formData.category || "General",
           discoverable: formData.discoverable
         });
       } else {
@@ -230,14 +253,65 @@ function AuthScreen() {
             </div>
           </div>
 
-          {mode === "signup" && accountType === "jobseeker" && (
-            <div className="mt-4">
-              <label className="form-label">Your Category</label>
-              <select name="category" value={formData.category} onChange={handleChange} className="form-input">
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+          {mode === "signup" && (
+            <div className="mt-4 relative">
+              <label className="form-label">Your Industry</label>
+              <div className="form-field">
+                <Search size={16} className="input-icon" />
+                <input
+                  value={formData.category || searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setFormData({ ...formData, category: "" }); }}
+                  onFocus={() => searchQuery && setShowSuggestions(true)}
+                  className="form-input has-icon"
+                  placeholder="Search your industry..."
+                />
+                {formData.category && <Check size={16} className="text-emerald-400 absolute right-3" />}
+              </div>
+
+              {/* Suggestions dropdown */}
+              {showSuggestions && (
+                <div className="industry-suggestions">
+                  {searching ? (
+                    <div className="text-xs text-slate-500 p-3">Searching...</div>
+                  ) : industries.length > 0 ? (
+                    <>
+                      <div className="industry-suggestions-header">💡 Did you mean:</div>
+                      {industries.map((ind, i) => (
+                        <button key={i} onClick={() => selectIndustry(ind.name)} className="industry-suggestion-item">
+                          <span>{ind.emoji}</span>
+                          <span>{ind.name}</span>
+                        </button>
+                      ))}
+                      <div className="industry-suggestions-divider" />
+                      <button onClick={() => selectIndustry(searchQuery)} className="industry-suggestion-item">
+                        <span>➕</span>
+                        <span>Use "{searchQuery}" as my industry</span>
+                      </button>
+                    </>
+                  ) : searchQuery.trim().length >= 2 ? (
+                    <button onClick={() => selectIndustry(searchQuery)} className="industry-suggestion-item">
+                      <span>➕</span>
+                      <span>Use "{searchQuery}" as my industry</span>
+                    </button>
+                  ) : (
+                    <div className="text-xs text-slate-500 p-3">Type at least 2 characters...</div>
+                  )}
+                </div>
+              )}
+
+              {/* Popular industries when empty */}
+              {!searchQuery && !formData.category && (
+                <div className="mt-2">
+                  <div className="text-[9px] text-slate-600 mb-2">Popular industries:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {popularIndustries.map((ind, i) => (
+                      <button key={i} onClick={() => selectIndustry(ind.name)} className="industry-chip">
+                        {ind.emoji} {ind.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

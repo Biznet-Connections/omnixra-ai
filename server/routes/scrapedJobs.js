@@ -3,12 +3,12 @@ import ScrapedJob from "../models/ScrapedJob.js";
 
 const router = express.Router();
 
-// GET all scraped jobs
+// GET all scraped jobs (removed strict filters)
 router.get("/", async (req, res) => {
   try {
-    const jobs = await ScrapedJob.find({ active: true, isExpired: false })
-      .sort({ dateScraped: -1 })
-      .limit(50);
+    const jobs = await ScrapedJob.find({})
+      .sort({ dateScraped: -1, createdAt: -1 })
+      .limit(100);
     res.json(jobs);
   } catch (error) {
     res.status(500).json({ message: error.message });

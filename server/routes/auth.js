@@ -12,7 +12,7 @@ const generateToken = (id) => {
 // SIGNUP
 router.post("/signup", async (req, res) => {
   try {
-    const { name, email, password, accountType, companyName, location, discoverable } = req.body;
+    const { name, email, password, accountType, companyName, location, discoverable, category } = req.body;
 
     const userExists = await User.findOne({ email: email.toLowerCase() });
     if (userExists) {
@@ -28,6 +28,7 @@ router.post("/signup", async (req, res) => {
       accountType: isAdmin ? "admin" : accountType,
       companyName: accountType === "company" ? companyName : undefined,
       location,
+      category: category || "General",
       discoverable: discoverable !== undefined ? discoverable : true
     });
 
@@ -36,6 +37,7 @@ router.post("/signup", async (req, res) => {
       name: user.name,
       email: user.email,
       accountType: user.accountType,
+      category: user.category,
       token: generateToken(user._id)
     });
   } catch (error) {
@@ -66,6 +68,7 @@ router.post("/signin", async (req, res) => {
       accountType: user.accountType,
       companyName: user.companyName,
       location: user.location,
+      category: user.category,
       headline: user.headline,
       skills: user.skills,
       isPremium: user.isPremium,

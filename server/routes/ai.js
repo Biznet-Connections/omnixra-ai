@@ -83,31 +83,29 @@ router.post("/jobs", protect, async (req, res) => {
     let category = detectCategory(query || "") || req.user.category || "General";
     console.log(`Job search: query="${query}", category="${category}"`);
 
-    // Fetch existing jobs from DB (both AI-generated and posted)
-    let jobs = await Job.find({ active: true, category }).sort({ createdAt: -1 }).limit(5);
-
-    // If not enough, generate new ones from companies
-    if (jobs.length === 0) {
-      const companies = await Company.find().limit(10);
+    // Get up to 10 active jobs for this category
+    let existingJobs = await Job.find({ active: true, category }).sort({ createdAt: -1 }).limit(10);
+    
+    // If fewer than 5, generate new ones to fill the pool
+    if (existingJobs.length < 5) {
+      const companies = await Company.find().limit(20);
       const titles = getJobTitlesForCategory(category);
-      // Shuffle companies and titles for variety
       const shuffledCompanies = companies.sort(() => Math.random() - 0.5);
       const shuffledTitles = [...titles].sort(() => Math.random() - 0.5);
-
-      jobs = [];
-      for (let i = 0; i < Math.min(5, shuffledCompanies.length); i++) {
+      const needed = 5 - existingJobs.length;
+      
+      for (let i = 0; i < Math.min(needed, shuffledCompanies.length); i++) {
         const company = shuffledCompanies[i];
         const title = shuffledTitles[i % shuffledTitles.length];
         const deadline = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-
-        // Create job in DB
+        
         const job = await Job.create({
           title,
           company: company.name,
           companyId: company._id,
-          location: company.location,
+          location: company.location || "Zimbabwe",
           category,
-          description: `${company.name} is seeking a ${title} to join their team in ${company.location}. Apply now!`,
+          description: `${company.name} is seeking a ${title} to join their team in ${company.location || "Zimbabwe"}. Apply now!`,
           salary: null,
           type: "Full-time",
           deadline,
@@ -115,17 +113,19 @@ router.post("/jobs", protect, async (req, res) => {
           source: "ai-generated",
           active: true
         });
-        // Add slug
         job.slug = generateJobSlug(category, title, company.name, job._id);
         await job.save();
-        jobs.push(job);
+        existingJobs.push(job);
       }
     }
-
-    const text = jobs.length > 0
-      ? `I found ${jobs.length} opportunities for ${category}. Here they are:`
+    
+    // Shuffle and return 5 jobs for variety
+    const shuffledJobs = existingJobs.sort(() => Math.random() - 0.5).slice(0, 5);
+    
+    const text = shuffledJobs.length > 0
+      ? `I found ${shuffledJobs.length} opportunities for ${category}. Here they are:`
       : "I couldn't find exact matches. Try different keywords.";
-    res.json({ jobs, text });
+    res.json({ jobs: shuffledJobs, text });
   } catch (error) {
     console.error("Find jobs error:", error);
     res.status(500).json({ message: error.message });
@@ -226,6 +226,246 @@ router.post("/analyze-person", protect, async (req, res) => {
       { role: "user", content: prompt }
     ]);
     res.json({ text: aiResponse });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+
+// SEARCH INDUSTRIES (AI-powered with smart hints)
+router.post("/industries", async (req, res) => {
+  try {
+    const { query } = req.body;
+    const q = (query || "").toLowerCase().trim();
+    console.log(`Industry search: "${query}"`);
+    
+    // Local industry list with emojis
+    const localIndustries = [
+      { name: "Information Technology", emoji: "💻" },
+      { name: "Software Development", emoji: "📱" },
+      { name: "Networking", emoji: "🌐" },
+      { name: "Cybersecurity", emoji: "🔒" },
+      { name: "Finance & Accounting", emoji: "💰" },
+      { name: "Banking", emoji: "🏦" },
+      { name: "Insurance", emoji: "🛡️" },
+      { name: "Marketing & Sales", emoji: "📈" },
+      { name: "Digital Marketing", emoji: "📣" },
+      { name: "Healthcare", emoji: "🏥" },
+      { name: "Nursing", emoji: "👩‍⚕️" },
+      { name: "Pharmacy", emoji: "💊" },
+      { name: "Education", emoji: "📚" },
+      { name: "Teaching", emoji: "👨‍🏫" },
+      { name: "Engineering", emoji: "⚙️" },
+      { name: "Construction", emoji: "🏗️" },
+      { name: "Plumbing", emoji: "🔧" },
+      { name: "Electrical", emoji: "⚡" },
+      { name: "Welding & Fabrication", emoji: "🔥" },
+      { name: "Mechanics", emoji: "🔩" },
+      { name: "Carpentry", emoji: "🪚" },
+      { name: "Housekeeping", emoji: "🧹" },
+      { name: "Gardening", emoji: "🌱" },
+      { name: "Nanny / Childcare", emoji: "👶" },
+      { name: "Driving", emoji: "🚗" },
+      { name: "Logistics", emoji: "🚚" },
+      { name: "Security", emoji: "🛡️" },
+      { name: "Farm Work", emoji: "🌾" },
+      { name: "Agriculture", emoji: "🚜" },
+      { name: "Retail", emoji: "🛍️" },
+      { name: "Hospitality", emoji: "🏨" },
+      { name: "Tourism", emoji: "✈️" },
+      { name: "Media & Communications", emoji: "📰" },
+      { name: "Legal", emoji: "⚖️" },
+      { name: "Human Resources", emoji: "👥" },
+      { name: "General", emoji: "💼" }
+    ];
+    
+    // Filter local list
+    let matches = localIndustries.filter(ind => 
+      ind.name.toLowerCase().includes(q)
+    );
+    
+    // SMART KEYWORD MATCHING - always suggest something
+    const keywordMap = {
+      "farm": ["Agriculture", "Farm Work", "Crop Farming"],
+      "agric": ["Agriculture", "Farm Work", "Crop Farming"],
+      "plant": ["Agriculture", "Farm Work", "Gardening"],
+      "potato": ["Agriculture", "Farm Work", "Crop Farming"],
+      "crop": ["Agriculture", "Farm Work", "Crop Farming"],
+      "garden": ["Gardening", "Agriculture", "Landscaping"],
+      "cook": ["Hospitality", "Food Service", "Culinary"],
+      "food": ["Hospitality", "Food Service", "Culinary"],
+      "chef": ["Hospitality", "Food Service", "Culinary"],
+      "restaurant": ["Hospitality", "Food Service"],
+      "hotel": ["Hospitality", "Tourism"],
+      "tech": ["Information Technology", "Software Development"],
+      "soft": ["Software Development", "Information Technology"],
+      "program": ["Software Development", "Information Technology"],
+      "code": ["Software Development", "Information Technology"],
+      "computer": ["Information Technology", "Software Development"],
+      "network": ["Networking", "Information Technology"],
+      "cyber": ["Cybersecurity", "Information Technology"],
+      "hack": ["Cybersecurity", "Information Technology"],
+      "build": ["Construction", "Engineering"],
+      "construct": ["Construction", "Engineering"],
+      "drive": ["Driving", "Logistics", "Transport"],
+      "car": ["Mechanics", "Automotive", "Driving"],
+      "fix": ["Mechanics", "Maintenance", "Repair Services"],
+      "repair": ["Mechanics", "Maintenance", "Repair Services"],
+      "teach": ["Education", "Teaching"],
+      "school": ["Education", "Teaching"],
+      "tutor": ["Education", "Teaching"],
+      "health": ["Healthcare", "Nursing"],
+      "nurse": ["Nursing", "Healthcare"],
+      "doctor": ["Healthcare", "Medical"],
+      "medicine": ["Healthcare", "Pharmacy"],
+      "sell": ["Marketing & Sales", "Retail"],
+      "market": ["Marketing & Sales", "Digital Marketing"],
+      "shop": ["Retail", "Sales"],
+      "store": ["Retail", "Sales"],
+      "clean": ["Housekeeping", "Cleaning Services"],
+      "housekeep": ["Housekeeping", "Cleaning Services"],
+      "child": ["Nanny / Childcare", "Education"],
+      "baby": ["Nanny / Childcare"],
+      "care": ["Nanny / Childcare", "Healthcare"],
+      "electric": ["Electrical", "Engineering"],
+      "wire": ["Electrical", "Engineering"],
+      "plumb": ["Plumbing", "Construction"],
+      "pipe": ["Plumbing", "Construction"],
+      "weld": ["Welding & Fabrication", "Construction"],
+      "metal": ["Welding & Fabrication", "Construction"],
+      "mechanic": ["Mechanics", "Automotive"],
+      "engine": ["Mechanics", "Engineering"],
+      "carpent": ["Carpentry", "Construction"],
+      "wood": ["Carpentry", "Construction"],
+      "furniture": ["Carpentry", "Construction"],
+      "security": ["Security", "Safety"],
+      "guard": ["Security", "Safety"],
+      "account": ["Finance & Accounting", "Accounting"],
+      "finance": ["Finance & Accounting", "Banking"],
+      "bank": ["Banking", "Finance & Accounting"],
+      "money": ["Finance & Accounting", "Banking"],
+      "audit": ["Finance & Accounting", "Accounting"],
+      "tax": ["Finance & Accounting", "Accounting"],
+      "law": ["Legal"],
+      "legal": ["Legal"],
+      "hr": ["Human Resources"],
+      "recruit": ["Human Resources"],
+      "people": ["Human Resources"],
+      "media": ["Media & Communications"],
+      "news": ["Media & Communications"],
+      "write": ["Media & Communications", "Content Writing"],
+      "design": ["Design", "Digital Marketing"],
+      "art": ["Design", "Creative"],
+      "photo": ["Media & Communications", "Photography"],
+      "video": ["Media & Communications", "Video Production"],
+      "music": ["Music", "Entertainment"],
+      "entertain": ["Entertainment", "Hospitality"],
+      "sport": ["Sports", "Fitness"],
+      "fit": ["Fitness", "Sports"],
+      "gym": ["Fitness", "Sports"],
+      "beauty": ["Beauty", "Cosmetics"],
+      "hair": ["Beauty", "Cosmetics"],
+      "makeup": ["Beauty", "Cosmetics"],
+      "fashion": ["Fashion Design", "Retail"],
+      "cloth": ["Fashion Design", "Retail"],
+      "tailor": ["Tailoring", "Fashion Design"],
+      "sew": ["Tailoring", "Fashion Design"]
+    };
+    
+    // Check keyword map FIRST
+    if (matches.length === 0 && q.length >= 2) {
+      for (const [keyword, suggestions] of Object.entries(keywordMap)) {
+        if (q.includes(keyword)) {
+          matches = suggestions.map((name, i) => ({ 
+            name, 
+            emoji: ["🚜", "🌾", "💼", "🔧", "🏗️", "💻"][i % 6] 
+          }));
+          console.log(`Keyword match for "${keyword}":`, matches);
+          break;
+        }
+      }
+    }
+    
+    // If still no matches, ask AI
+    if (matches.length === 0 && q.length >= 2) {
+      try {
+        const aiResponse = await askAI([
+          { role: "system", content: "You are a career industry assistant. Given a user's search term, suggest up to 5 relevant industries or job categories. Return ONLY a JSON array of strings, no explanation. Example: [\"Agriculture\", \"Farm Work\", \"Crop Farming\"]" },
+          { role: "user", content: `Suggest industries for: "${query}"` }
+        ]);
+        
+        console.log("AI response for industries:", aiResponse);
+        
+        // Try multiple parsing approaches
+        let parsed = null;
+        try {
+          parsed = JSON.parse(aiResponse);
+        } catch {
+          // Try to extract array from text
+          const match = aiResponse.match(/\[.*\]/s);
+          if (match) {
+            try {
+              parsed = JSON.parse(match[0]);
+            } catch {}
+          }
+          if (!parsed) {
+            // Split by newlines or commas
+            parsed = aiResponse
+              .replace(/[\[\]\"\']/g, '')
+              .split(/[,\n]+/)
+              .map(s => s.trim())
+              .filter(s => s.length > 1);
+          }
+        }
+        
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          matches = parsed.slice(0, 6).map(name => ({ name: String(name).trim(), emoji: "💼" }));
+        }
+      } catch (aiError) {
+        console.error("AI industry suggestion failed:", aiError.message);
+      }
+    }
+    
+    // If STILL no matches, suggest based on keywords
+    if (matches.length === 0 && q.length >= 2) {
+      const keywordMap = {
+        "farm": [{ name: "Agriculture", emoji: "🚜" }, { name: "Farm Work", emoji: "🌾" }],
+        "agric": [{ name: "Agriculture", emoji: "🚜" }, { name: "Farm Work", emoji: "🌾" }],
+        "potato": [{ name: "Agriculture", emoji: "🚜" }, { name: "Farm Work", emoji: "🌾" }],
+        "crop": [{ name: "Agriculture", emoji: "🚜" }, { name: "Farm Work", emoji: "🌾" }],
+        "cook": [{ name: "Hospitality", emoji: "🏨" }, { name: "Food Service", emoji: "🍳" }],
+        "food": [{ name: "Hospitality", emoji: "🏨" }, { name: "Food Service", emoji: "🍳" }],
+        "tech": [{ name: "Information Technology", emoji: "💻" }, { name: "Software Development", emoji: "📱" }],
+        "soft": [{ name: "Software Development", emoji: "📱" }, { name: "Information Technology", emoji: "💻" }],
+        "build": [{ name: "Construction", emoji: "🏗️" }, { name: "Engineering", emoji: "⚙️" }],
+        "drive": [{ name: "Driving", emoji: "🚗" }, { name: "Logistics", emoji: "🚚" }],
+        "teach": [{ name: "Education", emoji: "📚" }, { name: "Teaching", emoji: "👨‍🏫" }],
+        "health": [{ name: "Healthcare", emoji: "🏥" }, { name: "Nursing", emoji: "👩‍⚕️" }],
+        "nurse": [{ name: "Nursing", emoji: "👩‍⚕️" }, { name: "Healthcare", emoji: "🏥" }],
+        "sell": [{ name: "Marketing & Sales", emoji: "📈" }, { name: "Retail", emoji: "🛍️" }],
+        "market": [{ name: "Marketing & Sales", emoji: "📈" }, { name: "Digital Marketing", emoji: "📣" }],
+        "clean": [{ name: "Housekeeping", emoji: "🧹" }, { name: "Cleaning Services", emoji: "🧽" }],
+        "garden": [{ name: "Gardening", emoji: "🌱" }, { name: "Agriculture", emoji: "🚜" }],
+        "electric": [{ name: "Electrical", emoji: "⚡" }, { name: "Engineering", emoji: "⚙️" }],
+        "plumb": [{ name: "Plumbing", emoji: "🔧" }, { name: "Construction", emoji: "🏗️" }],
+        "weld": [{ name: "Welding & Fabrication", emoji: "🔥" }, { name: "Construction", emoji: "🏗️" }],
+        "mechanic": [{ name: "Mechanics", emoji: "🔩" }, { name: "Automotive", emoji: "🚗" }],
+        "carpent": [{ name: "Carpentry", emoji: "🪚" }, { name: "Construction", emoji: "🏗️" }],
+        "security": [{ name: "Security", emoji: "🛡️" }, { name: "Safety", emoji: "🔒" }],
+        "account": [{ name: "Finance & Accounting", emoji: "💰" }, { name: "Accounting", emoji: "📊" }],
+        "finance": [{ name: "Finance & Accounting", emoji: "💰" }, { name: "Banking", emoji: "🏦" }],
+        "bank": [{ name: "Banking", emoji: "🏦" }, { name: "Finance & Accounting", emoji: "💰" }]
+      };
+      
+      for (const [keyword, suggestions] of Object.entries(keywordMap)) {
+        if (q.includes(keyword)) {
+          matches = suggestions;
+          break;
+        }
+      }
+    }
+    
+    res.json({ industries: matches });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
