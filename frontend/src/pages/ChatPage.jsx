@@ -58,39 +58,38 @@ function ChatPage() {
 
   const handleShare = async (message) => {
     try {
-      // If chatId exists, share via API
-      if (message.chatId) {
-        const res = await api.post(`/ai/share/${message.chatId}`);
-        const shareUrl = `${window.location.origin}${res.data.shareUrl}`;
-        
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title: "Omnixra AI Response",
-              text: message.text?.substring(0, 150) || "Check this AI response",
-              url: shareUrl
-            });
-          } catch (err) { console.error(err); }
-        } else {
-          await navigator.clipboard.writeText(`${message.text?.substring(0, 150)}\n\n${shareUrl}`);
-          setShared(message.text);
-          setTimeout(() => setShared(null), 1500);
-        }
+      let shareUrl = "";
+      let chatId = message.chatId;
+
+      // If no chatId, create a chat record first
+      if (!chatId) {
+        const createRes = await api.post("/ai/chat", {
+          messages: [
+            { role: "user", content: "Share this" },
+            { role: "assistant", content: message.text }
+          ]
+        });
+        chatId = createRes.data.chatId;
+      }
+
+      // Now share via API
+      const res = await api.post(`/ai/share/${chatId}`);
+      shareUrl = `${window.location.origin}${res.data.shareUrl}`;
+
+      const shareText = `Omnixra AI:\n${message.text?.substring(0, 150) || "Check this AI response"}\n\n${shareUrl}`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "Omnixra AI Response",
+            text: `${message.text?.substring(0, 150) || "Check this AI response"}\n\n${shareUrl}`,
+            url: shareUrl
+          });
+        } catch (err) { console.error(err); }
       } else {
-        // No chatId - just share the text
-        const shareText = `Omnixra AI:\n${message.text}`;
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title: "Omnixra AI",
-              text: shareText
-            });
-          } catch (err) { console.error(err); }
-        } else {
-          await navigator.clipboard.writeText(shareText);
-          setShared(message.text);
-          setTimeout(() => setShared(null), 1500);
-        }
+        await navigator.clipboard.writeText(shareText);
+        setShared(message.text);
+        setTimeout(() => setShared(null), 1500);
       }
     } catch (err) { console.error(err); }
   };

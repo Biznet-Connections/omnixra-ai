@@ -49,6 +49,15 @@ router.get("/", async (req, res) => {
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 
+// GET job by slug (for shared links)
+router.get("/slug/:slug", async (req, res) => {
+  try {
+    const job = await Job.findOne({ slug: req.params.slug });
+    if (!job) return res.status(404).json({ message: "Job not found" });
+    res.json(job);
+  } catch (error) { res.status(500).json({ message: error.message }); }
+});
+
 // GET single job — handle generated jobs
 router.get("/:id", async (req, res) => {
   try {

@@ -32,12 +32,25 @@ function JobsPage({ focusJobSlug }) {
         setJobs(aiJobs);
         setScrapedJobs(formattedScraped);
         
-        // Combine and sort by match percentage (highest first)
-        const combined = [...aiJobs, ...formattedScraped].sort((a, b) => {
+        // If focusJobSlug, fetch specific job and put it first
+        let combined = [...aiJobs, ...formattedScraped].sort((a, b) => {
           const matchA = a.matchPercentage || 0;
           const matchB = b.matchPercentage || 0;
           return matchB - matchA;
         });
+
+        if (focusJobSlug) {
+          try {
+            const { data } = await api.get(`/jobs/slug/${focusJobSlug}`);
+            if (data && data._id) {
+              const focusedJob = { ...data, matchPercentage: data.matchPercentage || 90 };
+              combined = [focusedJob, ...combined.filter(j => j._id !== data._id)];
+            }
+          } catch (err) {
+            console.log("Focused job fetch failed:", err.message);
+          }
+        }
+
         setAllJobs(combined);
         setLoading(false);
       } catch (err) {
