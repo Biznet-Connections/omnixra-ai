@@ -104,9 +104,13 @@ router.post("/", protect, async (req, res) => {
       return res.status(403).json({ message: "You cannot message this user" });
     }
 
-    // Find existing conversation with both participants (any order)
+    // Find existing conversation - try BOTH ObjectId and string matching
     let conversation = await Conversation.findOne({
-      participants: { $all: [currentUserIdObj, otherUserIdObj], $size: 2 }
+      $or: [
+        { participants: { $all: [currentUserIdObj, otherUserIdObj], $size: 2 } },
+        { participants: { $all: [req.user._id.toString(), otherUserId.toString()], $size: 2 } },
+        { participants: { $all: [currentUserIdObj.toString(), otherUserIdObj.toString()], $size: 2 } }
+      ]
     });
 
     if (!conversation) {
