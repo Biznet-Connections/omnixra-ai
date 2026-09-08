@@ -36,7 +36,9 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
 .app-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -999,23 +1001,32 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
 ============================================================ */
 
 .chat-page {
-  height: 100%;
+  position: relative;
+  width: 100%;
+  height: calc(100dvh - 60px);
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(circle at 50% 0%, rgba(99,102,241,.04), transparent 35%);
   overflow: hidden;
+  background: radial-gradient(circle at 50% 0%, rgba(99,102,241,.04), transparent 35%);
 }
 
 .chat-scroll {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .chat-container {
+  width: 100%;
   max-width: 830px;
   margin: 0 auto;
-  padding: 30px 16px 70px;
+  padding: 30px 16px 30px;
+  box-sizing: border-box;
 }
 
 .chat-welcome {
@@ -1064,9 +1075,13 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
 }
 
 .chat-composer-area {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
   padding: 0 14px 12px;
-  background: linear-gradient(to top, #06070b 70%, transparent);
-  flex-shrink: 0;
+  box-sizing: border-box;
+  background: linear-gradient(to top, #06070b 70%, rgba(6, 7, 11, .96) 82%, transparent 100%);
+  z-index: 20;
 }
 
 .suggestion-row {
@@ -3562,4 +3577,123 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
   padding: 0 4px;
   border: 2px solid #0a0a14;
   z-index: 10;
+}
+
+/* ============ AI CHAT COMPOSER FIX — Stays at bottom ============ */
+
+.chat-page {
+  position: relative !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.chat-scroll {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
+.chat-composer-area {
+  flex-shrink: 0 !important;
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 10 !important;
+}
+
+/* ============ AI CHAT COMPOSER DEFINITIVE FIX ============ */
+
+/* Override everything - composer ALWAYS visible */
+.chat-page {
+  height: calc(100vh - 60px) !important;
+  height: calc(100dvh - 60px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  position: relative !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+.chat-scroll {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.chat-container {
+  padding-bottom: 20px !important;
+}
+
+.chat-composer-area {
+  flex-shrink: 0 !important;
+  flex-grow: 0 !important;
+  position: relative !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 100 !important;
+  background: #06070b !important;
+  padding: 8px 14px 10px !important;
+  margin: 0 !important;
+}
+
+/* Desktop - no bottom nav, use full height */
+@media (min-width: 769px) {
+  .chat-page {
+    height: 100vh !important;
+    height: 100dvh !important;
+  }
+}
+
+
+/* Desktop override - no bottom nav */
+@media (min-width: 769px) {
+  .chat-page {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+/* ============ AI CHAT WELCOME VISIBLE FIX ============ */
+
+/* Add bottom padding so welcome section isn't hidden behind composer */
+.chat-container {
+  padding-bottom: 120px !important;
+}
+
+/* Ensure welcome orb and text have breathing room */
+.chat-welcome {
+  padding-top: 30px !important;
+}
+
+.welcome-orb {
+  margin-top: 20px !important;
+}
+
+.chat-welcome h1 {
+  margin-top: 16px !important;
+}
+
+/* When many messages, reduce padding so scroll is natural */
+@media (min-height: 750px) {
+  .chat-container {
+    padding-bottom: 60px !important;
+  }
+}
+
+/* ============ LOWER WELCOME LOGO ============ */
+
+.chat-welcome {
+  padding-top: 80px !important;
+}
+
+.welcome-orb {
+  margin-top: 30px !important;
 }

@@ -25,7 +25,7 @@ function ChatPage() {
     try {
       if (user?.accountType === "company") {
         const res = await api.post("/ai/talent", { query: text });
-        setMessages(prev => [...prev, { role: "assistant", text: res.data.text, talent: res.data.talent }]);
+        setMessages(prev => [...prev, { role: "assistant", text: res.data.text, talent: res.data.talent, chatId: res.data.chatId }]);
       } else if (text.toLowerCase().includes("job") || text.toLowerCase().includes("work") || text.toLowerCase().includes("vacancy") || text.toLowerCase().includes("career")) {
         const res = await api.post("/ai/jobs", { query: text });
         setMessages(prev => [...prev, { role: "assistant", text: res.data.text, jobs: res.data.jobs }]);
@@ -57,10 +57,12 @@ function ChatPage() {
   const copyText = (text) => { navigator.clipboard.writeText(text); setCopied(text); setTimeout(() => setCopied(null), 1500); };
 
   const handleShare = async (message) => {
-    if (message.chatId) {
-      try {
+    try {
+      // If chatId exists, share via API
+      if (message.chatId) {
         const res = await api.post(`/ai/share/${message.chatId}`);
         const shareUrl = `${window.location.origin}${res.data.shareUrl}`;
+        
         if (navigator.share) {
           try {
             await navigator.share({
@@ -70,19 +72,38 @@ function ChatPage() {
             });
           } catch (err) { console.error(err); }
         } else {
-          await navigator.clipboard.writeText(shareUrl);
+          await navigator.clipboard.writeText(`${message.text?.substring(0, 150)}\n\n${shareUrl}`);
           setShared(message.text);
           setTimeout(() => setShared(null), 1500);
         }
-      } catch (err) { console.error(err); }
-    }
+      } else {
+        // No chatId - just share the text
+        const shareText = `Omnixra AI:\n${message.text}`;
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: "Omnixra AI",
+              text: shareText
+            });
+          } catch (err) { console.error(err); }
+        } else {
+          await navigator.clipboard.writeText(shareText);
+          setShared(message.text);
+          setTimeout(() => setShared(null), 1500);
+        }
+      }
+    } catch (err) { console.error(err); }
   };
 
   return (
     <div className="chat-page">
       <div className="chat-scroll">
         <div className="chat-container">
-          <div className="chat-welcome"><div className="welcome-orb float"><Sparkles size={25} /></div><h1>What can Omnixra do for you?</h1><p>{user?.accountType === "company" ? "Post jobs, discover talent, and manage applications." : "Search opportunities, improve your career and more."}</p></div>
+          <div className="chat-welcome">
+            <div className="welcome-orb float"><Sparkles size={25} /></div>
+            <h1>What can Omnixra do for you?</h1>
+            <p>{user?.accountType === "company" ? "Post jobs, discover talent, and manage applications." : "Search opportunities, improve your career and more."}</p>
+          </div>
           <div className="space-y-7 mt-9">
             {messages.map((message, i) => (
               message.role === "assistant" || message.role === "ai" ? (
@@ -95,11 +116,9 @@ function ChatPage() {
                       <button className="feedback-active"><ThumbsUp size={13} /></button>
                       <button onClick={() => copyText(message.text)}>{copied === message.text ? <Check size={13} /> : <Copy size={13} />}</button>
                       <button><ThumbsDown size={13} /></button>
-                      {message.chatId && (
-                        <button onClick={() => handleShare(message)} className={shared === message.text ? "feedback-active" : ""}>
-                          {shared === message.text ? <Check size={13} /> : <Share2 size={13} />}
-                        </button>
-                      )}
+                      <button onClick={() => handleShare(message)} className={shared === message.text ? "feedback-active" : ""}>
+                        {shared === message.text ? <Check size={13} /> : <Share2 size={13} />}
+                      </button>
                     </div>
                     {message.jobs && <div className="mt-5 space-y-3">{message.jobs.map(job => <JobCard key={job._id || job.company} job={job} />)}</div>}
                     {message.talent && <div className="mt-5 space-y-3">{message.talent.map(t => <TalentCard key={t._id} talent={t} />)}</div>}
