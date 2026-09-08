@@ -4,7 +4,7 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import LoadingDots from "../components/LoadingDots";
 
-function JobsPage() {
+function JobsPage({ focusJobSlug }) {
   const { user } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [scrapedJobs, setScrapedJobs] = useState([]);
@@ -48,6 +48,16 @@ function JobsPage() {
     fetchJobs();
   }, [user?.category]);
 
+  // Focus/scroll to shared job
+  useEffect(() => {
+    if (focusJobSlug && allJobs.length > 0) {
+      const target = document.getElementById(`job-${focusJobSlug}`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [focusJobSlug, allJobs]);
+
   return (
     <div className="page-scroll">
       <div className="page-container">
@@ -67,7 +77,9 @@ function JobsPage() {
             ) : (
               <div className="grid lg:grid-cols-2 gap-4 mt-7">
                 {allJobs.map(job => (
-                  <JobCard key={job._id} job={job} />
+                  <div key={job._id} id={`job-${job.slug || job._id}`}>
+                    <JobCard job={job} />
+                  </div>
                 ))}
               </div>
             )}

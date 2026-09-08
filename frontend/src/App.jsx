@@ -34,6 +34,8 @@ function AppContent() {
   const [showPostComposer, setShowPostComposer] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [sharedChatId, setSharedChatId] = useState(null);
+  const [focusPostId, setFocusPostId] = useState(null);
+  const [focusJobSlug, setFocusJobSlug] = useState(null);
   const [history, setHistory] = useState([]);
   const { user } = useAuth();
 
@@ -60,13 +62,21 @@ function AppContent() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [history]);
 
-  // Check URL for shared AI page
+  // Check URL for shared links
   useEffect(() => {
     const path = window.location.pathname;
     if (path.startsWith("/shared-ai/")) {
       const chatId = path.split("/shared-ai/")[1];
       setSharedChatId(chatId);
       setPage("shared-ai");
+    } else if (path.startsWith("/post/")) {
+      const postId = path.split("/post/")[1];
+      setFocusPostId(postId);
+      setPage("home");
+    } else if (path.startsWith("/job/")) {
+      const slug = path.split("/job/")[1];
+      setFocusJobSlug(slug);
+      setPage("jobs");
     }
   }, []);
 
@@ -99,9 +109,9 @@ function AppContent() {
 
   const renderPage = () => {
     switch (page) {
-      case "home": return <HomePage setPage={navigate} setSelectedUserId={setSelectedUserId} />;
+      case "home": return <HomePage setPage={navigate} setSelectedUserId={setSelectedUserId} focusPostId={focusPostId} />;
       case "myai": return <ChatPage />;
-      case "jobs": return <JobsPage />;
+      case "jobs": return <JobsPage focusJobSlug={focusJobSlug} />;
       case "companies": return <CompaniesPage />;
       case "professionals": return <ProfessionalsPage setPage={navigate} />;
       case "profile": return <ProfilePage />;

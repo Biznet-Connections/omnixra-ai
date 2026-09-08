@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { UserCheck, Newspaper, Briefcase, User, FileText, MessageCircle } from "lucide-react";
 import PostCard from "../components/PostCard";
 import ProfileMenu from "../components/ProfileMenu";
@@ -7,11 +7,20 @@ import { usePosts } from "../context/PostsContext";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 
-function HomePage({ setPage, setSelectedUserId }) {
+function HomePage({ setPage, setSelectedUserId, focusPostId }) {
   const { posts, loading, addPost, removePost, updatePost } = usePosts();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [visiblePosts, setVisiblePosts] = useState([]);
+  const sentinelRef = useRef(null);
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (posts.length > 0) {
+      const shuffled = [...posts].sort(() => Math.random() - 0.5);
+      setVisiblePosts(shuffled);
+    }
+  }, [posts]);
 
   useEffect(() => {
     const handleNavigateHome = () => {
@@ -40,6 +49,32 @@ function HomePage({ setPage, setSelectedUserId }) {
       window.removeEventListener("socket-new-message", handleNewMessage);
     };
   }, [user?._id]);
+
+  // Infinite scroll: when sentinel is visible, append shuffled copy of posts
+  useEffect(() => {
+    if (!sentinelRef.current || posts.length === 0) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        const shuffled = [...posts].sort(() => Math.random() - 0.5).map(p => ({
+          ...p,
+          _id: `${p._id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
+        }));
+        setVisiblePosts(prev => [...prev, ...shuffled]);
+      }
+    }, { rootMargin: '200px' });
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [posts, visiblePosts]);
+
+  // Scroll to focused post
+  useEffect(() => {
+    if (focusPostId && visiblePosts.length > 0) {
+      const target = document.getElementById(`post-${focusPostId}`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [focusPostId, visiblePosts]);
 
   const fetchUnreadCount = async () => {
     try {
@@ -92,20 +127,23 @@ function HomePage({ setPage, setSelectedUserId }) {
             </div>
           ) : (
             <div className="space-y-3">
-              {posts.map(post => (
-                <PostCard
-                  key={post._id}
-                  post={post}
-                  onUpdate={updatePost}
-                  onDelete={removePost}
-                  onViewProfile={(author) => {
-                    if (author && author._id) {
-                      setSelectedUserId(author._id);
-                      setPage("user-profile");
-                    }
-                  }}
-                />
+              {visiblePosts.map(post => (
+                <div key={post._id} id={`post-${post._id}`}>
+                  <PostCard
+                    post={post}
+                    onUpdate={updatePost}
+                    onDelete={removePost}
+                    onViewProfile={(author) => {
+                      if (author && author._id) {
+                        setSelectedUserId(author._id);
+                        setPage("user-profile");
+                      }
+                    }}
+                  />
+                </div>
               ))}
+              {/* Sentinel for infinite scroll */}
+              <div ref={sentinelRef} style={{ height: '1px' }} />
             </div>
           )}
         </div>

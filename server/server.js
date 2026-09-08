@@ -140,7 +140,9 @@ const frontendPath = path.join(__dirname, "..", "frontend", "dist");
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(frontendPath));
   app.use((req, res, next) => {
-    if (!req.path.startsWith("/api") && !req.path.startsWith("/share") && !req.path.startsWith("/jobs")) {
+    // Serve the React app for any non-API route that doesn't match a static file.
+    // /share routes still need to serve OG pages, so we skip those.
+    if (!req.path.startsWith("/api") && !req.path.startsWith("/share")) {
       res.sendFile(path.join(frontendPath, "index.html"));
     } else {
       next();
