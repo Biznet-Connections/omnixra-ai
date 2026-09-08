@@ -1,0 +1,55 @@
+{
+  "id": "/",
+  "name": "Omnixra AI",
+  "short_name": "Omnixra",
+  "description": "AI-powered employment network",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait-primary",
+  "background_color": "#06070b",
+  "theme_color": "#6366f1",
+  "lang": "en",
+  "categories": [
+    "business",
+    "productivity",
+    "social"
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Omnixra AI",
+      "short_name": "AI",
+      "url": "/"
+    },
+    {
+      "name": "Jobs",
+      "short_name": "Jobs",
+      "url": "/jobs"
+    }
+  ]
+}
