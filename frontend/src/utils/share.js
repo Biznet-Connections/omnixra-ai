@@ -21,3 +21,10 @@ export function shareJob(job) {
   const url = job.slug ? `${BASE_URL}/share/jobs/${job.slug}` : `${BASE_URL}/share/jobs/${job._id}`;
   return shareText(title, description, url);
 }
+
+export function shareAIResponse(chatId, response) {
+  const title = "Omnixra AI Response";
+  const description = response?.substring(0, 150) || "Check this AI response";
+  const url = `${BASE_URL}/share/ai/${chatId}`;
+  return shareText(title, description, url);
+}

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Image as ImageIcon, Video, X, Send, Sparkles, Globe, Users, Lock, Crop, Scissors } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import { usePosts } from "../context/PostsContext";
 import { playSound } from "../utils/helpers";
 import BoostModal from "./BoostModal";
 import ImageCropper from "./ImageCropper";
@@ -9,6 +10,7 @@ import VideoTrimmer from "./VideoTrimmer";
 
 function PostComposer({ onClose, onPosted }) {
   const { user } = useAuth();
+  const { addPost, updatePost, removePost } = usePosts();
   const [text, setText] = useState("");
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -58,7 +60,6 @@ function PostComposer({ onClose, onPosted }) {
   };
 
   const handleTrimDone = (trimData) => {
-    console.log("Trimmed video result:", trimData);
     if (trimData?.url) {
       setVideo(trimData.url);
       setVideoPreview(trimData.url);
@@ -66,54 +67,71 @@ function PostComposer({ onClose, onPosted }) {
     setShowTrim(false);
   };
 
-  const handleTrimCancel = () => {
-    setShowTrim(false);
-  };
+  const handleTrimCancel = () => setShowTrim(false);
 
-  // ✅ FIXED: Clean AI response - remove "Certainly! Here's..."
   const enhanceWithAI = async () => {
     if (!text.trim()) { setError("Write something first."); return; }
     setEnhancing(true);
     try {
       const res = await api.post("/ai/chat", {
         messages: [
-          { 
-            role: "system", 
-            content: "Enhance the user's post. Return ONLY the enhanced text. Do NOT include phrases like 'Certainly' or 'Here's an enhanced version' or any explanations. Just the enhanced text." 
-          },
+          { role: "system", content: "Enhance the user's post. Return ONLY the enhanced text. No prefixes, no quotes, no explanations." },
           { role: "user", content: `Enhance this post: "${text}"` }
         ]
       });
-      
-      // Clean the response
-      let enhancedText = res.data.text;
-      
-      // Remove common AI prefixes
+      let enhancedText = res.data.text || "";
       enhancedText = enhancedText
-        .replace(/Certainly! Here's an enhanced version of the post:?/gi, "")
+        .replace(/Certainly! Here's an enhanced version of (the |your )?post:?/gi, "")
+        .replace(/Certainly! Here's an enhanced version:?/gi, "")
+        .replace(/Here's an enhanced version of (the |your )?post:?/gi, "")
         .replace(/Here's an enhanced version:?/gi, "")
         .replace(/Here is an enhanced version:?/gi, "")
-        .replace(/Enhanced version:?/gi, "")
         .replace(/Sure! Here's an enhanced version:?/gi, "")
+        .replace(/Of course! Here's an enhanced version:?/gi, "")
+        .replace(/^["']|["']$/g, "")
         .trim();
-      
-      // Remove surrounding quotes if present
-      enhancedText = enhancedText.replace(/^["']|["']$/g, "").trim();
-      
       setText(enhancedText);
-    } catch (err) { setError("Could not enhance."); }
-    finally { setEnhancing(false); }
+    } catch (err) {
+      setError("Could not enhance.");
+    } finally {
+      setEnhancing(false);
+    }
   };
 
   const handleSubmit = async () => {
     if (!text.trim() && !image && !video) { setError("Write something or add a photo/video."); return; }
     setPosting(true);
+
+    const optimisticPost = {
+      _id: `temp_${Date.now()}`,
+      author: { _id: user._id, name: user.name, profilePicture: user.profilePicture, headline: user.headline, accountType: user.accountType },
+      authorType: user.accountType,
+      text: text.trim(),
+      image,
+      video,
+      visibility,
+      likes: [],
+      comments: [],
+      shares: 0,
+      createdAt: new Date(),
+      pending: true
+    };
+
+    addPost(optimisticPost);
+    window.dispatchEvent(new CustomEvent("navigate-home"));
+    playSound("post");
+
     try {
-      const res = await api.post("/posts", { text, image, video, visibility });
+      const res = await api.post("/posts", { text: text.trim(), image, video, visibility });
+      removePost(optimisticPost._id);
+      addPost(res.data);
       setNewPost(res.data);
       setPosted(true);
-      playSound("post");
-    } catch (err) { setError(err.response?.data?.message || "Failed"); setPosting(false); }
+    } catch (err) {
+      console.error("Post failed:", err);
+      updatePost({ ...optimisticPost, pending: false, failed: true });
+      onClose();
+    }
   };
 
   return (
@@ -125,7 +143,7 @@ function PostComposer({ onClose, onPosted }) {
             <button onClick={onClose} className="icon-button"><X size={18} /></button>
           </div>
 
-          {posted ? (
+          {posted && newPost ? (
             <div className="text-center py-6">
               <div className="text-4xl mb-3">🎉</div>
               <h3 className="text-lg font-bold">Posted!</h3>
@@ -144,14 +162,14 @@ function PostComposer({ onClose, onPosted }) {
                 <div className="text-sm font-semibold">{user?.name || user?.companyName || "User"}</div>
               </div>
               <textarea value={text} onChange={e => setText(e.target.value)} className="form-textarea" rows={5} placeholder="What's on your mind?" />
-              
+
               {imagePreview && !showCrop && (
                 <div className="post-image-container mt-3 relative">
                   <img src={imagePreview} alt="Preview" className="post-image" />
                   <button onClick={() => setShowCrop(true)} className="absolute top-2 right-2 bg-black/60 rounded-full p-1.5"><Crop size={16} /></button>
                 </div>
               )}
-              
+
               {videoPreview && !showTrim && (
                 <div className="post-video-container mt-3 relative">
                   <video src={videoPreview} controls className="post-video" />
@@ -183,7 +201,7 @@ function PostComposer({ onClose, onPosted }) {
 
       {showCrop && <ImageCropper image={imagePreview} onCrop={handleCropDone} onCancel={() => setShowCrop(false)} />}
       {showTrim && <VideoTrimmer videoSrc={videoPreview} onTrim={handleTrimDone} onCancel={handleTrimCancel} />}
-      {showBoost && <BoostModal post={newPost} onClose={() => { setShowBoost(false); onPosted?.(newPost); onClose(); }} />}
+      {showBoost && <BoostModal post={newPost} onClose={() => { setShowBoost(false); setPosted(false); onPosted?.(newPost); onClose(); }} />}
     </>
   );
 }

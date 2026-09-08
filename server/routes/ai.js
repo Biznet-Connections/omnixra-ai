@@ -5,6 +5,7 @@ import Job from "../models/Job.js";
 import Company from "../models/Company.js";
 import User from "../models/User.js";
 import Application from "../models/Application.js";
+import Chat from "../models/Chat.js";
 import { slugify, generateJobSlug } from "../utils/slugify.js";
 
 const router = express.Router();
@@ -92,13 +93,13 @@ router.post("/jobs", protect, async (req, res) => {
       // Shuffle companies and titles for variety
       const shuffledCompanies = companies.sort(() => Math.random() - 0.5);
       const shuffledTitles = [...titles].sort(() => Math.random() - 0.5);
-      
+
       jobs = [];
       for (let i = 0; i < Math.min(5, shuffledCompanies.length); i++) {
         const company = shuffledCompanies[i];
         const title = shuffledTitles[i % shuffledTitles.length];
         const deadline = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-        
+
         // Create job in DB
         const job = await Job.create({
           title,
@@ -131,9 +132,6 @@ router.post("/jobs", protect, async (req, res) => {
   }
 });
 
-// ... rest of routes (chat, talent, analyze-person) remain unchanged
-// We'll include them quickly
-
 router.post("/chat", protect, async (req, res) => {
   try {
     const { messages } = req.body;
@@ -146,7 +144,51 @@ Be warm, helpful, and professional. Always support the user regardless of educat
       content: m.content || m.text
     }));
     const aiResponse = await askAI([{ role: "system", content: systemPrompt }, ...formattedMessages]);
-    res.json({ text: aiResponse });
+    
+    // Save to chat history
+    const chat = await Chat.create({
+      user: req.user._id,
+      message: messages[messages.length - 1]?.content || messages[messages.length - 1]?.text || "",
+      response: aiResponse,
+      shared: false
+    });
+    
+    res.json({ text: aiResponse, chatId: chat._id });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// SHARE AI message
+router.post("/share/:chatId", protect, async (req, res) => {
+  try {
+    const chat = await Chat.findById(req.params.chatId);
+    if (!chat) return res.status(404).json({ message: "Chat not found" });
+    
+    chat.shared = true;
+    await chat.save();
+    
+    res.json({ 
+      shareUrl: `/share/ai/${chat._id}`,
+      chatId: chat._id 
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// GET shared AI message (public)
+router.get("/shared/:chatId", async (req, res) => {
+  try {
+    const chat = await Chat.findById(req.params.chatId).populate("user", "name profilePicture");
+    if (!chat) return res.status(404).json({ message: "Chat not found" });
+    
+    res.json({
+      message: chat.message,
+      response: chat.response,
+      user: chat.user,
+      createdAt: chat.createdAt
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -23,6 +23,11 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const storeRedirect = (page, data = {}) => {
+    const redirectData = { page, ...data };
+    localStorage.setItem("omnixra_redirect", JSON.stringify(redirectData));
+  };
+
   const signup = async (data) => {
     const res = await api.post("/auth/signup", data);
     localStorage.setItem("omnixra_token", res.data.token);
@@ -39,6 +44,9 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem("omnixra_token");
+    localStorage.removeItem("omnixra_following");
+    localStorage.removeItem("omnixra_saved_posts");
+    localStorage.removeItem("omnixra_redirect");
     setUser(null);
   };
 
@@ -49,7 +57,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, signup, signin, logout, redeemVoucher }}>
+    <AuthContext.Provider value={{ user, setUser, loading, signup, signin, logout, redeemVoucher, storeRedirect }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, MessageCircle } from "lucide-react";
+import { ArrowLeft, MessageCircle, UserPlus, Check } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import LoadingDots from "../components/LoadingDots";
@@ -10,16 +10,46 @@ function FollowingPage({ setPage, setSelectedUserId }) {
   const { user } = useAuth();
 
   useEffect(() => {
-    api.get("/profile/me")
-      .then(res => {
-        setFollowing(res.data.connections || []);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
+    fetchFollowing();
+    
+    // Listen for follow updates
+    const handleFollowUpdate = (event) => {
+      fetchFollowing();
+    };
+    window.addEventListener("socket-follow-update", handleFollowUpdate);
+    return () => window.removeEventListener("socket-follow-update", handleFollowUpdate);
   }, [user]);
+
+  const fetchFollowing = async () => {
+    try {
+      const res = await api.get("/profile/me");
+      setFollowing(res.data.followingUsers || []);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
+  };
+
+  const handleUnfollow = async (userId) => {
+    try {
+      await api.put(`/posts/follow-user/${userId}`);
+      setFollowing(prev => prev.filter(u => u._id !== userId));
+      // Update localStorage
+      const list = JSON.parse(localStorage.getItem("omnixra_following") || "[]");
+      const idx = list.indexOf(userId);
+      if (idx > -1) list.splice(idx, 1);
+      localStorage.setItem("omnixra_following", JSON.stringify(list));
+    } catch (err) { console.error(err); }
+  };
+
+  const handleMessage = async (userId, name) => {
+    try {
+      const res = await api.post("/messages", { otherUserId: userId });
+      localStorage.setItem("omnixra_open_conversation", res.data._id);
+      setPage("inbox");
+    } catch (err) { console.error(err); }
+  };
 
   return (
     <div className="page-scroll">
@@ -36,7 +66,7 @@ function FollowingPage({ setPage, setSelectedUserId }) {
           <div className="space-y-3 mt-7">
             {following.map(person => (
               <div key={person._id} className="talent-card flex items-center gap-3">
-                <button 
+                <button
                   onClick={() => { setSelectedUserId?.(person._id); setPage("user-profile"); }}
                   className="avatar avatar-small bg-gradient-to-br from-indigo-500 to-purple-600"
                 >
@@ -46,7 +76,8 @@ function FollowingPage({ setPage, setSelectedUserId }) {
                   <div className="font-semibold text-sm">{person.name}</div>
                   <div className="text-[10px] text-slate-600">{person.headline}</div>
                 </button>
-                <button onClick={() => setPage("inbox")} className="outline-button"><MessageCircle size={14} /> Message</button>
+                <button onClick={() => handleMessage(person._id, person.name)} className="outline-button"><MessageCircle size={14} /></button>
+                <button onClick={() => handleUnfollow(person._id)} className="outline-button text-red-400"><UserPlus size={14} /></button>
               </div>
             ))}
           </div>

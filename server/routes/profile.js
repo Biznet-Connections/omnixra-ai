@@ -5,14 +5,15 @@ import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// GET USER BY ID — FIXED FOLLOW STATE
+// GET USER BY ID
 router.get("/user/:id", protect, async (req, res) => {
   console.log(`=== GET USER PROFILE: ${req.params.id} ===`);
   try {
     const user = await User.findById(req.params.id)
       .populate("connections", "name profilePicture headline profilePicLocked")
+      .populate("followers", "name profilePicture headline profilePicLocked")
       .select("-password");
-    
+
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (user.profilePicLocked) user.profilePicture = undefined;
@@ -27,16 +28,18 @@ router.get("/user/:id", protect, async (req, res) => {
 
     console.log(`Found ${posts.length} posts for ${user.name}`);
 
-    // CORRECT: check if req.user's connections includes target user's ID
-    const isFollowing = req.user.connections?.some(id => id.toString() === user._id.toString()) || false;
-    console.log("isFollowing:", isFollowing);
+    const isFollowing = req.user.followingUsers?.some(id => id.toString() === user._id.toString()) || false;
+    const isConnected = req.user.connections?.some(id => id.toString() === user._id.toString()) || false;
+    console.log("isFollowing:", isFollowing, "isConnected:", isConnected);
 
     res.json({
       user,
       posts,
       isFollowing,
+      isConnected,
       stats: {
         connections: user.connections?.length || 0,
+        followers: user.followers?.length || 0,
         posts: posts.length,
         likes: posts.reduce((sum, p) => sum + (p.likes?.length || 0), 0)
       }
@@ -53,6 +56,8 @@ router.get("/me", protect, async (req, res) => {
     const user = await User.findById(req.user._id)
       .populate("connections", "name profilePicture headline profilePicLocked")
       .populate("following", "name industry location")
+      .populate("followers", "name profilePicture headline profilePicLocked")
+      .populate("followingUsers", "name profilePicture headline profilePicLocked")
       .select("-password");
     res.json(user);
   } catch (error) {
@@ -179,7 +184,7 @@ router.put("/follow-company/:companyId", protect, async (req, res) => {
   }
 });
 
-// CONNECT
+// CONNECT (legacy - for backwards compatibility)
 router.put("/connect/:userId", protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);

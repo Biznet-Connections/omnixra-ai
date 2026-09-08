@@ -2,10 +2,11 @@ import express from "express";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
 import { protect } from "../middleware/auth.js";
+import { emitNewPost, emitFollowUpdate, getIO } from "../socket.js";
 
 const router = express.Router();
 
-// GET all posts — FIXED FILTER
+// GET all posts
 router.get("/", async (req, res) => {
   console.log("=== GET ALL POSTS ===");
   try {
@@ -57,6 +58,10 @@ router.post("/", protect, async (req, res) => {
       .populate("author", "name companyName profilePicture accountType category profilePicLocked")
       .populate("comments.user", "name profilePicture profilePicLocked")
       .populate("comments.replies.user", "name profilePicture profilePicLocked");
+    
+    // Emit socket event for new post
+    emitNewPost(populated);
+    
     res.status(201).json(populated);
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
@@ -72,6 +77,32 @@ router.delete("/:id", protect, async (req, res) => {
     post.deleted = true;
     await post.save();
     res.json({ message: "Post deleted" });
+  } catch (error) { res.status(500).json({ message: error.message }); }
+});
+
+// EDIT post
+router.put("/:id/edit", protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (post.author.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    post.text = req.body.text || post.text;
+    post.edited = true;
+    await post.save();
+
+    const populated = await Post.findById(post._id)
+      .populate("author", "name companyName profilePicture accountType category profilePicLocked")
+      .populate("comments.user", "name profilePicture profilePicLocked")
+      .populate("comments.replies.user", "name profilePicture profilePicLocked");
+
+    // Emit socket event
+    const io = getIO();
+    io.emit("post-edited", populated);
+
+    res.json(populated);
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 
@@ -137,15 +168,43 @@ router.post("/:id/comment/:commentId/reply", protect, async (req, res) => {
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 
-// FOLLOW USER
+// FOLLOW USER (now uses both connections and followingUsers)
 router.put("/follow-user/:userId", protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
     const targetId = req.params.userId;
-    const idx = currentUser.connections.indexOf(targetId);
-    if (idx > -1) currentUser.connections.splice(idx, 1); else currentUser.connections.push(targetId);
+    const idx = currentUser.followingUsers.indexOf(targetId);
+    let isFollowing;
+    
+    if (idx > -1) {
+      currentUser.followingUsers.splice(idx, 1);
+      isFollowing = false;
+    } else {
+      currentUser.followingUsers.push(targetId);
+      isFollowing = true;
+    }
     await currentUser.save();
-    res.json({ connections: currentUser.connections, following: idx === -1 });
+    
+    // Also update target's followers array
+    const targetUser = await User.findById(targetId);
+    if (targetUser) {
+      if (isFollowing) {
+        if (!targetUser.followers.includes(req.user._id)) {
+          targetUser.followers.push(req.user._id);
+        }
+      } else {
+        const followerIdx = targetUser.followers.indexOf(req.user._id);
+        if (followerIdx > -1) {
+          targetUser.followers.splice(followerIdx, 1);
+        }
+      }
+      await targetUser.save();
+    }
+    
+    // Emit socket event
+    emitFollowUpdate(targetId, req.user._id, isFollowing);
+    
+    res.json({ following: currentUser.followingUsers, isFollowing });
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 

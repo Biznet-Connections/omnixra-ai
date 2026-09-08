@@ -1,0 +1,139 @@
+.
+├── frontend
+│   ├── public
+│   │   └── favicon.svg
+│   ├── src
+│   │   ├── api
+│   │   │   └── axios.js
+│   │   ├── components
+│   │   │   ├── AIAvatar.jsx
+│   │   │   ├── ApplyModal.jsx
+│   │   │   ├── AuthScreen.jsx
+│   │   │   ├── BoostModal.jsx
+│   │   │   ├── BottomNav.jsx
+│   │   │   ├── CommentsBottomSheet.jsx
+│   │   │   ├── CompanyCard.jsx
+│   │   │   ├── DesktopSidebar.jsx
+│   │   │   ├── FloatingHamburger.jsx
+│   │   │   ├── Header.jsx
+│   │   │   ├── ImageCropper.jsx
+│   │   │   ├── JobCard.jsx
+│   │   │   ├── LoadingDots.jsx
+│   │   │   ├── LoadingScreen.jsx
+│   │   │   ├── ModalPortal.jsx
+│   │   │   ├── ModernVideoPlayer.jsx
+│   │   │   ├── PostCard.jsx
+│   │   │   ├── PostComposer.jsx
+│   │   │   ├── PremiumModal.jsx
+│   │   │   ├── ProfileMenu.jsx
+│   │   │   ├── Sidebar.jsx
+│   │   │   ├── TalentCard.jsx
+│   │   │   ├── VerifiedBadge.css
+│   │   │   ├── VerifiedBadge.jsx
+│   │   │   └── VideoTrimmer.jsx
+│   │   ├── context
+│   │   │   ├── AuthContext.jsx
+│   │   │   └── PostsContext.jsx
+│   │   ├── pages
+│   │   │   ├── AdminDashboard.jsx
+│   │   │   ├── ApplicationsPage.jsx
+│   │   │   ├── CVPage.jsx
+│   │   │   ├── ChatPage.jsx
+│   │   │   ├── CompaniesPage.jsx
+│   │   │   ├── CompaniesViewedPage.jsx
+│   │   │   ├── EditProfilePage.jsx
+│   │   │   ├── FindTalentPage.jsx
+│   │   │   ├── FollowingPage.jsx
+│   │   │   ├── HomePage.jsx
+│   │   │   ├── InboxPage.jsx
+│   │   │   ├── JobSharePage.jsx
+│   │   │   ├── JobsPage.jsx
+│   │   │   ├── MyNetworkPage.jsx
+│   │   │   ├── MyPostsPage.jsx
+│   │   │   ├── NewsPage.jsx
+│   │   │   ├── ProfessionalsPage.jsx
+│   │   │   ├── ProfilePage.jsx
+│   │   │   ├── ProfileStatsPage.jsx
+│   │   │   ├── ProfileViewPage.jsx
+│   │   │   ├── ProfileViewsPage.jsx
+│   │   │   ├── SavedChatsPage.jsx
+│   │   │   ├── SavedPostsPage.jsx
+│   │   │   ├── SettingsPage.jsx
+│   │   │   └── UserProfilePage.jsx
+│   │   ├── utils
+│   │   │   ├── baseUrl.js
+│   │   │   ├── helpers.js
+│   │   │   └── share.js
+│   │   ├── App.jsx
+│   │   ├── index.css
+│   │   └── main.jsx
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   └── vite.config.js
+├── server
+│   ├── config
+│   │   └── db.js
+│   ├── middleware
+│   │   ├── admin.js
+│   │   └── auth.js
+│   ├── models
+│   │   ├── Application.js
+│   │   ├── Boost.js
+│   │   ├── Chat.js
+│   │   ├── Company.js
+│   │   ├── Conversation.js
+│   │   ├── Job.js
+│   │   ├── Post.js
+│   │   ├── ScrapedJob.js
+│   │   ├── User.js
+│   │   └── Voucher.js
+│   ├── routes
+│   │   ├── admin.js
+│   │   ├── ai.js
+│   │   ├── auth.js
+│   │   ├── boosts.js
+│   │   ├── chats.js
+│   │   ├── companies.js
+│   │   ├── jobs.js
+│   │   ├── messages.js
+│   │   ├── news.js
+│   │   ├── posts.js
+│   │   ├── profile.js
+│   │   ├── scrapedJobs.js
+│   │   ├── share.js
+│   │   ├── video.js
+│   │   └── vouchers.js
+│   ├── scraper
+│   │   ├── sources
+│   │   │   ├── iharare.js
+│   │   │   ├── vacancyMail.js
+│   │   │   └── zimboJobs.js
+│   │   ├── index.js
+│   │   └── normalizer.js
+│   ├── seed
+│   │   └── seedCompanies.js
+│   ├── uploads
+│   ├── utils
+│   │   ├── aiService.js
+│   │   └── slugify.js
+│   ├── check-posts.js
+│   ├── debug-ai-posts.js
+│   ├── debug-ai-user.js
+│   ├── debug-connections.js
+│   ├── debug-follow.js
+│   ├── debug-mongoose.js
+│   ├── debug-posts.js
+│   ├── fix-ai-posts.js
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── server.js
+│   ├── test-scraper.js
+│   ├── update-news.js
+│   └── update-users.js
+├── fix-and-run.sh
+├── package-lock.json
+├── package.json
+└── render-build.sh
+
+19 directories, 118 files

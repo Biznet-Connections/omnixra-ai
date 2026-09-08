@@ -22,6 +22,8 @@ const userSchema = new mongoose.Schema(
     profilePicLocked: { type: Boolean, default: false },
     verified: { type: Boolean, default: false },
     verifiedRequested: { type: Boolean, default: false },
+    lastSeen: { type: Date, default: Date.now },
+    blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     profileViews: [
       { viewer: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, viewerType: { type: String }, viewedAt: { type: Date, default: Date.now } }
     ],
@@ -30,7 +32,9 @@ const userSchema = new mongoose.Schema(
     ],
     savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],
     connections: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "Company" }]
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "Company" }],
+    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    followingUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
   },
   { timestamps: true }
 );

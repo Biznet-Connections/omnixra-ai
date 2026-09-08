@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Heart, MessageCircle, Share2, Bookmark, Ellipsis, Check, Trash2, UserPlus, Building2, Lock } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Heart, MessageCircle, Share2, Bookmark, Ellipsis, Check, Trash2, UserPlus, Building2, Lock, Pencil } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import CommentsBottomSheet from "./CommentsBottomSheet";
@@ -18,10 +18,20 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   const [copied, setCopied] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [isLikePending, setIsLikePending] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(post.text || "");
+  const [editError, setEditError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const [following, setFollowing] = useState(() => {
     const followingList = JSON.parse(localStorage.getItem("omnixra_following") || "[]");
     return followingList.includes(post.author?._id);
   });
+
+  useEffect(() => {
+    const savedPosts = JSON.parse(localStorage.getItem("omnixra_saved_posts") || "[]");
+    setSaved(savedPosts.includes(post._id));
+  }, [post._id]);
 
   const authorName = post.author?.name || post.author?.companyName || "User";
   const authorHeadline = post.author?.headline || post.author?.category || "Professional";
@@ -34,20 +44,32 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   const isAdmin = user?.accountType === "admin";
   const isLongText = post.text?.length > 150;
   const displayText = expanded || !isLongText ? post.text : post.text?.substring(0, 150) + "...";
+  const isPending = post.pending;
 
   const handleLike = async () => {
+    if (isLikePending || isPending) return;
+    setIsLikePending(true);
     playSound("like");
+
     const newLiked = !liked;
     setLiked(newLiked);
     setLikeCount(prev => newLiked ? prev + 1 : prev - 1);
+
     try {
       const res = await api.put(`/posts/${post._id}/like`);
       setLikeCount(res.data.likes?.length || likeCount);
       onUpdate?.(res.data);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      setLiked(!newLiked);
+      setLikeCount(prev => newLiked ? prev - 1 : prev + 1);
+    } finally {
+      setIsLikePending(false);
+    }
   };
 
   const handleShare = async () => {
+    if (isPending) return;
     playSound("comment");
     try {
       await sharePost(post);
@@ -57,28 +79,92 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   };
 
   const handleDelete = async () => {
-    try { await api.delete(`/posts/${post._id}`); onDelete?.(post._id); }
+    try {
+      await api.delete(`/posts/${post._id}`);
+      onDelete?.(post._id);
+    }
     catch (err) { console.error(err); }
   };
 
+  const handleEdit = async () => {
+    if (!editText.trim() || isSaving) return;
+    setIsSaving(true);
+    setEditError("");
+    try {
+      const res = await api.put(`/posts/${post._id}/edit`, { text: editText.trim() });
+      onUpdate?.(res.data);
+      setIsEditing(false);
+      setShowMenu(false);
+      setEditError("");
+    } catch (err) {
+      console.error("Edit error:", err);
+      setEditError(err.response?.data?.message || "Failed to save");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditText(post.text || "");
+    setEditError("");
+  };
+
   const handleFollow = async () => {
+    if (isPending) return;
     playSound("follow");
+
     const newFollowing = !following;
     setFollowing(newFollowing);
+
     const list = JSON.parse(localStorage.getItem("omnixra_following") || "[]");
-    if (newFollowing) list.push(post.author?._id);
-    else { const idx = list.indexOf(post.author?._id); if (idx > -1) list.splice(idx, 1); }
+    if (newFollowing) {
+      if (!list.includes(post.author?._id)) list.push(post.author?._id);
+    } else {
+      const idx = list.indexOf(post.author?._id);
+      if (idx > -1) list.splice(idx, 1);
+    }
     localStorage.setItem("omnixra_following", JSON.stringify(list));
-    try { await api.put(`/posts/follow-user/${post.author?._id}`); } catch (err) { console.error(err); }
+
+    try {
+      await api.put(`/posts/follow-user/${post.author?._id}`);
+    } catch (err) {
+      console.error(err);
+      setFollowing(!newFollowing);
+    }
   };
 
   const handleSave = async () => {
-    try { await api.put(`/profile/save-post/${post._id}`); setSaved(!saved); } catch (err) { console.error(err); }
+    if (isPending) return;
+
+    const newSaved = !saved;
+    setSaved(newSaved);
+
+    const savedPosts = JSON.parse(localStorage.getItem("omnixra_saved_posts") || "[]");
+    if (newSaved) {
+      if (!savedPosts.includes(post._id)) savedPosts.push(post._id);
+    } else {
+      const idx = savedPosts.indexOf(post._id);
+      if (idx > -1) savedPosts.splice(idx, 1);
+    }
+    localStorage.setItem("omnixra_saved_posts", JSON.stringify(savedPosts));
+
+    try {
+      await api.put(`/profile/save-post/${post._id}`);
+    } catch (err) {
+      console.error(err);
+      setSaved(!newSaved);
+    }
   };
 
   return (
     <>
-      <article className="post-card">
+      <article className={`post-card ${isPending ? "post-pending" : ""}`}>
+        {isPending && (
+          <div className="post-pending-banner">
+            <span>Posting...</span>
+          </div>
+        )}
         {isUploading && (
           <div className="upload-progress-bar">
             <div className="upload-progress-fill" style={{ width: `${uploadProgress}%` }} />
@@ -102,19 +188,26 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
                   {!isAI && <span className="author-category">({authorHeadline})</span>}
                   {isCompany && <span className="company-badge"><Building2 size={10} /> Company</span>}
                 </div>
-                <div className="text-[10px] text-slate-600 mt-1">{timeAgo(post.createdAt)} · 🌍</div>
+                <div className="text-[10px] text-slate-600 mt-1">
+                  {timeAgo(post.createdAt)} · 🌍 {post.edited && <span className="text-slate-500 ml-1">(edited)</span>}
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                {!isAuthor && !isCompany && !isAI && (
+                {!isAuthor && !isCompany && !isAI && !isPending && (
                   <button onClick={handleFollow} className={`follow-btn ${following ? "following" : ""}`}>
                     <UserPlus size={12} /> {following ? "Following" : "Follow"}
                   </button>
                 )}
-                {(isAuthor || isAdmin) && (
+                {(isAuthor || isAdmin) && !isPending && (
                   <button onClick={() => setShowMenu(!showMenu)} className="icon-button-small relative">
                     <Ellipsis size={16} />
                     {showMenu && (
                       <div className="post-menu-dropdown">
+                        {isAuthor && (
+                          <button onClick={() => { setIsEditing(true); setEditText(post.text || ""); setShowMenu(false); }} className="post-delete-btn">
+                            <Pencil size={14} /> Edit
+                          </button>
+                        )}
                         <button onClick={handleDelete} className="post-delete-btn"><Trash2 size={14} /> Delete</button>
                       </div>
                     )}
@@ -125,26 +218,54 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
           </div>
         </div>
 
-        <p className="text-sm leading-7 text-slate-300 mt-4 whitespace-pre-wrap">
-          {displayText}
-          {isLongText && <button onClick={() => setExpanded(!expanded)} className="text-indigo-400 ml-1 text-xs">{expanded ? "Read less" : "Read more"}</button>}
-        </p>
+        {isEditing ? (
+          <div className="mt-4">
+            <textarea
+              value={editText}
+              onChange={e => setEditText(e.target.value)}
+              className="form-textarea w-full"
+              rows={4}
+              autoFocus
+              placeholder="Edit your post..."
+            />
+            {editError && <div className="text-xs text-red-400 mt-2">{editError}</div>}
+            <div className="flex gap-2 mt-2">
+              <button onClick={handleEdit} disabled={isSaving} className="primary-button text-xs">
+                {isSaving ? "Saving..." : "Save"}
+              </button>
+              <button onClick={handleCancelEdit} className="outline-button text-xs">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm leading-7 text-slate-300 mt-4 whitespace-pre-wrap">
+            {displayText}
+            {isLongText && <button onClick={() => setExpanded(!expanded)} className="text-indigo-400 ml-1 text-xs">{expanded ? "Read less" : "Read more"}</button>}
+          </p>
+        )}
 
         {post.image && <div className="post-image-container mt-4"><img src={post.image} alt="Post" className="post-image" /></div>}
         {post.video && <ModernVideoPlayer src={post.video} text={post.text} authorName={authorName} />}
 
-        <div className="post-action-row mt-3">
-          <button onClick={handleLike} className={`post-action-icon ${liked ? "post-action-liked" : ""}`}><Heart size={20} fill={liked ? "currentColor" : "none"} /></button>
-          <button onClick={() => setShowComments(true)} className="post-action-icon"><MessageCircle size={20} /></button>
-          <button onClick={handleShare} className="post-action-icon">{copied ? <Check size={20} /> : <Share2 size={20} />}</button>
-          <button onClick={handleSave} className={`post-action-icon ${saved ? "post-action-liked" : ""}`}><Bookmark size={20} fill={saved ? "currentColor" : "none"} /></button>
-        </div>
-        <div className="post-stat-numbers">
-          <span>{likeCount}</span>
-          <span>{post.comments?.length || 0}</span>
-          <span></span>
-          <span></span>
-        </div>
+        {!isPending && !isEditing && (
+          <>
+            <div className="post-action-row mt-3">
+              <button onClick={handleLike} disabled={isLikePending} className={`post-action-icon ${liked ? "post-action-liked" : ""}`}>
+                <Heart size={20} fill={liked ? "currentColor" : "none"} />
+              </button>
+              <button onClick={() => setShowComments(true)} className="post-action-icon"><MessageCircle size={20} /></button>
+              <button onClick={handleShare} className="post-action-icon">{copied ? <Check size={20} /> : <Share2 size={20} />}</button>
+              <button onClick={handleSave} className={`post-action-icon ${saved ? "post-action-liked" : ""}`}>
+                <Bookmark size={20} fill={saved ? "currentColor" : "none"} />
+              </button>
+            </div>
+            <div className="post-stat-numbers">
+              <span>{likeCount}</span>
+              <span>{post.comments?.length || 0}</span>
+              <span></span>
+              <span></span>
+            </div>
+          </>
+        )}
       </article>
       {showComments && <CommentsBottomSheet post={post} onClose={() => setShowComments(false)} onUpdate={onUpdate} />}
     </>

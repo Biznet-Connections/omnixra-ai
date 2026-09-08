@@ -2,8 +2,10 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
+import http from "http";
 import { fileURLToPath } from "url";
 import { connectDB } from "./config/db.js";
+import { initSocket } from "./socket.js";
 import authRoutes from "./routes/auth.js";
 import jobRoutes from "./routes/jobs.js";
 import companyRoutes from "./routes/companies.js";
@@ -19,6 +21,7 @@ import boostRoutes from "./routes/boosts.js";
 import scrapedJobRoutes from "./routes/scrapedJobs.js";
 import videoRoutes from "./routes/video.js";
 import shareRoutes from "./routes/share.js";
+import connectionRoutes from "./routes/connections.js";
 import Post from "./models/Post.js";
 import User from "./models/User.js";
 import { askAI } from "./utils/aiService.js";
@@ -47,6 +50,7 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/boosts", boostRoutes);
 app.use("/api/scraped-jobs", scrapedJobRoutes);
 app.use("/api/video", videoRoutes);
+app.use("/api/connections", connectionRoutes);
 app.use("/share", shareRoutes);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
@@ -84,7 +88,7 @@ async function generateDailyNewsIfNeeded() {
       { role: "system", content: systemPrompt },
       { role: "user", content: "Create the daily news update." }
     ]);
-    await Post.create({
+    const post = await Post.create({
       author: aiUserId,
       authorType: "ai",
       text: aiResponse,
@@ -96,62 +100,7 @@ async function generateDailyNewsIfNeeded() {
   }
 }
 
-
 // Dynamic Open Graph for job pages
-app.get("/jobs/:slug", async (req, res, next) => {
-  try {
-    const slug = req.params.slug;
-    const Job = (await import("./models/Job.js")).default;
-    const job = await Job.findOne({ slug });
-    if (job) {
-      const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta property="og:title" content="${job.title} at ${job.company}" />
-  <meta property="og:description" content="Apply now on Omnixra" />
-  <meta property="og:image" content="https://omnixra-ai.com/favicon.svg" />
-  <meta property="og:url" content="https://omnixra-ai.com/jobs/${job.slug}" />
-  <meta property="og:type" content="website" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <title>${job.title} - Omnixra</title>
-</head>
-<body>
-  <script>window.location.href="/job/${job.slug}";</script>
-</body>
-</html>`;
-      return res.send(html);
-    }
-    next();
-  } catch (e) {
-    next();
-  }
-});
-
-// Serve frontend in production
-const frontendPath = path.join(__dirname, "..", "frontend", "dist");
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(frontendPath));
-  app.use((req, res, next) => {
-    if (!req.path.startsWith("/api")) {
-      res.sendFile(path.join(frontendPath, "index.html"));
-    } else {
-      next();
-    }
-  });
-}
-
-const PORT = process.env.PORT || 5000;
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    generateDailyNewsIfNeeded();
-    setInterval(generateDailyNewsIfNeeded, 24 * 60 * 60 * 1000);
-    runScraper().catch(err => console.error("Scraper error:", err.message));
-    setInterval(() => runScraper().catch(err => console.error("Scraper error:", err.message)), 6 * 60 * 60 * 1000);
-  });
-});
-
-// Dynamic OG tags for jobs
 app.get("/jobs/:slug", async (req, res, next) => {
   try {
     const slug = req.params.slug;
@@ -184,4 +133,33 @@ app.get("/jobs/:slug", async (req, res, next) => {
   } catch (e) {
     next();
   }
+});
+
+// Serve frontend in production
+const frontendPath = path.join(__dirname, "..", "frontend", "dist");
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(frontendPath));
+  app.use((req, res, next) => {
+    if (!req.path.startsWith("/api") && !req.path.startsWith("/share") && !req.path.startsWith("/jobs")) {
+      res.sendFile(path.join(frontendPath, "index.html"));
+    } else {
+      next();
+    }
+  });
+}
+
+const PORT = process.env.PORT || 5000;
+const server = http.createServer(app);
+
+// Initialize Socket.io
+const io = initSocket(server);
+
+connectDB().then(() => {
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    generateDailyNewsIfNeeded();
+    setInterval(generateDailyNewsIfNeeded, 24 * 60 * 60 * 1000);
+    runScraper().catch(err => console.error("Scraper error:", err.message));
+    setInterval(() => runScraper().catch(err => console.error("Scraper error:", err.message)), 6 * 60 * 60 * 1000);
+  });
 });

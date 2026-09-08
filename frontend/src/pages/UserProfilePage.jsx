@@ -1,15 +1,22 @@
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, MapPin, ShieldCheck, UserPlus, MessageCircle, Lock, X, Check, Sparkles } from "lucide-react";
+import { ArrowLeft, MapPin, ShieldCheck, UserPlus, MessageCircle, Lock, X, Check, Sparkles, Clock, UserCheck } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import LoadingDots from "../components/LoadingDots";
 import ModernVideoPlayer from "../components/ModernVideoPlayer";
 import VerifiedBadge from "../components/VerifiedBadge";
+import AIAvatar from "../components/AIAvatar";
 
 function UserProfilePage({ userId, setPage }) {
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [following, setFollowing] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState({
+    isConnected: false,
+    requestSent: false,
+    requestReceived: false,
+    requestId: null
+  });
   const [showConnections, setShowConnections] = useState(false);
   const [showFullPic, setShowFullPic] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -17,6 +24,7 @@ function UserProfilePage({ userId, setPage }) {
 
   useEffect(() => {
     if (userId) {
+      setLoading(true);
       api.get(`/profile/user/${userId}`)
         .then(res => {
           setProfile(res.data.user);
@@ -28,19 +36,86 @@ function UserProfilePage({ userId, setPage }) {
           console.error("Profile fetch error:", err);
           setLoading(false);
         });
+
+      // Fetch connection status
+      api.get(`/connections/status/${userId}`)
+        .then(res => {
+          setConnectionStatus(res.data);
+        })
+        .catch(err => console.error("Connection status error:", err));
     }
   }, [userId, currentUser?._id]);
 
+  // Listen for connection accepted event
+  useEffect(() => {
+    const handleConnectionAccepted = (event) => {
+      if (event.detail?._id === userId) {
+        setConnectionStatus(prev => ({ ...prev, isConnected: true, requestReceived: false, requestSent: false }));
+      }
+    };
+    window.addEventListener("socket-connection-accepted", handleConnectionAccepted);
+    return () => window.removeEventListener("socket-connection-accepted", handleConnectionAccepted);
+  }, [userId]);
+
   const handleFollow = async () => {
+    const newFollowing = !following;
+    setFollowing(newFollowing);
     try {
       await api.put(`/posts/follow-user/${userId}`);
-      setFollowing(!following);
+      // Update localStorage
+      const list = JSON.parse(localStorage.getItem("omnixra_following") || "[]");
+      if (newFollowing) {
+        if (!list.includes(userId)) list.push(userId);
+      } else {
+        const idx = list.indexOf(userId);
+        if (idx > -1) list.splice(idx, 1);
+      }
+      localStorage.setItem("omnixra_following", JSON.stringify(list));
+    } catch (err) {
+      console.error(err);
+      setFollowing(!newFollowing);
+    }
+  };
+
+  const handleConnect = async () => {
+    if (connectionStatus.isConnected) return;
+
+    if (connectionStatus.requestSent) {
+      // Cancel request
+      try {
+        const sentRequests = await api.get("/connections/sent");
+        const request = sentRequests.data.find(r => r.recipient?._id === userId);
+        if (request) {
+          await api.delete(`/connections/cancel/${request._id}`);
+          setConnectionStatus(prev => ({ ...prev, requestSent: false }));
+        }
+      } catch (err) { console.error(err); }
+      return;
+    }
+
+    if (connectionStatus.requestReceived && connectionStatus.requestId) {
+      // Accept request
+      try {
+        await api.put(`/connections/accept/${connectionStatus.requestId}`);
+        setConnectionStatus(prev => ({ ...prev, isConnected: true, requestReceived: false }));
+      } catch (err) { console.error(err); }
+      return;
+    }
+
+    // Send request
+    try {
+      await api.post(`/connections/request/${userId}`);
+      setConnectionStatus(prev => ({ ...prev, requestSent: true }));
     } catch (err) { console.error(err); }
   };
 
   const handleMessage = async () => {
     try {
-      await api.post("/messages", { otherUserId: userId, initialMessage: `Hi ${profile?.name?.split(" ")[0] || "there"}!` });
+      // Find or create conversation WITHOUT pre-written message
+      const res = await api.post("/messages", { otherUserId: userId });
+      
+      // Store the conversation ID and navigate to inbox with it selected
+      localStorage.setItem("omnixra_open_conversation", res.data._id);
       setPage("inbox");
     } catch (err) { console.error(err); }
   };
@@ -64,6 +139,20 @@ function UserProfilePage({ userId, setPage }) {
 
   const isAI = profile.name === "Omnixra AI";
 
+  const getConnectButtonText = () => {
+    if (connectionStatus.isConnected) return "Connected";
+    if (connectionStatus.requestSent) return "Request Sent";
+    if (connectionStatus.requestReceived) return "Accept Request";
+    return "Connect";
+  };
+
+  const getConnectIcon = () => {
+    if (connectionStatus.isConnected) return <UserCheck size={14} />;
+    if (connectionStatus.requestSent) return <Clock size={14} />;
+    if (connectionStatus.requestReceived) return <Check size={14} />;
+    return <UserPlus size={14} />;
+  };
+
   return (
     <div className="page-scroll">
       <div className="page-container">
@@ -75,7 +164,7 @@ function UserProfilePage({ userId, setPage }) {
         <div className="profile-main-card">
           <div className="profile-header">
             <button onClick={handlePicTap} className="profile-big-avatar">
-               {isAI ? <AIAvatar size="large" /> : profile.profilePicLocked ? (
+              {isAI ? <AIAvatar size="large" /> : profile.profilePicLocked ? (
                 <div className="flex flex-col items-center text-slate-500"><Lock size={20} /><span className="text-[9px] mt-1">Locked</span></div>
               ) : profile.profilePicture ? (
                 <img src={profile.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "22px", objectFit: "cover" }} />
@@ -99,18 +188,22 @@ function UserProfilePage({ userId, setPage }) {
                 <span>{posts.reduce((sum, p) => sum + (p.likes?.length || 0), 0)} Likes</span>
               </div>
             </div>
-            <div className="flex gap-2">
-              {!isAI && (
-                <>
-                  <button onClick={handleFollow} className={`connect-button ${following ? "connected" : ""}`}>
-                    {following ? <Check size={14} /> : <UserPlus size={14} />}
-                    {following ? "Following" : "Follow"}
-                  </button>
-                  <button onClick={handleMessage} className="outline-button"><MessageCircle size={14} /> Message</button>
-                </>
-              )}
-            </div>
           </div>
+          {!isAI && (
+            <div className="flex gap-2 mt-4">
+              <button onClick={handleConnect} className={`connect-button ${connectionStatus.isConnected ? "connected" : ""} ${connectionStatus.requestSent ? "request-sent" : ""}`}>
+                {getConnectIcon()}
+                {getConnectButtonText()}
+              </button>
+              <button onClick={handleFollow} className={`outline-button ${following ? "following" : ""}`}>
+                {following ? <Check size={14} /> : <UserPlus size={14} />}
+                {following ? "Following" : "Follow"}
+              </button>
+              <button onClick={handleMessage} className="outline-button">
+                <MessageCircle size={14} /> Message
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="mt-6">

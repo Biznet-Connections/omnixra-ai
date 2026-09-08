@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Plus, Paperclip, Mic, ThumbsUp, ThumbsDown, Copy, Check } from "lucide-react";
+import { Sparkles, Send, Plus, Paperclip, Mic, ThumbsUp, ThumbsDown, Copy, Check, Share2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import JobCard from "../components/JobCard";
@@ -10,6 +10,8 @@ function ChatPage() {
   const [messages, setMessages] = useState([{ role: "assistant", text: user?.accountType === "company" ? `Hello ${user?.name} 👋\n\nTell me the job you are posting, or the employees you are looking for.` : "Hey 👋 I'm Omnixra, your AI employment assistant. I can find jobs, improve CV, and help with your career." }]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
+  const [copied, setCopied] = useState(null);
+  const [shared, setShared] = useState(null);
   const bottomRef = useRef(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, typing]);
@@ -31,7 +33,7 @@ function ChatPage() {
         const chatHistory = messages.filter(m => m.text).map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text }));
         chatHistory.push({ role: "user", content: text });
         const res = await api.post("/ai/chat", { messages: chatHistory });
-        setMessages(prev => [...prev, { role: "assistant", text: res.data.text }]);
+        setMessages(prev => [...prev, { role: "assistant", text: res.data.text, chatId: res.data.chatId }]);
       }
     } catch (err) { setMessages(prev => [...prev, { role: "assistant", text: "I'm having trouble. Please try again." }]); }
     finally { setTyping(false); }
@@ -51,8 +53,30 @@ function ChatPage() {
   };
 
   const suggestions = getSuggestions();
-  const [copied, setCopied] = useState(null);
+
   const copyText = (text) => { navigator.clipboard.writeText(text); setCopied(text); setTimeout(() => setCopied(null), 1500); };
+
+  const handleShare = async (message) => {
+    if (message.chatId) {
+      try {
+        const res = await api.post(`/ai/share/${message.chatId}`);
+        const shareUrl = `${window.location.origin}${res.data.shareUrl}`;
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: "Omnixra AI Response",
+              text: message.text?.substring(0, 150) || "Check this AI response",
+              url: shareUrl
+            });
+          } catch (err) { console.error(err); }
+        } else {
+          await navigator.clipboard.writeText(shareUrl);
+          setShared(message.text);
+          setTimeout(() => setShared(null), 1500);
+        }
+      } catch (err) { console.error(err); }
+    }
+  };
 
   return (
     <div className="chat-page">
@@ -71,6 +95,11 @@ function ChatPage() {
                       <button className="feedback-active"><ThumbsUp size={13} /></button>
                       <button onClick={() => copyText(message.text)}>{copied === message.text ? <Check size={13} /> : <Copy size={13} />}</button>
                       <button><ThumbsDown size={13} /></button>
+                      {message.chatId && (
+                        <button onClick={() => handleShare(message)} className={shared === message.text ? "feedback-active" : ""}>
+                          {shared === message.text ? <Check size={13} /> : <Share2 size={13} />}
+                        </button>
+                      )}
                     </div>
                     {message.jobs && <div className="mt-5 space-y-3">{message.jobs.map(job => <JobCard key={job._id || job.company} job={job} />)}</div>}
                     {message.talent && <div className="mt-5 space-y-3">{message.talent.map(t => <TalentCard key={t._id} talent={t} />)}</div>}

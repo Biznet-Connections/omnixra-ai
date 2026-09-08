@@ -23,6 +23,7 @@ const postSchema = new mongoose.Schema(
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     comments: [commentSchema],
     shares: { type: Number, default: 0 },
+    edited: { type: Boolean, default: false },
     mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     deleted: { type: Boolean, default: false }
   },

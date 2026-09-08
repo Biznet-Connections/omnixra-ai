@@ -22,15 +22,18 @@ import ProfileStatsPage from "./pages/ProfileStatsPage";
 import SavedPostsPage from "./pages/SavedPostsPage";
 import InboxPage from "./pages/InboxPage";
 import ApplicationsPage from "./pages/ApplicationsPage";
+import SharedAIPage from "./pages/SharedAIPage";
 import PostComposer from "./components/PostComposer";
 import { useAuth } from "./context/AuthContext";
 import { PostsProvider } from "./context/PostsContext";
+import { SocketProvider } from "./context/SocketContext";
 
 function AppContent() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState("home");
   const [showPostComposer, setShowPostComposer] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [sharedChatId, setSharedChatId] = useState(null);
   const [history, setHistory] = useState([]);
   const { user } = useAuth();
 
@@ -57,6 +60,40 @@ function AppContent() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [history]);
 
+  // Check URL for shared AI page
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path.startsWith("/shared-ai/")) {
+      const chatId = path.split("/shared-ai/")[1];
+      setSharedChatId(chatId);
+      setPage("shared-ai");
+    }
+  }, []);
+
+  // Check for redirect after sign in
+  useEffect(() => {
+    if (user) {
+      const redirect = localStorage.getItem("omnixra_redirect");
+      if (redirect) {
+        try {
+          const redirectData = JSON.parse(redirect);
+          if (redirectData.page) {
+            setPage(redirectData.page);
+          }
+          if (redirectData.userId) {
+            setSelectedUserId(redirectData.userId);
+          }
+          if (redirectData.chatId) {
+            setSharedChatId(redirectData.chatId);
+          }
+          localStorage.removeItem("omnixra_redirect");
+        } catch (e) {
+          localStorage.removeItem("omnixra_redirect");
+        }
+      }
+    }
+  }, [user]);
+
   if (loading) return <LoadingScreen onFinish={() => setLoading(false)} />;
   if (!user) return <AuthScreen />;
 
@@ -81,6 +118,7 @@ function AppContent() {
       case "saved-posts": return <SavedPostsPage setPage={navigate} />;
       case "inbox": return <InboxPage setPage={navigate} />;
       case "applications": return <ApplicationsPage setPage={navigate} />;
+      case "shared-ai": return <SharedAIPage chatId={sharedChatId} setPage={navigate} />;
       default: return <HomePage setPage={navigate} setSelectedUserId={setSelectedUserId} />;
     }
   };
@@ -106,7 +144,9 @@ function AppContent() {
 export default function App() {
   return (
     <PostsProvider>
-      <AppContent />
+      <SocketProvider>
+        <AppContent />
+      </SocketProvider>
     </PostsProvider>
   );
 }
