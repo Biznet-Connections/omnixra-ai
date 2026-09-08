@@ -1,16 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
-<defs>
-<linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-<stop offset="0" stop-color="#6366f1"/>
-<stop offset=".55" stop-color="#7c3aed"/>
-<stop offset="1" stop-color="#4f46e5"/>
-</linearGradient>
-<filter id="s">
-<feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity=".4"/>
-</filter>
-</defs>
-<rect width="192" height="192" rx="44" fill="#06070b"/>
-<circle cx="96" cy="96" r="62" fill="url(#g)" filter="url(#s)"/>
-<path d="M96 43L104 75L137 84L106 96L96 131L86 96L55 84L88 75Z" fill="white"/>
-<circle cx="96" cy="96" r="8" fill="white"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="50%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#a855f7"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Rounded square with gradient -->
+  <rect x="10" y="10" width="80" height="80" rx="22" fill="url(#grad)" filter="url(#glow)"/>
+  
+  <!-- Sparkle icon -->
+  <path d="M50 28 C52 40 58 46 70 50 C58 54 52 60 50 72 C48 60 42 54 30 50 C42 46 48 40 50 28Z" fill="white"/>
+  
+  <!-- Small sparkle top right -->
+  <path d="M70 22 C71 27 74 30 80 32 C74 34 71 37 70 42 C69 37 66 34 60 32 C66 30 69 27 70 22Z" fill="white" opacity="0.8"/>
 </svg>
