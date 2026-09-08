@@ -18,7 +18,9 @@ router.get("/", protect, async (req, res) => {
 
     const conversations = await Conversation.find({
       participants: req.user._id,
-      participants: { $nin: allBlocked }
+      $and: [
+        { participants: { $nin: allBlocked } }
+      ]
     })
       .populate("participants", "name profilePicture profilePicLocked")
       .populate("messages.sender", "name profilePicture")
@@ -40,7 +42,9 @@ router.get("/unread/count", protect, async (req, res) => {
 
     const conversations = await Conversation.find({
       participants: req.user._id,
-      participants: { $nin: allBlocked }
+      $and: [
+        { participants: { $nin: allBlocked } }
+      ]
     });
 
     let unreadCount = 0;
