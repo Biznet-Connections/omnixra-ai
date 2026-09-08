@@ -82,7 +82,7 @@ function ChatPage() {
         try {
           await navigator.share({
             title: "Omnixra AI Response",
-            text: `${message.text?.substring(0, 150) || "Check this AI response"}\n\n${shareUrl}`,
+            text: `${message.text?.substring(0, 150) || "Check this AI response"}`,
             url: shareUrl
           });
         } catch (err) { console.error(err); }

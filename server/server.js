@@ -143,6 +143,7 @@ if (process.env.NODE_ENV === "production") {
     // Serve the React app for any non-API route that doesn't match a static file.
     // /share routes still need to serve OG pages, so we skip those.
     if (!req.path.startsWith("/api") && !req.path.startsWith("/share")) {
+      // Serve React app for all client-side routes including /shared-ai, /post, /job
       res.sendFile(path.join(frontendPath, "index.html"));
     } else {
       next();
