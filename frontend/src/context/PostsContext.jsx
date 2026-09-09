@@ -10,7 +10,6 @@ export const PostsProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const { user } = useAuth();
 
-  // Fisher-Yates shuffle
   const shuffleArray = (array) => {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -20,34 +19,21 @@ export const PostsProvider = ({ children }) => {
     return shuffled;
   };
 
-  // Interleave posts so same author doesn't appear consecutively
+  // Interleave so same author isn't adjacent
   const interleavePosts = (postList, currentUserId) => {
     if (!postList.length) return [];
-
-    // Separate own posts and others (for priority)
     const ownPosts = postList.filter(p => p.author?._id === currentUserId || p.author === currentUserId);
     const otherPosts = postList.filter(p => p.author?._id !== currentUserId && p.author !== currentUserId);
-
-    // Shuffle others and own to start random
-    const shuffledOwn = shuffleArray(ownPosts);
-    const shuffledOthers = shuffleArray(otherPosts);
-
-    const all = shuffleArray([...shuffledOwn, ...shuffledOthers]);
-
-    // Build result, avoiding consecutive same author
+    const all = shuffleArray([...ownPosts, ...otherPosts]);
     const result = [];
     let lastAuthor = null;
     while (all.length > 0) {
-      let idx = all.findIndex(p => {
-        const author = p.author?._id || p.author;
-        return author !== lastAuthor;
-      });
-      if (idx === -1) idx = 0; // If impossible, just take first
+      let idx = all.findIndex(p => (p.author?._id || p.author) !== lastAuthor);
+      if (idx === -1) idx = 0;
       const picked = all.splice(idx, 1)[0];
       result.push(picked);
       lastAuthor = picked.author?._id || picked.author;
     }
-
     return result;
   };
 
@@ -57,8 +43,7 @@ export const PostsProvider = ({ children }) => {
       setError(null);
       const res = await api.get("/posts");
       const sorted = [...res.data].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      const finalPosts = interleavePosts(sorted, user?._id);
-      setPosts(finalPosts);
+      setPosts(interleavePosts(sorted, user?._id));
     } catch (err) {
       console.error("Fetch posts error:", err.message);
       setError("Failed to load posts. Please refresh.");
@@ -70,13 +55,18 @@ export const PostsProvider = ({ children }) => {
   useEffect(() => {
     fetchPosts();
 
-    // Socket new post -> random position for others
     const handleNewPost = (event) => {
       const newPost = event.detail;
       setPosts(prev => {
         const exists = prev.some(p => p._id === newPost._id);
         if (exists) return prev;
-        // Insert at random position (not always top)
+
+        const isMyPost = newPost.author?._id === user?._id || newPost.author === user?._id;
+        if (isMyPost) {
+          const withoutTemp = prev.filter(p => !String(p._id).startsWith("temp_"));
+          return [newPost, ...withoutTemp];
+        }
+
         const position = Math.floor(Math.random() * (prev.length + 1));
         const newList = [...prev];
         newList.splice(position, 0, newPost);
@@ -86,7 +76,7 @@ export const PostsProvider = ({ children }) => {
 
     window.addEventListener("socket-new-post", handleNewPost);
     return () => window.removeEventListener("socket-new-post", handleNewPost);
-  }, [fetchPosts]);
+  }, [fetchPosts, user?._id]);
 
   // When YOU post, add to TOP instantly (optimistic)
   const addPost = (post) => setPosts(prev => [post, ...prev]);
@@ -95,7 +85,7 @@ export const PostsProvider = ({ children }) => {
   const removePost = (postId) => setPosts(prev => prev.filter(p => p._id !== postId));
 
   return (
-    <PostsContext.Provider value={{ posts, loading, error, addPost, updatePost, removePost, fetchPosts }}>
+    <PostsContext.Provider value={{ posts, loading, error, addPost, updatePost, removePost, fetchPosts, interleavePosts }}>
       {children}
     </PostsContext.Provider>
   );
