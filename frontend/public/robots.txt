@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /uploads/
+Disallow: /share/
+
+Sitemap: https://omnixra-ai.com/sitemap.xml

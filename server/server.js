@@ -21,6 +21,7 @@ import boostRoutes from "./routes/boosts.js";
 import scrapedJobRoutes from "./routes/scrapedJobs.js";
 import videoRoutes from "./routes/video.js";
 import shareRoutes from "./routes/share.js";
+import seoRoutes from "./routes/seo.js";
 import connectionRoutes from "./routes/connections.js";
 import Post from "./models/Post.js";
 import User from "./models/User.js";
@@ -52,6 +53,7 @@ app.use("/api/scraped-jobs", scrapedJobRoutes);
 app.use("/api/video", videoRoutes);
 app.use("/api/connections", connectionRoutes);
 app.use("/share", shareRoutes);
+app.use("/", seoRoutes);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
