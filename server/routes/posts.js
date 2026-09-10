@@ -11,6 +11,13 @@ router.post("/debug/log", (req, res) => {
   res.json({ ok: true });
 });
 
+// BATCH LOG ENDPOINT
+router.post("/debug/log-batch", (req, res) => {
+  const logs = req.body.logs || [];
+  logs.forEach(line => console.log("📱", line));
+  res.json({ ok: true, count: logs.length });
+});
+
 // GET ALL POSTS - Paginated, with full author data (including profile pics)
 router.get("/", async (req, res) => {
   try {
@@ -149,10 +156,22 @@ router.put("/:id/like", protect, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: "Post not found" });
-    post.likes = (post.likes || 0) + 1;
+
+    // Handle legacy array format
+    let currentLikes = Array.isArray(post.likes) ? post.likes.length : (Number(post.likes) || 0);
+
+    // Check action - "unlike" decrements, otherwise increments
+    const action = req.body?.action || "like";
+    if (action === "unlike") {
+      post.likes = Math.max(0, currentLikes - 1);
+    } else {
+      post.likes = currentLikes + 1;
+    }
+
     await post.save();
-    res.json({ likes: post.likes });
+    res.json({ likes: post.likes, action });
   } catch (error) {
+    console.error("Like error:", error.message);
     res.status(500).json({ message: error.message });
   }
 });
@@ -163,6 +182,8 @@ router.post("/:id/comment", protect, async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: "Post not found" });
     post.comments.push({ user: req.user._id, text: req.body.text, likes: 0, replies: [] });
+    // Ensure likes is a number in case legacy array snuck in
+    if (Array.isArray(post.likes)) post.likes = post.likes.length;
     await post.save();
     
     const populated = await Post.findById(post._id)

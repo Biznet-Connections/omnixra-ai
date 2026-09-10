@@ -9,6 +9,14 @@ import AIAvatar from "./AIAvatar";
 import { timeAgo, playSound } from "../utils/helpers";
 import { sharePost } from "../utils/share";
 
+function logLike(msg) {
+  fetch("/api/posts/debug/log", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: "[LIKE] " + msg })
+  }).catch(() => {});
+}
+
 function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onViewProfile }) {
   const { user } = useAuth();
   const [liked, setLiked] = useState(() => {
@@ -59,7 +67,11 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   const isPending = post.pending;
 
   const handleLike = async () => {
-    if (isLikePending || isPending) return;
+    logLike("called. postId=" + post._id + " liked=" + liked + " count=" + likeCount + " pending=" + isLikePending);
+    if (isLikePending || isPending) {
+      logLike("BLOCKED (pending)");
+      return;
+    }
     setIsLikePending(true);
     playSound("like");
 
@@ -79,7 +91,8 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
     } catch {}
 
     try {
-      const res = await api.put(`/posts/${post._id}/like`);
+      const action = newLiked ? "like" : "unlike";
+      const res = await api.put(`/posts/${post._id}/like`, { action });
       const serverLikes = typeof res.data.likes === 'number' ? res.data.likes : likeCount;
       setLikeCount(serverLikes);
       onUpdate?.({ ...post, likes: serverLikes });
@@ -99,6 +112,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
       } catch {}
     } finally {
       setIsLikePending(false);
+      console.log("🔥 handleLike finished. New count:", likeCount, "liked:", liked);
     }
   };
 

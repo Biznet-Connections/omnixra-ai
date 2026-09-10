@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 import "./index.css";
+import "./utils/terminalLog";
 
 console.log("🔥 main.jsx loaded");
 
