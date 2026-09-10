@@ -94,8 +94,8 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
                   </div>
                   <div className="comment-actions">
                     <button onClick={() => handleLikeComment(c._id)} className="comment-action-btn">
-                      <Heart size={12} fill={c.likes?.length > 0 ? "currentColor" : "none"} />
-                      {c.likes?.length || 0}
+                      <Heart size={12} fill={typeof c.likes === "number" && c.likes > 0 ? "currentColor" : "none"} />
+                      {typeof c.likes === "number" ? c.likes : 0}
                     </button>
                     <button onClick={() => setReplyTo(replyTo === c._id ? null : c._id)} className="comment-action-btn">
                       Reply

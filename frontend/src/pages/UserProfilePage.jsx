@@ -185,7 +185,7 @@ function UserProfilePage({ userId, setPage }) {
               <div className="flex gap-4 mt-3 text-[11px] text-slate-400">
                 <button onClick={() => setShowConnections(true)} className="hover:text-indigo-300">{profile.connections?.length || 0} Connections</button>
                 <span>{posts.length} Posts</span>
-                <span>{posts.reduce((sum, p) => sum + (p.likes?.length || 0), 0)} Likes</span>
+                <span>{posts.reduce((sum, p) => sum + (typeof p.likes === "number" ? p.likes : 0), 0)} Likes</span>
               </div>
             </div>
           </div>
@@ -220,7 +220,7 @@ function UserProfilePage({ userId, setPage }) {
                   {!p.image && !p.video && <div className="h-2" />}
                   <div className="flex gap-4 mt-2 text-[10px] text-slate-600">
                     <span>{new Date(p.createdAt).toLocaleDateString()}</span>
-                    <span>❤ {p.likes?.length || 0}</span>
+                    <span>❤ {typeof p.likes === "number" ? p.likes : 0}</span>
                   </div>
                 </div>
               ))}
