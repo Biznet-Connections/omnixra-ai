@@ -81,6 +81,52 @@ router.post("/signin", async (req, res) => {
   }
 });
 
+// ADMIN LOGIN - separate from normal login
+router.post("/admin-login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!adminEmail || !adminPassword) {
+      return res.status(500).json({ message: "Admin credentials not configured" });
+    }
+
+    if (email.toLowerCase() !== adminEmail.toLowerCase() || password !== adminPassword) {
+      console.log("⚠️ Failed admin login attempt for:", email);
+      return res.status(401).json({ message: "Access denied" });
+    }
+
+    let adminUser = await User.findOne({ email: adminEmail.toLowerCase() });
+    if (!adminUser) {
+      adminUser = await User.create({
+        name: "Admin",
+        email: adminEmail.toLowerCase(),
+        password: adminPassword,
+        accountType: "admin",
+        verified: true,
+        headline: "System Administrator"
+      });
+      console.log("Created admin user:", adminUser._id);
+    } else if (adminUser.accountType !== "admin") {
+      adminUser.accountType = "admin";
+      await adminUser.save();
+    }
+
+    console.log("✅ Admin logged in:", adminEmail);
+    res.json({
+      _id: adminUser._id,
+      name: adminUser.name,
+      email: adminUser.email,
+      accountType: "admin",
+      token: generateToken(adminUser._id)
+    });
+  } catch (error) {
+    console.error("Admin login error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // FORGOT PASSWORD (fake for now)
 router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
