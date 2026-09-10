@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useRef } from "react";
 import api from "../api/axios";
 import { useAuth } from "./AuthContext";
 
@@ -41,25 +41,61 @@ export const PostsProvider = ({ children }) => {
     }
   }, [posts.length]);
 
+  const loadingRef = useRef(false);
+  const hasMoreRef = useRef(true);
+  const pageRef = useRef(2);
+
   const loadMorePosts = useCallback(async () => {
-    if (!hasMore || loadingMore) return;
+    // Wait for any in-flight load to complete
+    while (loadingRef.current) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+    loadingRef.current = true;
+
+    // Endless loop: when we run out, restart from page 1 with shuffled order
+    if (!hasMoreRef.current) {
+      console.log("📱 [FEED] No more posts — looping back with shuffle");
+      try {
+        const res = await api.get("/posts?page=1&limit=7");
+        const data = res.data;
+        const shuffled = shuffleArray(data.posts || []);
+        const recycled = shuffled.map(p => ({
+          ...p,
+          _id: `${p._id}__recycle_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          _originalId: p._id
+        }));
+        setPosts(prev => [...prev, ...recycled]);
+        hasMoreRef.current = true;
+        pageRef.current = 2;
+      } catch (err) {
+        console.error("Feed loop error:", err.message);
+      } finally {
+        loadingRef.current = false;
+      }
+      return;
+    }
+
     setLoadingMore(true);
     try {
-      const res = await api.get(`/posts?page=${page}&limit=7`);
+      console.log("📱 [FEED] Fetching page " + pageRef.current);
+      const res = await api.get(`/posts?page=${pageRef.current}&limit=7`);
       const data = res.data;
+      console.log("📱 [FEED] Page " + pageRef.current + " returned " + (data.posts?.length || 0) + " posts, hasMore=" + data.hasMore);
       setPosts(prev => {
         const existingIds = new Set(prev.map(p => p._id));
         const newPosts = (data.posts || []).filter(p => !existingIds.has(p._id));
         return [...prev, ...newPosts];
       });
+      hasMoreRef.current = data.hasMore;
       setHasMore(data.hasMore);
-      setPage(prev => prev + 1);
+      pageRef.current += 1;
     } catch (err) {
       console.error("Load more error:", err.message);
     } finally {
+      loadingRef.current = false;
       setLoadingMore(false);
     }
-  }, [hasMore, loadingMore, page]);
+  }, []);
 
   const addPost = (post) => setPosts(prev => [post, ...prev]);
   const updatePost = (updatedPost) => setPosts(prev => prev.map(p => p._id === updatedPost._id ? updatedPost : p));

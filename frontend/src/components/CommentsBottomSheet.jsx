@@ -4,6 +4,7 @@ import api from "../api/axios";
 import { playSound } from "../utils/helpers";
 
 function CommentsBottomSheet({ post, onClose, onUpdate }) {
+  const realId = post._originalId || post._id;
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,7 +14,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
   const fetchComments = async () => {
     console.log("🔥 fetchComments called for post:", post._id);
     try {
-      const res = await api.get(`/posts/${post._id}/comments`);
+      const res = await api.get(`/posts/${realId}/comments`);
       console.log("✅ Fetched comments:", res.data.comments?.length, "for post:", post._id);
       const count = res.data.comments?.length || 0;
       const first = res.data.comments?.[0]?.text || "NONE";
@@ -28,7 +29,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
 
   useEffect(() => {
     fetchComments();
-  }, [post._id]);
+  }, [realId]);
 
   const handleAddComment = async () => {
     if (!commentText.trim()) return;
@@ -36,7 +37,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
     setCommentText("");
     playSound("comment");
     try {
-      const res = await api.post(`/posts/${post._id}/comment`, { text });
+      const res = await api.post(`/posts/${realId}/comment`, { text });
       await fetchComments();
       if (res.data?.totalComments != null) {
         onUpdate?.({ ...post, totalComments: res.data.totalComments });
@@ -53,7 +54,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
     setReplyTo(null);
     playSound("comment");
     try {
-      await api.post(`/posts/${post._id}/comment/${commentId}/reply`, { text });
+      await api.post(`/posts/${realId}/comment/${commentId}/reply`, { text });
       await fetchComments();
     } catch (err) {
       console.error("Reply error:", err);
@@ -62,7 +63,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
 
   const handleLikeComment = async (commentId) => {
     try {
-      await api.put(`/posts/${post._id}/comment/${commentId}/like`);
+      await api.put(`/posts/${realId}/comment/${commentId}/like`);
       await fetchComments();
     } catch (err) {
       console.error("Like comment error:", err);

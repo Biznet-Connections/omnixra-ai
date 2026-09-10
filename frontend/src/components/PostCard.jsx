@@ -19,6 +19,7 @@ function logLike(msg) {
 
 function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onViewProfile }) {
   const { user } = useAuth();
+  const realId = post._originalId || post._id;
   const [liked, setLiked] = useState(() => {
     try {
       const likedPosts = JSON.parse(localStorage.getItem("omnixra_liked_posts") || "[]");
@@ -92,7 +93,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
 
     try {
       const action = newLiked ? "like" : "unlike";
-      const res = await api.put(`/posts/${post._id}/like`, { action });
+      const res = await api.put(`/posts/${realId}/like`, { action });
       const serverLikes = typeof res.data.likes === 'number' ? res.data.likes : likeCount;
       setLikeCount(serverLikes);
       onUpdate?.({ ...post, likes: serverLikes });
@@ -128,7 +129,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
 
   const handleDelete = async () => {
     try {
-      await api.delete(`/posts/${post._id}`);
+      await api.delete(`/posts/${realId}`);
       onDelete?.(post._id);
     }
     catch (err) { console.error(err); }
@@ -139,7 +140,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
     setIsSaving(true);
     setEditError("");
     try {
-      const res = await api.put(`/posts/${post._id}/edit`, { text: editText.trim() });
+      const res = await api.put(`/posts/${realId}/edit`, { text: editText.trim() });
       onUpdate?.(res.data);
       setIsEditing(false);
       setShowMenu(false);
@@ -198,7 +199,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
     localStorage.setItem("omnixra_saved_posts", JSON.stringify(savedPosts));
 
     try {
-      await api.put(`/profile/save-post/${post._id}`);
+      await api.put(`/profile/save-post/${realId}`);
     } catch (err) {
       console.error(err);
       setSaved(!newSaved);
@@ -291,7 +292,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
           </p>
         )}
 
-        {post.image ? <div className="post-image-container mt-4"><img src={post.image} alt="Post" className="post-image" loading="lazy" /></div> : post.hasImage ? <PostImage postId={post._id} /> : null}
+        {post.image ? <div className="post-image-container mt-4"><img src={post.image} alt="Post" className="post-image" loading="lazy" /></div> : post.hasImage ? <PostImage postId={realId} /> : null}
         {post.video && <ModernVideoPlayer src={post.video} text={post.text} authorName={authorName} />}
 
         {!isPending && !isEditing && (

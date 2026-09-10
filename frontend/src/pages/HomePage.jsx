@@ -11,24 +11,73 @@ function HomePage({ setPage, setSelectedUserId }) {
   const { posts, loading, loadingMore, hasMore, fetchPosts, loadMorePosts, removePost, updatePost } = usePosts();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showLoadingDots, setShowLoadingDots] = useState(false);
   const sentinelRef = useRef(null);
+  const loadingTimerRef = useRef(null);
+  const lastScrollRef = useRef(Date.now());
+  const autoLoadTimerRef = useRef(null);
+  const autoLoadCountRef = useRef(0);
   const { user } = useAuth();
 
+  // Initial fetch
   useEffect(() => {
     fetchPosts();
   }, [fetchPosts]);
 
+  // Track scroll activity
   useEffect(() => {
-    if (!sentinelRef.current || !hasMore || loadingMore) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) {
+    const onScroll = () => { lastScrollRef.current = Date.now(); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // TIME-BASED AUTO-LOAD: every 2 seconds, load next page
+  useEffect(() => {
+    autoLoadTimerRef.current = setInterval(() => {
+      const secondsSinceScroll = (Date.now() - lastScrollRef.current) / 1000;
+      if (secondsSinceScroll < 30) {
+        autoLoadCountRef.current += 1;
+        console.log("📱 [AUTO-LOAD] auto load #" + autoLoadCountRef.current);
         loadMorePosts();
       }
-    }, { rootMargin: '200px' });
+    }, 2000);
+
+    return () => {
+      if (autoLoadTimerRef.current) clearInterval(autoLoadTimerRef.current);
+    };
+  }, []);
+
+  // Fallback: if user scrolls to bottom, load more manually
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          console.log("📱 [SCROLL] User reached bottom, loading 2 pages");
+          loadMorePosts();
+          setTimeout(() => loadMorePosts(), 500);
+        }
+      },
+      { rootMargin: "200px 0px" }
+    );
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [hasMore, loadingMore, loadMorePosts]);
+  }, []);
 
+  // Show loading dots ONLY if loading takes longer than 800ms
+  useEffect(() => {
+    if (loadingMore) {
+      loadingTimerRef.current = setTimeout(() => setShowLoadingDots(true), 1500);
+    } else {
+      setShowLoadingDots(false);
+      if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+    }
+    return () => {
+      if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+    };
+  }, [loadingMore]);
+
+  // Unread count
   useEffect(() => {
     fetchUnreadCount();
     const handleUnreadCount = (event) => setUnreadCount(event.detail?.count || 0);
@@ -102,12 +151,10 @@ function HomePage({ setPage, setSelectedUserId }) {
               ))}
               {hasMore && (
                 <div ref={sentinelRef} className="flex flex-col items-center py-6">
-                  {loadingMore ? (
+                  {showLoadingDots ? (
                     <LoadingDots />
                   ) : (
-                    <button onClick={loadMorePosts} className="outline-button text-xs">
-                      Load more posts
-                    </button>
+                    <div style={{ height: 30 }} />
                   )}
                 </div>
               )}
@@ -125,4 +172,5 @@ function HomePage({ setPage, setSelectedUserId }) {
     </div>
   );
 }
+
 export default HomePage;
