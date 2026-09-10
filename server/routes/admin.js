@@ -191,4 +191,37 @@ router.delete("/users/:userId", protect, adminOnly, async (req, res) => {
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 
+// MANUAL: Enrich job details
+router.post("/enrich-jobs", protect, adminOnly, async (req, res) => {
+  try {
+    const { enrichJobs } = await import("../scraper/enrichJobs.js");
+    const result = await enrichJobs({ onlyMissing: true, limit_count: 50 });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// MANUAL: Run scraper now
+router.post("/run-scraper", protect, adminOnly, async (req, res) => {
+  try {
+    const { runScraper } = await import("../scraper/index.js");
+    const result = await runScraper();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// MANUAL: Run AI job generation now
+router.post("/generate-ai-jobs", protect, adminOnly, async (req, res) => {
+  try {
+    const { generateDailyAIJobs } = await import("../scraper/generateAIJobs.js");
+    const result = await generateDailyAIJobs();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;

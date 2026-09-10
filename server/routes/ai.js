@@ -80,52 +80,62 @@ function getJobTitlesForCategory(category) {
 router.post("/jobs", protect, async (req, res) => {
   try {
     const { query } = req.body;
-    let category = detectCategory(query || "") || req.user.category || "General";
-    console.log(`Job search: query="${query}", category="${category}"`);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-    // Get up to 10 active jobs for this category
-    let existingJobs = await Job.find({ active: true, category }).sort({ createdAt: -1 }).limit(10);
-    
-    // If fewer than 5, generate new ones to fill the pool
-    if (existingJobs.length < 5) {
-      const companies = await Company.find().limit(20);
+    let category = detectCategory(query || "") || req.user.category || "General";
+    console.log(`Job search: query="${query}", category="${category}", page=${page}`);
+
+    let totalInCategory = await Job.countDocuments({ active: true, category });
+
+    if (totalInCategory < 30) {
+      const companies = await Company.find().limit(50);
       const titles = getJobTitlesForCategory(category);
       const shuffledCompanies = companies.sort(() => Math.random() - 0.5);
       const shuffledTitles = [...titles].sort(() => Math.random() - 0.5);
-      const needed = 5 - existingJobs.length;
-      
+      const needed = 30 - totalInCategory;
+
       for (let i = 0; i < Math.min(needed, shuffledCompanies.length); i++) {
         const company = shuffledCompanies[i];
         const title = shuffledTitles[i % shuffledTitles.length];
         const deadline = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-        
-        const job = await Job.create({
-          title,
-          company: company.name,
-          companyId: company._id,
-          location: company.location || "Zimbabwe",
-          category,
-          description: `${company.name} is seeking a ${title} to join their team in ${company.location || "Zimbabwe"}. Apply now!`,
-          salary: null,
-          type: "Full-time",
-          deadline,
-          email: company.email,
-          source: "ai-generated",
-          active: true
-        });
-        job.slug = generateJobSlug(category, title, company.name, job._id);
-        await job.save();
-        existingJobs.push(job);
+
+        try {
+          const job = await Job.create({
+            title,
+            company: company.name,
+            companyId: company._id,
+            location: company.location || "Zimbabwe",
+            category,
+            description: `${company.name} is seeking a ${title} to join their team in ${company.location || "Zimbabwe"}. Apply now!`,
+            salary: null,
+            type: "Full-time",
+            deadline,
+            email: company.email,
+            source: "ai-generated",
+            active: true
+          });
+          job.slug = generateJobSlug(category, title, company.name, job._id);
+          await job.save();
+        } catch (err) {
+          if (err.code !== 11000) console.error(err.message);
+        }
       }
+      totalInCategory = await Job.countDocuments({ active: true, category });
     }
-    
-    // Shuffle and return 5 jobs for variety
-    const shuffledJobs = existingJobs.sort(() => Math.random() - 0.5).slice(0, 5);
-    
-    const text = shuffledJobs.length > 0
-      ? `I found ${shuffledJobs.length} opportunities for ${category}. Here they are:`
-      : "I couldn't find exact matches. Try different keywords.";
-    res.json({ jobs: shuffledJobs, text });
+
+    const jobs = await Job.find({ active: true, category })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    const hasMore = page * limit < totalInCategory;
+
+    const text = jobs.length > 0
+      ? `Found ${jobs.length} opportunities for ${category}.`
+      : "No jobs found for this category.";
+
+    res.json({ jobs, hasMore, total: totalInCategory, page, text });
   } catch (error) {
     console.error("Find jobs error:", error);
     res.status(500).json({ message: error.message });

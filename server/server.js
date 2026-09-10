@@ -19,6 +19,7 @@ import newsRoutes from "./routes/news.js";
 import messageRoutes from "./routes/messages.js";
 import boostRoutes from "./routes/boosts.js";
 import scrapedJobRoutes from "./routes/scrapedJobs.js";
+import remoteJobRoutes from "./routes/remoteJobs.js";
 import videoRoutes from "./routes/video.js";
 import shareRoutes from "./routes/share.js";
 import seoRoutes from "./routes/seo.js";
@@ -27,6 +28,8 @@ import Post from "./models/Post.js";
 import User from "./models/User.js";
 import { askAI } from "./utils/aiService.js";
 import { runScraper } from "./scraper/index.js";
+import { generateDailyAIJobs } from "./scraper/generateAIJobs.js";
+import { enrichJobs } from "./scraper/enrichJobs.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,6 +53,7 @@ app.use("/api/news", newsRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/boosts", boostRoutes);
 app.use("/api/scraped-jobs", scrapedJobRoutes);
+app.use("/api/remote-jobs", remoteJobRoutes);
 app.use("/api/video", videoRoutes);
 app.use("/api/connections", connectionRoutes);
 app.use("/share", shareRoutes);
@@ -168,9 +172,43 @@ const io = initSocket(server);
 connectDB().then(() => {
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    // Daily AI news
     generateDailyNewsIfNeeded();
     setInterval(generateDailyNewsIfNeeded, 24 * 60 * 60 * 1000);
+
+    // 🕐 Job scraper runs 3 times per day: 8am, 12pm, 4pm
+    console.log("📅 Scheduling scraper: 3x daily (8am, 12pm, 4pm)");
     runScraper().catch(err => console.error("Scraper error:", err.message));
-    setInterval(() => runScraper().catch(err => console.error("Scraper error:", err.message)), 6 * 60 * 60 * 1000);
+    setInterval(() => {
+      const hour = new Date().getHours();
+      if (hour === 8 || hour === 12 || hour === 16) {
+        console.log(`⏰ Scheduled scrape at ${hour}:00`);
+        runScraper().catch(err => console.error("Scraper error:", err.message));
+      }
+    }, 60 * 60 * 1000);
+
+    // 🔍 Enrich job details every 6 hours
+    console.log("📅 Scheduling job enrichment: every 6 hours");
+    setTimeout(() => {
+      enrichJobs({ onlyMissing: true, limit_count: 30 }).catch(err => console.error("Enrich error:", err.message));
+    }, 10000);
+    setInterval(() => {
+      console.log("⏰ Scheduled enrichment");
+      enrichJobs({ onlyMissing: true, limit_count: 30 }).catch(err => console.error("Enrich error:", err.message));
+    }, 6 * 60 * 60 * 1000); // check every hour
+
+    // ✨ AI job generation runs daily at 6am
+    console.log("📅 Scheduling AI job generation: daily at 6am");
+    setTimeout(() => {
+      generateDailyAIJobs().catch(err => console.error("AI jobs error:", err.message));
+    }, 5000); // Run once 5s after startup
+
+    setInterval(() => {
+      const hour = new Date().getHours();
+      if (hour === 6) {
+        console.log(`⏰ Daily AI job generation at ${hour}:00`);
+        generateDailyAIJobs().catch(err => console.error("AI jobs error:", err.message));
+      }
+    }, 60 * 60 * 1000);
   });
 });

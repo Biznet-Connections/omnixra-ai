@@ -1,7 +1,7 @@
 import crypto from "crypto";
 
-export function generateFingerprint(title, company, location) {
-  const str = `${title.toLowerCase()}|${company.toLowerCase()}|${location.toLowerCase()}`;
+export function generateFingerprint(title, company, location, sourceUrl = "") {
+  const str = `${title.toLowerCase()}|${company.toLowerCase()}|${location.toLowerCase()}|${sourceUrl.toLowerCase()}`;
   return crypto.createHash("md5").update(str).digest("hex");
 }
 
@@ -9,7 +9,8 @@ export function normalizeJob(rawJob, source) {
   const fingerprint = generateFingerprint(
     rawJob.title || "",
     rawJob.company || "",
-    rawJob.location || ""
+    rawJob.location || "",
+    rawJob.sourceUrl || rawJob.applicationUrl || ""
   );
 
   return {

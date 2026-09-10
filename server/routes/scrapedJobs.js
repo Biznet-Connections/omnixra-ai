@@ -3,13 +3,21 @@ import ScrapedJob from "../models/ScrapedJob.js";
 
 const router = express.Router();
 
-// GET all scraped jobs (removed strict filters)
+// GET all scraped jobs (paginated)
 router.get("/", async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await ScrapedJob.countDocuments({});
     const jobs = await ScrapedJob.find({})
       .sort({ dateScraped: -1, createdAt: -1 })
-      .limit(100);
-    res.json(jobs);
+      .skip(skip)
+      .limit(limit);
+    const hasMore = page * limit < total;
+
+    res.json({ jobs, hasMore, total, page });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

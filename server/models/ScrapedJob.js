@@ -25,7 +25,7 @@ const scrapedJobSchema = new mongoose.Schema(
     source: { type: String },
     sourceUrl: { type: String },
     sourceJobId: { type: String },
-    fingerprint: { type: String, unique: true },
+    fingerprint: { type: String },
     isExpired: { type: Boolean, default: false },
     lastChecked: { type: Date, default: Date.now },
     dateScraped: { type: Date, default: Date.now },

@@ -26,6 +26,8 @@ const jobSchema = new mongoose.Schema(
 );
 
 jobSchema.index({ slug: 1 }, { unique: true, sparse: true });
+// Prevent duplicate AI jobs for the same company+title
+jobSchema.index({ title: 1, company: 1, source: 1 }, { unique: true, sparse: true });
 
 const Job = mongoose.model("Job", jobSchema);
 export default Job;

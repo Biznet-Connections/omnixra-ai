@@ -41,11 +41,21 @@ function calculateMatch(userCategory, jobCategory, userSkills = []) {
   return Math.floor(Math.random() * 10) + 5;
 }
 
-// GET all active jobs
+// GET all active jobs (paginated)
 router.get("/", async (req, res) => {
   try {
-    const jobs = await Job.find({ active: true }).sort({ createdAt: -1 });
-    res.json(jobs);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Job.countDocuments({ active: true });
+    const jobs = await Job.find({ active: true })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    const hasMore = page * limit < total;
+
+    res.json({ jobs, hasMore, total, page });
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 

@@ -4849,3 +4849,91 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
 .admin-voucher-meta .used { color: #ef4444; }
 .admin-voucher-meta .available { color: #10b981; }
 
+
+/* ============ JOBS TABS ============ */
+
+.jobs-tabs-row {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin: 24px 0 20px;
+  padding: 16px 0;
+}
+
+.jobs-tab-circle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.jobs-tab-ring {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(99, 102, 241, 0.08);
+  border: 2px solid rgba(99, 102, 241, 0.2);
+  color: #94a3b8;
+  transition: all 0.3s;
+}
+
+.jobs-tab-circle.active .jobs-tab-ring {
+  background: linear-gradient(135deg, var(--tab-color), var(--tab-color));
+  border-color: var(--tab-color);
+  color: white;
+  box-shadow: 0 0 25px var(--tab-color), 0 0 50px rgba(99, 102, 241, 0.3);
+  transform: scale(1.1);
+}
+
+.jobs-tab-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #06070b;
+}
+
+.jobs-tab-label {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  transition: color 0.3s;
+}
+
+.jobs-tab-circle.active .jobs-tab-label {
+  color: white;
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .jobs-tabs-row {
+    gap: 18px;
+  }
+  .jobs-tab-ring {
+    width: 52px;
+    height: 52px;
+  }
+  .jobs-tab-label {
+    font-size: 9px;
+  }
+}

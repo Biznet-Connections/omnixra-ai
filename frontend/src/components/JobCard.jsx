@@ -6,7 +6,7 @@ import ApplyModal from "./ApplyModal";
 import PremiumModal from "./PremiumModal";
 import { shareJob } from "../utils/share";
 
-function JobCard({ job }) {
+function JobCard({ job, tab = "omnixra" }) {
   const { user } = useAuth();
   const [saved, setSaved] = useState(false);
   const [applied, setApplied] = useState(false);
@@ -49,10 +49,15 @@ function JobCard({ job }) {
                 <div className="font-semibold text-sm truncate">{job.title}</div>
                 <div className="text-[11px] text-slate-600 mt-1">{job.company}</div>
                 {job.source === "scraped" && (
-                  <div className="text-[9px] text-slate-500 mt-0.5">via {job.source}</div>
+                  <div className="text-[9px] text-slate-500/70 mt-0.5 italic">
+                    via {job.sourceUrl?.includes("iharare") ? "iharare" : job.sourceUrl?.includes("vacancymail") ? "vacancymail" : job.sourceUrl?.includes("zimbojobs") ? "zimbojobs" : "external"}
+                  </div>
                 )}
                 {job.source === "ai-generated" && (
-                  <div className="text-[9px] text-slate-500 mt-0.5">Omnixra Job</div>
+                  <div className="text-[9px] text-indigo-400/70 mt-0.5">Omnixra Job</div>
+                )}
+                {job.source === "jsearch" && (
+                  <div className="text-[9px] text-slate-500/70 mt-0.5 italic">via JSearch</div>
                 )}
               </div>
               <div className={`match-badge ${matchColor}`}>{match}% Match</div>
@@ -66,7 +71,16 @@ function JobCard({ job }) {
         </div>
         <div className="card-actions">
           <button onClick={() => setShowDetail(true)} className="outline-button"><ExternalLink size={13} />View</button>
-          <button onClick={() => setShowApply(true)} className={`apply-button ${applied ? "applied" : ""}`}>
+          <button
+            onClick={() => {
+              if (tab === "scraped" && job.applicationUrl) {
+                window.open(job.applicationUrl, "_blank");
+              } else {
+                setShowApply(true);
+              }
+            }}
+            className={`apply-button ${applied ? "applied" : ""}`}
+          >
             {applied ? <Check size={13} /> : <Send size={13} />} {applied ? "Applied" : "Apply"}
           </button>
           <button onClick={() => setSaved(!saved)} className={`save-button ${saved ? "save-active" : ""}`}>
@@ -74,7 +88,9 @@ function JobCard({ job }) {
           </button>
           <button onClick={handleShare} className="outline-button"><Share2 size={13} />Share</button>
           <button onClick={handleApplyForMe} className="outline-button text-indigo-400"><Sparkles size={13} />Apply for me</button>
-          <button onClick={() => setShowPremium(true)} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
+          {tab === "omnixra" && (
+            <button onClick={() => setShowPremium(true)} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
+          )}
         </div>
       </div>
 

@@ -18,6 +18,7 @@
     "jsonwebtoken": "latest",
     "mongoose": "latest",
     "multer": "^2.3.0",
+    "p-limit": "^7.3.2",
     "path": "latest",
     "socket.io": "^4.8.3"
   }

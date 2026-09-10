@@ -1,43 +1,56 @@
 import axios from "axios";
-import * as cheerio from "cheerio";
 
 export async function scrapeZimboJobs() {
   console.log("=== SCRAPING ZIMBOJOBS ===");
   const jobs = [];
-  
+
   try {
-    const response = await axios.get("https://zimbojobs.com/jobs/", {
+    const response = await axios.get("https://zimbojobs.com/", {
       timeout: 15000,
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
     });
-    
-    const $ = cheerio.load(response.data);
-    
-    $(".job-listing, .job-item, article, .job-card").each((i, el) => {
-      const title = $(el).find(".job-title, h2, h3, a").first().text().trim();
-      const company = $(el).find(".company, .employer").text().trim() || "Unknown Company";
-      const location = $(el).find(".location").text().trim() || "Zimbabwe";
-      const link = $(el).find("a").attr("href") || "";
-      const description = $(el).find(".description, .excerpt").text().trim() || "";
-      
-      if (title && !title.includes("Login") && !title.includes("Register")) {
-        jobs.push({
-          title,
-          company,
-          location,
-          applicationUrl: link.startsWith("http") ? link : `https://zimbojobs.com${link}`,
-          source: "ZimboJobs",
-          sourceUrl: `https://zimbojobs.com${link}`,
-          description,
-          sourceJobId: `zimbojobs-${i}`
-        });
-      }
-    });
-    
-    console.log(`ZimboJobs: ${jobs.length} jobs found`);
+
+    const html = response.data;
+
+    // Extract all __next_f.push payloads
+    const pushes = [...html.matchAll(/self\.__next_f\.push\(\[1,"(.+?)"\]\)/gs)];
+    const combined = pushes.map(m => {
+      try {
+        return JSON.parse(`"${m[1]}"`);
+      } catch { return ""; }
+    }).join("");
+
+    // Find the jobs array
+    const jobsMatch = combined.match(/"jobs":(\[.*?\])/s);
+    if (!jobsMatch) {
+      console.log("ZimboJobs: no jobs array found in payload");
+      return jobs;
+    }
+
+    const jobsArray = JSON.parse(jobsMatch[1]);
+    console.log(`ZimboJobs: found ${jobsArray.length} jobs in payload`);
+
+    for (const j of jobsArray) {
+      if (!j._id || !j.title) continue;
+
+      const absoluteUrl = `https://zimbojobs.com/jobs/${j._id}`;
+
+      jobs.push({
+        title: j.title,
+        company: j.company || "ZimWorX",
+        location: j.location || "Zimbabwe",
+        applicationUrl: absoluteUrl,
+        source: "ZimboJobs",
+        sourceUrl: absoluteUrl,
+        description: j.description || `Join the ZimWorX team as a ${j.title} in ${j.location || "Zimbabwe"}. This is a full-time position offering excellent growth opportunities. Click to apply on ZimboJobs.`,
+        sourceJobId: `zimbojobs-${j._id}`
+      });
+    }
+
+    console.log(`ZimboJobs total: ${jobs.length} jobs`);
   } catch (error) {
     console.error("ZimboJobs scrape error:", error.message);
   }
-  
+
   return jobs;
 }
