@@ -1,3 +1,8 @@
+:root {
+  --bottom-nav-height: 60px;
+  --chat-bottom-space: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+}
+
 @import "tailwindcss";
 
 :root {
@@ -1003,10 +1008,12 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
 .chat-page {
   position: relative;
   width: 100%;
-  height: calc(100dvh - 60px);
+  height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  padding-bottom: var(--chat-bottom-space);
+  box-sizing: border-box;
   overflow: hidden;
   background: radial-gradient(circle at 50% 0%, rgba(99,102,241,.04), transparent 35%);
 }
@@ -1652,9 +1659,6 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
   }
   .app-header {
     height: 54px;
-  }
-  .chat-page {
-    height: calc(100vh - 54px);
   }
   .auth-header {
     gap: 12px;
@@ -3580,88 +3584,6 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
   z-index: 10;
 }
 
-/* ============ AI CHAT COMPOSER FIX — Stays at bottom ============ */
-
-.chat-page {
-  position: relative !important;
-  height: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
-  flex: 1 !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-}
-
-.chat-scroll {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-}
-
-.chat-composer-area {
-  flex-shrink: 0 !important;
-  position: sticky !important;
-  bottom: 0 !important;
-  z-index: 10 !important;
-}
-
-/* ============ AI CHAT COMPOSER DEFINITIVE FIX ============ */
-
-/* Override everything - composer ALWAYS visible */
-.chat-page {
-  height: calc(100vh - 60px) !important;
-  height: calc(100dvh - 60px) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  position: relative !important;
-  flex: 1 !important;
-  min-height: 0 !important;
-}
-
-.chat-scroll {
-  flex: 1 1 0 !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-}
-
-.chat-container {
-  padding-bottom: 20px !important;
-}
-
-.chat-composer-area {
-  flex-shrink: 0 !important;
-  flex-grow: 0 !important;
-  position: relative !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  width: 100% !important;
-  z-index: 100 !important;
-  background: #06070b !important;
-  padding: 8px 14px 10px !important;
-  margin: 0 !important;
-}
-
-/* Desktop - no bottom nav, use full height */
-@media (min-width: 769px) {
-  .chat-page {
-    height: 100vh !important;
-    height: 100dvh !important;
-  }
-}
-
-
-/* Desktop override - no bottom nav */
-@media (min-width: 769px) {
-  .chat-page {
-    height: 100%;
-    min-height: 0;
-  }
-}
-
 /* ============ AI CHAT WELCOME VISIBLE FIX ============ */
 
 /* Add bottom padding so welcome section isn't hidden behind composer */
@@ -4937,3 +4859,18 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
     font-size: 9px;
   }
 }
+
+/* On desktop, make sure the messages container doesn't overlap the composer */
+@media (min-width: 769px) {
+  .chat-scroll {
+    padding-bottom: 4px;
+  }
+}
+
+/* PWA standalone mode adjustments */
+@media (display-mode: standalone) {
+  .chat-composer-area {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+
