@@ -35,7 +35,10 @@ function ChatPage() {
         const res = await api.post("/ai/chat", { messages: chatHistory });
         setMessages(prev => [...prev, { role: "assistant", text: res.data.text, chatId: res.data.chatId }]);
       }
-    } catch (err) { setMessages(prev => [...prev, { role: "assistant", text: "I'm having trouble. Please try again." }]); }
+    } catch (err) {
+      const errMsg = err.response?.data?.message || "I'm having trouble. Please try again.";
+      setMessages(prev => [...prev, { role: "assistant", text: errMsg }]);
+    }
     finally { setTyping(false); }
   };
 

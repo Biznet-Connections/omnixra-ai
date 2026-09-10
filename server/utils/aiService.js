@@ -56,7 +56,7 @@ export const askAI = async (messages) => {
       return response.data.choices[0].message.content;
     } catch (openaiError) {
       console.error("OpenAI also failed:", openaiError.response?.data?.error?.message || openaiError.message);
-      return "I'm having trouble connecting to my AI brain right now. Please try again in a moment.";
+      throw new Error("AI service unavailable");
     }
   }
 };

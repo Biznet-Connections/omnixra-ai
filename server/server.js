@@ -90,6 +90,12 @@ async function generateDailyNewsIfNeeded() {
       { role: "system", content: systemPrompt },
       { role: "user", content: "Create the daily news update." }
     ]);
+    // Validate before posting
+    if (!aiResponse || typeof aiResponse !== "string" || aiResponse.trim().length < 50) {
+      console.error("News generation skipped: AI returned invalid/empty response");
+      return;
+    }
+
     const post = await Post.create({
       author: aiUserId,
       authorType: "ai",
@@ -98,7 +104,7 @@ async function generateDailyNewsIfNeeded() {
     });
     console.log("AI news generated.");
   } catch (error) {
-    console.error("News generation failed:", error);
+    console.error("News generation failed (skipping post):", error.message);
   }
 }
 

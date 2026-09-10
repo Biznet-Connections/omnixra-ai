@@ -143,7 +143,17 @@ Be warm, helpful, and professional. Always support the user regardless of educat
       role: m.role === "ai" || m.role === "assistant" ? "assistant" : m.role,
       content: m.content || m.text
     }));
-    const aiResponse = await askAI([{ role: "system", content: systemPrompt }, ...formattedMessages]);
+    let aiResponse;
+    try {
+      aiResponse = await askAI([{ role: "system", content: systemPrompt }, ...formattedMessages]);
+    } catch (aiErr) {
+      console.error("AI call failed:", aiErr.message);
+      return res.status(503).json({ message: "AI is having trouble right now. Please try again in a moment." });
+    }
+
+    if (!aiResponse || typeof aiResponse !== "string" || !aiResponse.trim()) {
+      return res.status(503).json({ message: "AI returned an empty response. Please try again." });
+    }
     
     // Save to chat history
     const chat = await Chat.create({
@@ -221,12 +231,21 @@ router.post("/analyze-person", protect, async (req, res) => {
     const person = await User.findById(personId).select("-password");
     if (!person) return res.status(404).json({ message: "Person not found" });
     const prompt = `Candidate: ${person.name}\nCategory: ${person.category}\nHeadline: ${person.headline || "N/A"}\nSkills: ${person.skills?.join(", ") || "N/A"}\nLocation: ${person.location || "N/A"}\nPremium: ${person.isPremium ? "Yes" : "No"}\nQuestion: ${question}`;
-    const aiResponse = await askAI([
-      { role: "system", content: "You are Omnixra AI. Analyse candidates honestly." },
-      { role: "user", content: prompt }
-    ]);
+    let aiResponse;
+    try {
+      aiResponse = await askAI([
+        { role: "system", content: "You are Omnixra AI. Analyse candidates honestly." },
+        { role: "user", content: prompt }
+      ]);
+    } catch (aiErr) {
+      return res.status(503).json({ message: "AI is having trouble. Please try again." });
+    }
+    if (!aiResponse || typeof aiResponse !== "string" || !aiResponse.trim()) {
+      return res.status(503).json({ message: "AI returned an empty response." });
+    }
     res.json({ text: aiResponse });
   } catch (error) {
+    console.error("Analyze error:", error.message);
     res.status(500).json({ message: error.message });
   }
 });
