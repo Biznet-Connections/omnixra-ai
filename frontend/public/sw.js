@@ -1,6 +1,6 @@
 console.log("🔥 Service Worker loaded");
 
-const CACHE_NAME = 'omnixra-cache-v2';
+const CACHE_NAME = 'omnixra-cache-v3';
 const STATIC_ASSETS = ['/manifest.json', '/favicon.svg', '/icons/icon.svg'];
 
 self.addEventListener('install', (event) => {

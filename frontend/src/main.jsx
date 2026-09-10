@@ -12,8 +12,11 @@ if ('serviceWorker' in navigator) {
     registrations.forEach(reg => reg.unregister());
   }).then(() => {
     if (import.meta.env.PROD) {
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log("🔥 SW registered:", reg.scope))
+      navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+        .then(reg => {
+          console.log("🔥 SW registered:", reg.scope);
+          reg.update();
+        })
         .catch(err => console.error("SW registration failed:", err));
     }
   });
