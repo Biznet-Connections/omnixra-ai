@@ -21,9 +21,14 @@ export const SocketProvider = ({ children }) => {
     }
 
     const token = localStorage.getItem("omnixra_token");
-    const newSocket = io("/", {
+    const newSocket = io({
       auth: { token },
-      transports: ["websocket", "polling"]
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 10,
+      timeout: 20000
     });
 
     newSocket.on("connect", () => {

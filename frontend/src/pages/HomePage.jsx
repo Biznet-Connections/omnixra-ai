@@ -34,6 +34,10 @@ function HomePage({ setPage, setSelectedUserId }) {
   // TIME-BASED AUTO-LOAD: every 2 seconds, load next page
   useEffect(() => {
     autoLoadTimerRef.current = setInterval(() => {
+      // Don't auto-load if feed is empty
+      if (posts.length === 0) return;
+      // Don't auto-load if we already have everything
+      if (!hasMore) return;
       const secondsSinceScroll = (Date.now() - lastScrollRef.current) / 1000;
       if (secondsSinceScroll < 30) {
         autoLoadCountRef.current += 1;
@@ -45,14 +49,14 @@ function HomePage({ setPage, setSelectedUserId }) {
     return () => {
       if (autoLoadTimerRef.current) clearInterval(autoLoadTimerRef.current);
     };
-  }, []);
+  }, [posts.length, hasMore]);
 
   // Fallback: if user scrolls to bottom, load more manually
   useEffect(() => {
     if (!sentinelRef.current) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0].isIntersecting && posts.length > 0 && hasMore) {
           console.log("📱 [SCROLL] User reached bottom, loading 2 pages");
           loadMorePosts();
           setTimeout(() => loadMorePosts(), 500);

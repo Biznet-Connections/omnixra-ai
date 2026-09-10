@@ -54,6 +54,12 @@ export const PostsProvider = ({ children }) => {
 
     // Endless loop: when we run out, restart from page 1 with shuffled order
     if (!hasMoreRef.current) {
+      // Don't loop if we have no posts
+      if (posts.length === 0) {
+        console.log("📱 [FEED] No posts in DB — stopping loop");
+        loadingRef.current = false;
+        return;
+      }
       console.log("📱 [FEED] No more posts — looping back with shuffle");
       try {
         const res = await api.get("/posts?page=1&limit=7");
@@ -77,10 +83,8 @@ export const PostsProvider = ({ children }) => {
 
     setLoadingMore(true);
     try {
-      console.log("📱 [FEED] Fetching page " + pageRef.current);
       const res = await api.get(`/posts?page=${pageRef.current}&limit=7`);
       const data = res.data;
-      console.log("📱 [FEED] Page " + pageRef.current + " returned " + (data.posts?.length || 0) + " posts, hasMore=" + data.hasMore);
       setPosts(prev => {
         const existingIds = new Set(prev.map(p => p._id));
         const newPosts = (data.posts || []).filter(p => !existingIds.has(p._id));
@@ -95,7 +99,7 @@ export const PostsProvider = ({ children }) => {
       loadingRef.current = false;
       setLoadingMore(false);
     }
-  }, []);
+  }, [posts.length]);
 
   const addPost = (post) => setPosts(prev => [post, ...prev]);
   const updatePost = (updatedPost) => setPosts(prev => prev.map(p => p._id === updatedPost._id ? updatedPost : p));

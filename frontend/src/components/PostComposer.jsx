@@ -100,6 +100,8 @@ function PostComposer({ onClose, onPosted }) {
 
   const handleSubmit = async () => {
     if (!text.trim() && !image && !video) { setError("Write something or add a photo/video."); return; }
+    if (posting) return; // ← prevent double-submit
+    if (posted) return;   // ← prevent re-post after success
     setPosting(true);
 
     const optimisticPost = {
