@@ -11,8 +11,8 @@ import { sharePost } from "../utils/share";
 
 function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onViewProfile }) {
   const { user } = useAuth();
-  const [liked, setLiked] = useState(post.likes?.includes(user?._id) || false);
-  const [likeCount, setLikeCount] = useState(post.likes?.length || 0);
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(typeof post.likes === 'number' ? post.likes : 0);
   const [saved, setSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -57,7 +57,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
 
     try {
       const res = await api.put(`/posts/${post._id}/like`);
-      setLikeCount(res.data.likes?.length || likeCount);
+      setLikeCount(typeof res.data.likes === 'number' ? res.data.likes : likeCount);
       onUpdate?.(res.data);
     } catch (err) {
       console.error(err);
@@ -243,7 +243,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
           </p>
         )}
 
-        {post.image && <div className="post-image-container mt-4"><img src={post.image} alt="Post" className="post-image" /></div>}
+        {post.image ? <div className="post-image-container mt-4"><img src={post.image} alt="Post" className="post-image" loading="lazy" /></div> : post.hasImage ? <PostImage postId={post._id} /> : null}
         {post.video && <ModernVideoPlayer src={post.video} text={post.text} authorName={authorName} />}
 
         {!isPending && !isEditing && (
@@ -260,8 +260,8 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
             </div>
             <div className="post-stat-numbers">
               <span>{likeCount}</span>
-              <span>{post.comments?.length || 0}</span>
-              <span></span>
+              <span>{post.totalComments || post.comments?.length || 0}</span>
+              <span>{post.shares || 0}</span>
               <span></span>
             </div>
           </>
@@ -271,4 +271,22 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
     </>
   );
 }
+function PostImage({ postId }) {
+  const [image, setImage] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    api.get(`/posts/${postId}/image`)
+      .then(res => { if (mounted) setImage(res.data.image); })
+      .catch(() => {})
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, [postId]);
+
+  if (loading) return <div className="post-image-container mt-4"><div className="post-image-placeholder">Loading image...</div></div>;
+  if (!image) return null;
+  return <div className="post-image-container mt-4"><img src={image} alt="Post" className="post-image" loading="lazy" /></div>;
+}
+
 export default PostCard;

@@ -110,7 +110,7 @@ function PostComposer({ onClose, onPosted }) {
       image,
       video,
       visibility,
-      likes: [],
+      likes: 0,
       comments: [],
       shares: 0,
       createdAt: new Date(),

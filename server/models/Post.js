@@ -29,5 +29,9 @@ const postSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Indexes for fast feed queries
+postSchema.index({ deleted: 1, createdAt: -1 });
+postSchema.index({ author: 1, deleted: 1, createdAt: -1 });
+
 const Post = mongoose.model("Post", postSchema);
 export default Post;
