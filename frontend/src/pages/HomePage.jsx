@@ -7,52 +7,27 @@ import { usePosts } from "../context/PostsContext";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 
-function HomePage({ setPage, setSelectedUserId, focusPostId }) {
-  const { posts, loading, removePost, updatePost, interleavePosts } = usePosts();
+function HomePage({ setPage, setSelectedUserId }) {
+  const { posts, loading, loadingMore, hasMore, fetchPosts, loadMorePosts, removePost, updatePost } = usePosts();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [visiblePosts, setVisiblePosts] = useState([]);
   const sentinelRef = useRef(null);
   const { user } = useAuth();
 
-  // Use posts directly from context (already interleaved)
   useEffect(() => {
-    setVisiblePosts(posts);
-  }, [posts]);
+    fetchPosts();
+  }, [fetchPosts]);
 
-  // Infinite scroll: when sentinel is visible, append an interleaved copy
   useEffect(() => {
-    if (!sentinelRef.current || posts.length === 0) return;
+    if (!sentinelRef.current || !hasMore || loadingMore) return;
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) {
-        const copy = interleavePosts(posts, user?._id).map(p => ({
-          ...p,
-          _id: `${p._id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
-        }));
-        setVisiblePosts(prev => [...prev, ...copy]);
+        loadMorePosts();
       }
     }, { rootMargin: '200px' });
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [posts, visiblePosts, user?._id]);
-
-  // Scroll to focused post
-  useEffect(() => {
-    if (focusPostId && visiblePosts.length > 0) {
-      const target = document.getElementById(`post-${focusPostId}`);
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [focusPostId, visiblePosts]);
-
-  // Quick actions
-  const quickActions = [
-    { icon: User, label: "Profile", action: () => setShowProfileMenu(true) },
-    { icon: UserCheck, label: "Following", action: () => setPage("following") },
-    { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
-    { icon: Newspaper, label: "News", action: () => setPage("news") },
-    { icon: Briefcase, label: "Applications", action: () => setPage("applications") },
-    { icon: FileText, label: "My Posts", action: () => setPage("my-posts") }
-  ];
+  }, [hasMore, loadingMore, loadMorePosts]);
 
   useEffect(() => {
     fetchUnreadCount();
@@ -73,6 +48,15 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
     } catch (err) { console.error(err); }
   };
 
+  const quickActions = [
+    { icon: User, label: "Profile", action: () => setShowProfileMenu(true) },
+    { icon: UserCheck, label: "Following", action: () => setPage("following") },
+    { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
+    { icon: Newspaper, label: "News", action: () => setPage("news") },
+    { icon: Briefcase, label: "Applications", action: () => setPage("applications") },
+    { icon: FileText, label: "My Posts", action: () => setPage("my-posts") }
+  ];
+
   return (
     <div className="page-scroll">
       <div className="page-container">
@@ -83,9 +67,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
               <button key={i} onClick={qa.action} className="quick-action-circle">
                 <div className="quick-action-ring relative">
                   <Icon size={22} />
-                  {qa.badge > 0 && (
-                    <span className="quick-action-badge">{qa.badge > 9 ? "9+" : qa.badge}</span>
-                  )}
+                  {qa.badge > 0 && <span className="quick-action-badge">{qa.badge > 9 ? "9+" : qa.badge}</span>}
                 </div>
                 <span>{qa.label}</span>
               </button>
@@ -104,22 +86,31 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
             </div>
           ) : (
             <div className="space-y-3">
-              {visiblePosts.map(post => (
-                <div key={post._id} id={`post-${post._id}`}>
-                  <PostCard
-                    post={post}
-                    onUpdate={updatePost}
-                    onDelete={removePost}
-                    onViewProfile={(author) => {
-                      if (author && author._id) {
-                        setSelectedUserId(author._id);
-                        setPage("user-profile");
-                      }
-                    }}
-                  />
-                </div>
+              {posts.map(post => (
+                <PostCard
+                  key={post._id}
+                  post={post}
+                  onUpdate={updatePost}
+                  onDelete={removePost}
+                  onViewProfile={(author) => {
+                    if (author && author._id) {
+                      setSelectedUserId(author._id);
+                      setPage("user-profile");
+                    }
+                  }}
+                />
               ))}
-              <div ref={sentinelRef} style={{ height: '1px' }} />
+              {hasMore && (
+                <div ref={sentinelRef} className="flex flex-col items-center py-6">
+                  {loadingMore ? (
+                    <LoadingDots />
+                  ) : (
+                    <button onClick={loadMorePosts} className="outline-button text-xs">
+                      Load more posts
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

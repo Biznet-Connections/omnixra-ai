@@ -1,16 +1,31 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Heart, Send } from "lucide-react";
 import api from "../api/axios";
 
 function CommentsBottomSheet({ post, onClose, onUpdate }) {
   const [commentText, setCommentText] = useState("");
-  const [comments, setComments] = useState(post?.comments || []);
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [replyTo, setReplyTo] = useState(null);
   const [replyText, setReplyText] = useState("");
 
+  // Fetch comments when sheet opens
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const res = await api.get(`/posts/${post._id}/comments`);
+        setComments(res.data.comments || []);
+      } catch (err) {
+        console.error("Fetch comments error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchComments();
+  }, [post._id]);
+
   const handleAddComment = async () => {
     if (!commentText.trim()) return;
-    console.log("Adding comment:", commentText.substring(0, 30));
     try {
       const res = await api.post(`/posts/${post._id}/comment`, { text: commentText });
       setComments(res.data.comments || []);
@@ -58,15 +73,19 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
         </div>
 
         <div className="comments-sheet-body">
-          {comments.length === 0 ? (
+          {loading ? (
+            <p className="text-center text-xs text-slate-600 py-8">Loading comments...</p>
+          ) : comments.length === 0 ? (
             <p className="text-center text-xs text-slate-600 py-8">No comments yet. Be the first!</p>
           ) : (
             <div className="space-y-3">
               {comments.map((c, i) => (
-                <div key={i} className="comment-thread">
+                <div key={c._id || i} className="comment-thread">
                   <div className="comment-header">
                     <div className="avatar avatar-xs bg-gradient-to-br from-indigo-500 to-purple-600">
-                      {c.user?.name?.[0] || "U"}
+                      {c.user?.profilePicture ? (
+                        <img src={c.user.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+                      ) : (c.user?.name?.[0] || "U")}
                     </div>
                     <div>
                       <span className="comment-name">{c.user?.name || "User"}</span>

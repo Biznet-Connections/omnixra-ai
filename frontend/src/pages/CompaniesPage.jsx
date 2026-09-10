@@ -3,13 +3,20 @@ import CompanyCard from "../components/CompanyCard";
 import api from "../api/axios";
 import LoadingDots from "../components/LoadingDots";
 
+let cachedCompanies = null;
+
 function CompaniesPage() {
-  const [companies, setCompanies] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [companies, setCompanies] = useState(cachedCompanies || []);
+  const [loading, setLoading] = useState(!cachedCompanies);
 
   useEffect(() => {
+    if (cachedCompanies) return;
     api.get("/companies")
-      .then(res => { setCompanies(res.data); setLoading(false); })
+      .then(res => {
+        cachedCompanies = res.data;
+        setCompanies(res.data);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
