@@ -43,8 +43,8 @@ function JobsPage({ focusJobSlug }) {
   }, [user?.category]);
 
   const fetchOmnixra = async (page = 1) => {
+    setTabLoading(prev => ({ ...prev, omnixra: true }));
     try {
-      // Load ALL Omnixra jobs at once (or first batch if many)
       const res = await api.post(`/ai/jobs?page=1&limit=100`, { query: user?.category || "General" });
       const data = res.data;
       setOmnixraJobs(data.jobs || []);
@@ -54,6 +54,8 @@ function JobsPage({ focusJobSlug }) {
     } catch (err) {
       console.error("Omnixra fetch error:", err);
       setLoading(false);
+    } finally {
+      setTabLoading(prev => ({ ...prev, omnixra: false }));
     }
   };
 
@@ -135,6 +137,7 @@ function JobsPage({ focusJobSlug }) {
   ];
 
   const currentJobs = activeTab === "omnixra" ? omnixraJobs : activeTab === "scraped" ? scrapedJobs : remoteJobs;
+  const isCurrentTabLoading = tabLoading[activeTab] || (activeTab === "omnixra" && loading);
 
   return (
     <div className="page-scroll">
@@ -167,8 +170,13 @@ function JobsPage({ focusJobSlug }) {
         </div>
 
         {/* Content */}
-        {loading ? (
-          <div className="flex justify-center mt-10"><LoadingDots /></div>
+        {isCurrentTabLoading ? (
+          <div className="flex flex-col items-center justify-center mt-20">
+            <LoadingDots />
+            <span className="text-xs text-slate-600 mt-4">
+              {activeTab === "omnixra" ? "Loading jobs for you..." : activeTab === "scraped" ? "Loading jobs from other sites..." : "Loading remote jobs..."}
+            </span>
+          </div>
         ) : remoteComingSoon && activeTab === "remote" ? (
           <div className="empty-state mt-7">
             <div className="empty-icon">🌍</div>
