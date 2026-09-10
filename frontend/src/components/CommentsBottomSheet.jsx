@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Heart, Send } from "lucide-react";
 import api from "../api/axios";
+import { playSound } from "../utils/helpers";
 
 function CommentsBottomSheet({ post, onClose, onUpdate }) {
   const [commentText, setCommentText] = useState("");
@@ -9,28 +10,37 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
   const [replyTo, setReplyTo] = useState(null);
   const [replyText, setReplyText] = useState("");
 
-  // Fetch comments when sheet opens
+  const fetchComments = async () => {
+    console.log("🔥 fetchComments called for post:", post._id);
+    try {
+      const res = await api.get(`/posts/${post._id}/comments`);
+      console.log("✅ Fetched comments:", res.data.comments?.length, "for post:", post._id);
+      const count = res.data.comments?.length || 0;
+      const first = res.data.comments?.[0]?.text || "NONE";
+      const firstUser = res.data.comments?.[0]?.user?.name || "NO USER";
+      setComments(res.data.comments || []);
+    } catch (err) {
+      console.error("Fetch comments error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchComments = async () => {
-      try {
-        const res = await api.get(`/posts/${post._id}/comments`);
-        setComments(res.data.comments || []);
-      } catch (err) {
-        console.error("Fetch comments error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchComments();
   }, [post._id]);
 
   const handleAddComment = async () => {
     if (!commentText.trim()) return;
+    const text = commentText.trim();
+    setCommentText("");
+    playSound("comment");
     try {
-      const res = await api.post(`/posts/${post._id}/comment`, { text: commentText });
-      setComments(res.data.comments || []);
-      setCommentText("");
-      onUpdate?.(res.data);
+      const res = await api.post(`/posts/${post._id}/comment`, { text });
+      await fetchComments();
+      if (res.data?.totalComments != null) {
+        onUpdate?.({ ...post, totalComments: res.data.totalComments });
+      }
     } catch (err) {
       console.error("Comment error:", err);
     }
@@ -38,12 +48,13 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
 
   const handleReply = async (commentId) => {
     if (!replyText.trim()) return;
+    const text = replyText.trim();
+    setReplyText("");
+    setReplyTo(null);
+    playSound("comment");
     try {
-      const res = await api.post(`/posts/${post._id}/comment/${commentId}/reply`, { text: replyText });
-      setComments(res.data.comments || []);
-      setReplyText("");
-      setReplyTo(null);
-      onUpdate?.(res.data);
+      await api.post(`/posts/${post._id}/comment/${commentId}/reply`, { text });
+      await fetchComments();
     } catch (err) {
       console.error("Reply error:", err);
     }
@@ -51,9 +62,8 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
 
   const handleLikeComment = async (commentId) => {
     try {
-      const res = await api.put(`/posts/${post._id}/comment/${commentId}/like`);
-      setComments(res.data.comments || []);
-      onUpdate?.(res.data);
+      await api.put(`/posts/${post._id}/comment/${commentId}/like`);
+      await fetchComments();
     } catch (err) {
       console.error("Like comment error:", err);
     }

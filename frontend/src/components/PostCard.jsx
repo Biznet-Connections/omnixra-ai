@@ -11,7 +11,12 @@ import { sharePost } from "../utils/share";
 
 function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onViewProfile }) {
   const { user } = useAuth();
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(() => {
+    try {
+      const likedPosts = JSON.parse(localStorage.getItem("omnixra_liked_posts") || "[]");
+      return likedPosts.includes(post._id);
+    } catch { return false; }
+  });
   const [likeCount, setLikeCount] = useState(typeof post.likes === 'number' ? post.likes : 0);
   const [saved, setSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -32,6 +37,13 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
     const savedPosts = JSON.parse(localStorage.getItem("omnixra_saved_posts") || "[]");
     setSaved(savedPosts.includes(post._id));
   }, [post._id]);
+
+  // Keep likeCount in sync when parent post updates
+  useEffect(() => {
+    if (typeof post.likes === 'number' && post.likes !== likeCount) {
+      setLikeCount(post.likes);
+    }
+  }, [post.likes]);
 
   const authorName = post.author?.name || post.author?.companyName || "User";
   const authorHeadline = post.author?.headline || post.author?.category || "Professional";
@@ -56,13 +68,35 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
     setLikeCount(prev => newLiked ? prev + 1 : prev - 1);
 
     try {
+      const likedPosts = JSON.parse(localStorage.getItem("omnixra_liked_posts") || "[]");
+      if (newLiked) {
+        if (!likedPosts.includes(post._id)) likedPosts.push(post._id);
+      } else {
+        const idx = likedPosts.indexOf(post._id);
+        if (idx > -1) likedPosts.splice(idx, 1);
+      }
+      localStorage.setItem("omnixra_liked_posts", JSON.stringify(likedPosts));
+    } catch {}
+
+    try {
       const res = await api.put(`/posts/${post._id}/like`);
-      setLikeCount(typeof res.data.likes === 'number' ? res.data.likes : likeCount);
-      onUpdate?.(res.data);
+      const serverLikes = typeof res.data.likes === 'number' ? res.data.likes : likeCount;
+      setLikeCount(serverLikes);
+      onUpdate?.({ ...post, likes: serverLikes });
     } catch (err) {
       console.error(err);
       setLiked(!newLiked);
       setLikeCount(prev => newLiked ? prev - 1 : prev + 1);
+      try {
+        const likedPosts = JSON.parse(localStorage.getItem("omnixra_liked_posts") || "[]");
+        if (newLiked) {
+          const idx = likedPosts.indexOf(post._id);
+          if (idx > -1) likedPosts.splice(idx, 1);
+        } else {
+          if (!likedPosts.includes(post._id)) likedPosts.push(post._id);
+        }
+        localStorage.setItem("omnixra_liked_posts", JSON.stringify(likedPosts));
+      } catch {}
     } finally {
       setIsLikePending(false);
     }

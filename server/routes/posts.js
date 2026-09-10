@@ -5,6 +5,12 @@ import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
+// DEBUG LOG ENDPOINT
+router.post("/debug/log", (req, res) => {
+  console.log("🔥 BROWSER LOG:", req.body.message || JSON.stringify(req.body));
+  res.json({ ok: true });
+});
+
 // GET ALL POSTS - Paginated, with full author data (including profile pics)
 router.get("/", async (req, res) => {
   try {
@@ -158,7 +164,52 @@ router.post("/:id/comment", protect, async (req, res) => {
     if (!post) return res.status(404).json({ message: "Post not found" });
     post.comments.push({ user: req.user._id, text: req.body.text, likes: 0, replies: [] });
     await post.save();
-    res.json({ success: true, totalComments: post.comments.length });
+    
+    const populated = await Post.findById(post._id)
+      .populate("comments.user", "name profilePicture profilePicLocked")
+      .populate("comments.replies.user", "name profilePicture profilePicLocked")
+      .lean();
+    res.json({ comments: populated.comments || [], totalComments: post.comments.length });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// REPLY TO COMMENT
+router.post("/:id/comment/:commentId/reply", protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Post not found" });
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) return res.status(404).json({ message: "Comment not found" });
+    comment.replies.push({ user: req.user._id, text: req.body.text });
+    await post.save();
+
+    const populated = await Post.findById(post._id)
+      .populate("comments.user", "name profilePicture profilePicLocked")
+      .populate("comments.replies.user", "name profilePicture profilePicLocked")
+      .lean();
+    res.json({ comments: populated.comments || [] });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// LIKE COMMENT
+router.put("/:id/comment/:commentId/like", protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Post not found" });
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) return res.status(404).json({ message: "Comment not found" });
+    comment.likes = (comment.likes || 0) + 1;
+    await post.save();
+
+    const populated = await Post.findById(post._id)
+      .populate("comments.user", "name profilePicture profilePicLocked")
+      .populate("comments.replies.user", "name profilePicture profilePicLocked")
+      .lean();
+    res.json({ comments: populated.comments || [] });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
