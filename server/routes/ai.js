@@ -145,10 +145,15 @@ router.post("/jobs", protect, async (req, res) => {
 router.post("/chat", protect, async (req, res) => {
   try {
     const { messages } = req.body;
+    const now = new Date();
+    const currentDate = now.toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" });
+    const currentYear = now.getFullYear();
     const systemPrompt = `You are Omnixra AI, a friendly employment assistant for Zimbabwe and Africa.
+Today's date is ${currentDate}. The current year is ${currentYear}.
 You can speak English, Shona, Ndebele, and any language the user prefers.
 Your job is to help users find jobs, understand job requirements, improve CVs, and navigate employment.
-Be warm, helpful, and professional. Always support the user regardless of education level.`;
+Be warm, helpful, and professional. Always support the user regardless of education level.
+When mentioning dates or years, always use ${currentYear} or future years. Never mention past years as if they were current.`;
     const formattedMessages = messages.map(m => ({
       role: m.role === "ai" || m.role === "assistant" ? "assistant" : m.role,
       content: m.content || m.text
@@ -244,7 +249,7 @@ router.post("/analyze-person", protect, async (req, res) => {
     let aiResponse;
     try {
       aiResponse = await askAI([
-        { role: "system", content: "You are Omnixra AI. Analyse candidates honestly." },
+        { role: "system", content: `You are Omnixra AI, an employment intelligence assistant. Today's date is ${new Date().toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" })}. Analyse candidates honestly and professionally.` },
         { role: "user", content: prompt }
       ]);
     } catch (aiErr) {
@@ -419,7 +424,7 @@ router.post("/industries", async (req, res) => {
     if (matches.length === 0 && q.length >= 2) {
       try {
         const aiResponse = await askAI([
-          { role: "system", content: "You are a career industry assistant. Given a user's search term, suggest up to 5 relevant industries or job categories. Return ONLY a JSON array of strings, no explanation. Example: [\"Agriculture\", \"Farm Work\", \"Crop Farming\"]" },
+          { role: "system", content: `You are a career industry assistant in ${new Date().getFullYear()}. Given a user's search term, suggest up to 5 relevant industries or job categories. Return ONLY a JSON array of strings, no explanation. Example: ["Agriculture", "Farm Work", "Crop Farming"]` },
           { role: "user", content: `Suggest industries for: "${query}"` }
         ]);
         

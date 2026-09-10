@@ -28,6 +28,8 @@ import Post from "./models/Post.js";
 import User from "./models/User.js";
 import { askAI } from "./utils/aiService.js";
 import { runScraper } from "./scraper/index.js";
+
+let newsLock = false; // prevents parallel news generation
 import { generateDailyAIJobs } from "./scraper/generateAIJobs.js";
 import { enrichJobs } from "./scraper/enrichJobs.js";
 
@@ -78,37 +80,103 @@ async function ensureAIUser() {
 }
 
 async function generateDailyNewsIfNeeded() {
-  console.log("Checking daily news...");
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const existing = await Post.findOne({ authorType: "ai", createdAt: { $gte: today } });
-  if (existing) {
-    console.log("News already generated today.");
+  console.log("═══════════════════════════════════════════");
+  console.log("📰 NEWS CHECK STARTED at", new Date().toISOString());
+  console.log("   newsLock:", newsLock);
+  console.log("   DISABLE_AUTO_NEWS:", process.env.DISABLE_AUTO_NEWS);
+  
+  // Module-level lock
+  if (newsLock) {
+    console.log("   ❌ SKIPPING: newsLock is true (another call in progress)");
+    console.log("═══════════════════════════════════════════");
     return;
   }
-  console.log("Generating AI news...");
+  newsLock = true;
+  console.log("   🔒 newsLock acquired");
+
   try {
+    const today = new Date();
+    const dayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    console.log("   📅 Day key:", dayKey);
+
+    const todayStart = new Date(today);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(today);
+    todayEnd.setHours(23, 59, 59, 999);
+    console.log("   🕐 Range:", todayStart.toISOString(), "→", todayEnd.toISOString());
+
+    // Count today's AI posts
+    const todayCount = await Post.countDocuments({
+      authorType: "ai",
+      createdAt: { $gte: todayStart, $lte: todayEnd }
+    });
+    console.log("   📊 AI posts created today:", todayCount);
+
+    if (todayCount > 0) {
+      console.log("   ✅ SKIPPING: news already exists for today");
+      console.log("═══════════════════════════════════════════");
+      return;
+    }
+
+    console.log("   ⚙️  Generating AI news...");
+
     const aiUserId = await ensureAIUser();
-    const systemPrompt = "You are Omnixra AI. Generate a comprehensive daily career news update with sections: Industry Trends, Skills in Demand, Career Tip, Industry News, Employment Advice. Use markdown headings.";
+    console.log("   👤 AI user ID:", aiUserId);
+
+    const now = new Date();
+    const currentDate = now.toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" });
+    const currentYear = now.getFullYear();
+    const systemPrompt = `You are Omnixra AI, an employment intelligence assistant. Today's date is ${currentDate}.
+
+Generate a comprehensive daily career news update for Zimbabwe and Africa with these sections:
+- Industry Trends
+- Skills in Demand
+- Career Tip
+- Industry News
+- Employment Advice
+
+IMPORTANT: Always write as if it's ${currentYear}. Do NOT mention old dates. Use the current year ${currentYear}. Use markdown headings.`;
+
+console.log(`📅 News prompt uses date: ${currentDate}`);
     const aiResponse = await askAI([
       { role: "system", content: systemPrompt },
       { role: "user", content: "Create the daily news update." }
     ]);
-    // Validate before posting
+    console.log("   🤖 AI response length:", aiResponse?.length || 0);
+
     if (!aiResponse || typeof aiResponse !== "string" || aiResponse.trim().length < 50) {
-      console.error("News generation skipped: AI returned invalid/empty response");
+      console.log("   ❌ SKIPPING: AI response too short");
+      console.log("═══════════════════════════════════════════");
       return;
     }
 
-    const post = await Post.create({
+    // Re-check just before insert
+    const recheck = await Post.countDocuments({
+      authorType: "ai",
+      createdAt: { $gte: todayStart, $lte: todayEnd }
+    });
+    console.log("   🔍 Recheck before insert:", recheck, "posts");
+
+    if (recheck > 0) {
+      console.log("   ❌ SKIPPING: another instance created news");
+      console.log("═══════════════════════════════════════════");
+      return;
+    }
+
+    const created = await Post.create({
       author: aiUserId,
       authorType: "ai",
       text: aiResponse,
       visibility: "public"
     });
-    console.log("AI news generated.");
+    console.log("   ✅✅✅ NEWS CREATED:", created._id);
+    console.log("═══════════════════════════════════════════");
   } catch (error) {
-    console.error("News generation failed (skipping post):", error.message);
+    console.error("   ❌ ERROR:", error.message);
+    console.log("═══════════════════════════════════════════");
+  } finally {
+    newsLock = false;
+    console.log("   🔓 newsLock released");
   }
 }
 
@@ -172,9 +240,19 @@ const io = initSocket(server);
 connectDB().then(() => {
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    // Daily AI news
-    generateDailyNewsIfNeeded();
-    setInterval(generateDailyNewsIfNeeded, 24 * 60 * 60 * 1000);
+    // Daily AI news — disable on secondary instances
+    console.log("📅 [SCHEDULER] DISABLE_AUTO_NEWS =", process.env.DISABLE_AUTO_NEWS);
+    if (process.env.DISABLE_AUTO_NEWS !== "true") {
+      console.log("📅 [SCHEDULER] Calling generateDailyNewsIfNeeded() on startup...");
+      generateDailyNewsIfNeeded();
+      console.log("📅 [SCHEDULER] Setting up 24h interval for news");
+      setInterval(() => {
+        console.log("📅 [SCHEDULER] 24h interval fired");
+        generateDailyNewsIfNeeded();
+      }, 24 * 60 * 60 * 1000);
+    } else {
+      console.log("ℹ️  Auto news generation disabled (DISABLE_AUTO_NEWS=true)");
+    }
 
     // 🕐 Job scraper runs 3 times per day: 8am, 12pm, 4pm
     console.log("📅 Scheduling scraper: 3x daily (8am, 12pm, 4pm)");

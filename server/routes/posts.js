@@ -145,7 +145,19 @@ router.post("/", protect, async (req, res) => {
       likes: 0,
       comments: []
     });
-    res.status(201).json(post);
+
+    // Return populated post so author shows correctly on frontend
+    const populated = await Post.findById(post._id)
+      .populate("author", "name profilePicture profilePicLocked headline category companyName accountType")
+      .lean();
+
+    res.status(201).json({
+      ...populated,
+      likes: typeof populated.likes === "number" ? populated.likes : 0,
+      totalComments: populated.comments?.length || 0,
+      shares: populated.shares || 0,
+      comments: populated.comments || []
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -169,7 +181,16 @@ router.put("/:id/like", protect, async (req, res) => {
     }
 
     await post.save();
-    res.json({ likes: post.likes, action });
+    const populated = await Post.findById(post._id)
+      .populate("author", "name profilePicture profilePicLocked headline category companyName accountType")
+      .lean();
+    res.json({
+      ...populated,
+      likes: typeof populated.likes === "number" ? populated.likes : 0,
+      totalComments: populated.comments?.length || 0,
+      shares: populated.shares || 0,
+      action
+    });
   } catch (error) {
     console.error("Like error:", error.message);
     res.status(500).json({ message: error.message });
