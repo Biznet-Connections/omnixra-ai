@@ -1,190 +1,65 @@
-const VERSION = "omnixra-pwa-v1";
-const CACHE = VERSION;
+console.log("🔥 Service Worker loaded");
 
-const SHELL = [
-  "/",
-  "/manifest.json",
-  "/icons/icon-192.svg",
-  "/icons/icon-512.svg",
-  "/icons/maskable-512.svg"
-];
+const CACHE_NAME = 'omnixra-cache-v2';
+const STATIC_ASSETS = ['/manifest.json', '/favicon.svg', '/icons/icon.svg'];
 
-self.addEventListener("install", event => {
-  event.waitUntil(
-    caches.open(CACHE)
-      .then(cache => cache.addAll(SHELL))
-      .then(() => self.skipWaiting())
-  );
+self.addEventListener('install', (event) => {
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS)));
+  self.skipWaiting();
 });
 
-self.addEventListener("activate", event => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys()
-      .then(keys =>
-        Promise.all(
-          keys
-            .filter(key =>
-              key.startsWith("omnixra-pwa-") &&
-              key !== CACHE
-            )
-            .map(key => caches.delete(key))
-        )
-      )
-      .then(() => self.clients.claim())
+    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
   );
+  self.clients.claim();
 });
 
-self.addEventListener("fetch", event => {
-  const request = event.request;
-
-  if (request.method !== "GET") return;
-
+// NEVER cache API requests
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
   const url = new URL(request.url);
 
-  if (url.origin !== self.location.origin) return;
-
-  /*
-   * NEVER cache API responses.
-   * This protects authenticated/private Omnixra data.
-   */
-  if (
-    url.pathname.startsWith("/api/") ||
-    url.pathname.startsWith("/socket.io/")
-  ) {
+  if (url.pathname.startsWith('/api/')) {
+    // Always network-first for API
+    event.respondWith(fetch(request));
     return;
   }
 
-  /*
-   * HTML navigation:
-   * Online = normal application.
-   * Offline = cached Omnixra shell.
-   */
-  if (request.mode === "navigate") {
+  // For HTML navigation, always network-first (no stale cache)
+  if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
-        .then(response => response)
-        .catch(() => caches.match("/"))
+      fetch(request).catch(() => caches.match('/index.html'))
     );
-
     return;
   }
 
-  /*
-   * Static resources.
-   */
+  // For static assets, cache-first
   event.respondWith(
-    fetch(request)
-      .then(response => {
-        if (response.ok) {
-          const copy = response.clone();
-
-          caches.open(CACHE)
-            .then(cache => cache.put(request, copy));
-        }
-
-        return response;
-      })
-      .catch(() => caches.match(request))
+    caches.match(request).then(cached => cached || fetch(request).then(response => {
+      const clone = response.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+      return response;
+    }))
   );
 });
 
-/*
- * PUSH NOTIFICATIONS
- */
-self.addEventListener("push", event => {
-  let data = {};
-
-  try {
-    data = event.data
-      ? event.data.json()
-      : {};
-  } catch {
-    data = {
-      title: "Omnixra AI",
-      body: event.data
-        ? event.data.text()
-        : "You have a new notification."
-    };
-  }
-
-  const title =
-    data.title || "Omnixra AI";
-
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : {};
   const options = {
-    body:
-      data.body ||
-      "You have a new notification.",
-
-    icon:
-      data.icon ||
-      "/icons/icon-192.svg",
-
-    badge:
-      data.badge ||
-      "/icons/icon-192.svg",
-
-    tag:
-      data.tag ||
-      "omnixra-notification",
-
-    renotify: true,
-
-    vibrate: [200, 100, 200],
-
-    data: {
-      url:
-        data.url ||
-        "/",
-
-      type:
-        data.type ||
-        "general"
-    }
+    body: data.body || 'New notification from Omnixra AI',
+    icon: '/icons/icon.svg',
+    badge: '/icons/icon.svg',
+    data: { url: data.url || '/' }
   };
-
-  event.waitUntil(
-    self.registration.showNotification(
-      title,
-      options
-    )
-  );
+  event.waitUntil(self.registration.showNotification(data.title || 'Omnixra AI', options));
 });
 
-/*
- * NOTIFICATION CLICK
- */
-self.addEventListener(
-  "notificationclick",
-  event => {
-    event.notification.close();
-
-    const target =
-      event.notification?.data?.url ||
-      "/";
-
-    event.waitUntil(
-      clients.matchAll({
-        type: "window",
-        includeUncontrolled: true
-      })
-      .then(clientList => {
-
-        for (const client of clientList) {
-          if ("focus" in client) {
-
-            if ("navigate" in client) {
-              client.navigate(target);
-            }
-
-            return client.focus();
-          }
-        }
-
-        if (clients.openWindow) {
-          return clients.openWindow(target);
-        }
-
-      })
-    );
-  }
-);
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(clients.matchAll({ type: 'window' }).then(list => {
+    for (const client of list) if (client.url.includes(url)) return client.focus();
+    return clients.openWindow(url);
+  }));
+});
