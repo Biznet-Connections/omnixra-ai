@@ -4,44 +4,65 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
-// GET all companies (seeded + signed-up)
+// GET all companies (paginated + signed-up companies)
 router.get("/", async (req, res) => {
   console.log("=== GET ALL COMPANIES ===");
   try {
-    // Seeded companies
-    const seededCompanies = await Company.find();
-    
-    // Signed-up companies (users with accountType "company")
-    const signedUpCompanies = await User.find({ accountType: "company" })
-      .select("companyName name email location industry verified");
-    
-    // Format signed-up to match company shape
-    const formattedSignedUp = signedUpCompanies.map(user => ({
-      _id: user._id,
-      name: user.companyName || user.name,
-      email: user.email,
-      location: user.location || "Zimbabwe",
-      category: "Company",
-      industry: "Other",
-      verified: user.verified || false,
-      source: "signup"
-    }));
-    
-    const allCompanies = [...seededCompanies, ...formattedSignedUp];
-    res.json(allCompanies);
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const skip = (page - 1) * limit;
+
+    // Only on page 1, fetch signed-up companies too
+    const seededCompanies = await Company.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    let allCompanies = [...seededCompanies];
+
+    // Add signed-up companies only on first page
+    if (page === 1) {
+      const signedUpCompanies = await User.find({ accountType: "company" })
+        .select("companyName name email location industry verified")
+        .limit(20);
+
+      const formattedSignedUp = signedUpCompanies.map(user => ({
+        _id: user._id,
+        name: user.companyName || user.name,
+        email: user.email,
+        location: user.location || "Zimbabwe",
+        category: "Company",
+        industry: "Other",
+        verified: user.verified || false,
+        source: "signup"
+      }));
+
+      allCompanies = [...formattedSignedUp, ...allCompanies];
+    }
+
+    const total = await Company.countDocuments();
+    const hasMore = page * limit < total;
+
+    console.log(`Serving page ${page}: ${allCompanies.length} companies (total: ${total})`);
+
+    res.json({
+      companies: allCompanies,
+      hasMore,
+      total,
+      page,
+      nextPage: hasMore ? page + 1 : null
+    });
   } catch (error) {
     console.error("Get companies error:", error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message, companies: [], hasMore: false, total: 0, page: 1 });
   }
 });
 
 // GET single company by ID
 router.get("/:id", async (req, res) => {
   try {
-    // First try seeded Company collection
     let company = await Company.findById(req.params.id);
-    
-    // If not found, try User collection (signed-up company)
+
     if (!company) {
       const user = await User.findById(req.params.id).select("-password");
       if (user && user.accountType === "company") {
@@ -56,7 +77,7 @@ router.get("/:id", async (req, res) => {
         };
       }
     }
-    
+
     if (!company) return res.status(404).json({ message: "Company not found" });
     res.json(company);
   } catch (error) {
