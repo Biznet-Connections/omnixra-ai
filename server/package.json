@@ -13,6 +13,7 @@
     "axios": "latest",
     "bcryptjs": "latest",
     "cheerio": "^1.2.0",
+    "compression": "^1.8.2",
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",

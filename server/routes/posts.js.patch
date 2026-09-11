@@ -1,0 +1,222 @@
+import fs from "fs";
+const file = "routes/posts.js";
+let s = fs.readFileSync(file, "utf8");
+
+// ── REPLACE the whole GET "/" route with cursor pagination ─────────────
+const oldRoute = `// GET ALL POSTS - Paginated, with full author data (including profile pics)
+router.get("/", async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 7;
+    const skip = (page - 1) * limit;
+
+    const posts = await Post.find({ deleted: false })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Get authors WITH profilePicture
+    const authorIds = [...new Set(posts.map(p => p.author?.toString()).filter(Boolean))];
+    const authors = await User.find({ _id: { $in: authorIds } })
+      .select("-password -skills -about")
+      .lean();
+    const authorMap = {};
+    authors.forEach(a => { authorMap[a._id.toString()] = a; });
+
+    const result = posts.map(post => ({
+      _id: post._id,
+      text: post.text,
+      image: post.image || null,
+      video: post.video || null,
+      hasImage: !!post.image,
+      hasVideo: !!post.video,
+      mediaType: post.mediaType,
+      authorType: post.authorType,
+      author: authorMap[post.author?.toString()] ? {
+        _id: post.author,
+        name: authorMap[post.author.toString()].name,
+        headline: authorMap[post.author.toString()].headline,
+        category: authorMap[post.author.toString()].category,
+        profilePicture: authorMap[post.author.toString()].profilePicture || null,
+        profilePicLocked: authorMap[post.author.toString()].profilePicLocked || false,
+        accountType: authorMap[post.author.toString()].accountType
+      } : {
+        _id: post.author,
+        name: "User",
+        headline: "Professional",
+        category: "General",
+        profilePicture: null,
+        profilePicLocked: false
+      },
+      likes: typeof post.likes === "number" ? post.likes : 0,
+      totalComments: post.comments?.length || 0,
+      shares: post.shares || 0,
+      comments: [],
+      createdAt: post.createdAt,
+      visibility: post.visibility,
+      edited: post.edited || false
+    }));
+
+    const totalPosts = await Post.countDocuments({ deleted: false });
+    const hasMore = page * limit < totalPosts;
+
+    res.json({ posts: result, hasMore, nextPage: page + 1, totalPosts });
+  } catch (error) {
+    console.error("Get posts error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});`;
+
+const newRoute = `// GET ALL POSTS — Cursor pagination (scales to millions)
+// Query: ?limit=10&cursor=<lastPostId>
+router.get("/", async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 10, 30);
+    const cursor = req.query.cursor;
+
+    // Build query — use _id as the cursor (indexed, monotonic)
+    const query = { deleted: false };
+    if (cursor) {
+      try {
+        query._id = { $lt: cursor };
+      } catch (e) {
+        return res.status(400).json({ message: "Invalid cursor" });
+      }
+    }
+
+    // Fetch limit + 1 so we know if there's a next page (no countDocuments!)
+    const posts = await Post.find(query)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
+      .select("text image video mediaType authorType author likes comments.length shares createdAt visibility edited")
+      .lean();
+
+    const hasMore = posts.length > limit;
+    const pageItems = hasMore ? posts.slice(0, limit) : posts;
+    const nextCursor = hasMore ? pageItems[pageItems.length - 1]._id.toString() : null;
+
+    // Batch-fetch authors (projection keeps payload tiny)
+    const authorIds = [...new Set(pageItems.map(p => p.author?.toString()).filter(Boolean))];
+    const authors = await User.find({ _id: { $in: authorIds } })
+      .select("name headline category profilePicture profilePicLocked accountType")
+      .lean();
+    const authorMap = {};
+    authors.forEach(a => { authorMap[a._id.toString()] = a; });
+
+    const result = pageItems.map(post => {
+      const author = authorMap[post.author?.toString()];
+      return {
+        _id: post._id,
+        text: post.text,
+        image: post.image || null,
+        video: post.video || null,
+        hasImage: !!post.image,
+        hasVideo: !!post.video,
+        mediaType: post.mediaType,
+        authorType: post.authorType,
+        author: author ? {
+          _id: post.author,
+          name: author.name,
+          headline: author.headline,
+          category: author.category,
+          profilePicture: author.profilePicture || null,
+          profilePicLocked: author.profilePicLocked || false,
+          accountType: author.accountType
+        } : {
+          _id: post.author,
+          name: "User",
+          headline: "Professional",
+          category: "General",
+          profilePicture: null,
+          profilePicLocked: false
+        },
+        likes: typeof post.likes === "number" ? post.likes : 0,
+        totalComments: Array.isArray(post.comments) ? post.comments.length : (post.comments?.length || 0),
+        shares: post.shares || 0,
+        comments: [],
+        createdAt: post.createdAt,
+        visibility: post.visibility,
+        edited: post.edited || false
+      };
+    });
+
+    res.json({
+      posts: result,
+      hasMore,
+      nextCursor,          // ← frontend sends this back as ?cursor=
+      count: result.length
+    });
+  } catch (error) {
+    console.error("Get posts error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});`;
+
+if (!s.includes(oldRoute)) {
+  console.error("❌ Could not find old route — aborting. Maybe already patched?");
+  process.exit(1);
+}
+s = s.replace(oldRoute, newRoute);
+
+// ── Also paginate /news (was returning ALL ai posts) ──────────────────
+const oldNews = `router.get("/news", async (req, res) => {
+  try {
+    const posts = await Post.find({ authorType: "ai", deleted: false })
+      .sort({ createdAt: -1 })
+      .populate("author", "name profilePicture profilePicLocked")
+      .lean();
+    res.json(posts);
+  } catch (error) { res.status(500).json({ message: error.message }); }
+});`;
+
+const newNews = `router.get("/news", async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+    const posts = await Post.find({ authorType: "ai", deleted: false })
+      .sort({ _id: -1 })
+      .limit(limit)
+      .populate("author", "name profilePicture profilePicLocked")
+      .lean();
+    res.json(posts);
+  } catch (error) { res.status(500).json({ message: error.message }); }
+});`;
+
+if (s.includes(oldNews)) s = s.replace(oldNews, newNews);
+
+// ── Paginate /my-posts too (was returning ALL user posts) ─────────────
+const oldMyPosts = `router.get("/my-posts", protect, async (req, res) => {
+  try {
+    const posts = await Post.find({ author: req.user._id, deleted: false })
+      .sort({ createdAt: -1 })
+      .populate("author", "name profilePicture profilePicLocked headline category companyName")
+      .lean();
+    res.json(posts);
+  } catch (error) { res.status(500).json({ message: error.message }); }
+});`;
+
+const newMyPosts = `router.get("/my-posts", protect, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const cursor = req.query.cursor;
+    const query = { author: req.user._id, deleted: false };
+    if (cursor) query._id = { $lt: cursor };
+
+    const posts = await Post.find(query)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
+      .populate("author", "name profilePicture profilePicLocked headline category companyName")
+      .lean();
+
+    const hasMore = posts.length > limit;
+    const items = hasMore ? posts.slice(0, limit) : posts;
+    const nextCursor = hasMore ? items[items.length - 1]._id.toString() : null;
+
+    res.json({ posts: items, hasMore, nextCursor });
+  } catch (error) { res.status(500).json({ message: error.message }); }
+});`;
+
+if (s.includes(oldMyPosts)) s = s.replace(oldMyPosts, newMyPosts);
+
+fs.writeFileSync(file, s);
+console.log("✅ routes/posts.js patched with cursor pagination");
