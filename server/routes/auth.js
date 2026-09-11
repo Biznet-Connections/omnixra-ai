@@ -2,6 +2,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { protect } from "../middleware/auth.js";
+import { uploadToR2, isBase64Image, parseBase64Image } from "../utils/r2.js";
 
 const router = express.Router();
 
@@ -143,9 +144,20 @@ router.get("/me", protect, async (req, res) => {
 router.put("/profile-picture", protect, async (req, res) => {
   try {
     const { profilePicture } = req.body;
+    
+    // Upload to R2 if base64
+    let pictureUrl = profilePicture;
+    if (profilePicture && isBase64Image(profilePicture)) {
+      const parsed = parseBase64Image(profilePicture);
+      if (parsed) {
+        console.log("📤 Uploading avatar to R2...");
+        pictureUrl = await uploadToR2(parsed.buffer, parsed.mimetype, "avatars");
+      }
+    }
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { profilePicture },
+      { profilePicture: pictureUrl },
       { new: true }
     ).select("-password");
     res.json(user);

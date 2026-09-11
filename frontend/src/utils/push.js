@@ -1,26 +1,28 @@
 import api from "../api/axios";
 
-// Detect if running inside Capacitor (native)
+// Detect native (Capacitor)
 const isNative = typeof window !== "undefined" && (
   window.Capacitor?.isNativePlatform?.() ||
   window.location.protocol === "capacitor:" ||
   window.location.protocol === "file:"
 );
 
+// Dynamic import helper — bypasses Vite static analysis
+async function loadPushPlugin() {
+  const path = "@capacitor/push-notifications";
+  return await import(/* @vite-ignore */ path);
+}
+
 export function getVapidPublicKey() {
   return api.get("/notifications/vapid-public-key").then(r => r.data.publicKey);
 }
 
 export async function subscribeUserToPush() {
-  // For NATIVE apps: use Capacitor push notifications
-  if (isNative) {
-    return subscribeNative();
-  }
-
-  // For WEB: use standard web push
+  if (isNative) return subscribeNative();
   return subscribeWeb();
 }
 
+// ============ WEB PUSH ============
 async function subscribeWeb() {
   try {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -36,6 +38,7 @@ async function subscribeWeb() {
     });
 
     await api.post("/notifications/subscribe", { subscription });
+    console.log("✅ Web push subscribed");
     return subscription;
   } catch (error) {
     console.error("Web push subscribe failed:", error);
@@ -43,17 +46,18 @@ async function subscribeWeb() {
   }
 }
 
+// ============ NATIVE PUSH ============
 async function subscribeNative() {
   try {
-    // Lazy load Capacitor plugin only when native
-    const { PushNotifications } = await import("@capacitor/push-notifications");
+    const mod = await loadPushPlugin();
+    const { PushNotifications } = mod;
 
     let permission = await PushNotifications.checkPermissions();
     if (permission.receive === "prompt") {
       permission = await PushNotifications.requestPermissions();
     }
     if (permission.receive !== "granted") {
-      console.log("Push permission not granted");
+      console.log("Native push permission not granted");
       return null;
     }
 
@@ -69,6 +73,7 @@ async function subscribeNative() {
               platform: window.Capacitor?.getPlatform?.() || "android"
             }
           });
+          console.log("✅ Native push token sent to server");
         } catch (err) {
           console.error("Failed to send native token to server:", err);
         }
@@ -91,7 +96,8 @@ async function subscribeNative() {
 export async function unsubscribeFromPush() {
   try {
     if (isNative) {
-      const { PushNotifications } = await import("@capacitor/push-notifications");
+      const mod = await loadPushPlugin();
+      const { PushNotifications } = mod;
       await PushNotifications.removeAllListeners();
       return;
     }

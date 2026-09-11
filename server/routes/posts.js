@@ -2,6 +2,7 @@ import express from "express";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
 import { protect } from "../middleware/auth.js";
+import { uploadToR2, isBase64Image, parseBase64Image } from "../utils/r2.js";
 
 const router = express.Router();
 
@@ -137,10 +138,25 @@ router.get("/:id", async (req, res) => {
 router.post("/", protect, async (req, res) => {
   try {
     const { text, image, video, visibility } = req.body;
+
+    // Upload image to R2 if it's base64
+    let imageUrl = image;
+    if (image && isBase64Image(image)) {
+      const parsed = parseBase64Image(image);
+      if (parsed) {
+        console.log("📤 Uploading post image to R2...");
+        imageUrl = await uploadToR2(parsed.buffer, parsed.mimetype, "posts");
+      }
+    }
+
+    // Upload video to R2 if it's base64 (large)
+    let videoUrl = video;
+    // Videos are usually sent as URLs already from VideoTrimmer — keep as-is
+
     const post = await Post.create({
       author: req.user._id,
       authorType: req.user.accountType,
-      text, image, video,
+      text, image: imageUrl, video: videoUrl,
       visibility: visibility || "public",
       likes: 0,
       comments: []

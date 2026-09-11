@@ -8,6 +8,8 @@
     "dev": "node --watch server.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1131.0",
+    "@aws-sdk/s3-request-presigner": "^3.1131.0",
     "axios": "latest",
     "bcryptjs": "latest",
     "cheerio": "^1.2.0",
@@ -20,6 +22,7 @@
     "multer": "^2.3.0",
     "p-limit": "^7.3.2",
     "path": "latest",
+    "sharp": "^0.35.4",
     "socket.io": "^4.8.3"
   }
 }

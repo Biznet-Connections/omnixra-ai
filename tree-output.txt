@@ -1,7 +1,112 @@
 .
 ├── frontend
+│   ├── android
+│   │   ├── app
+│   │   │   ├── src
+│   │   │   │   ├── androidTest
+│   │   │   │   │   └── java
+│   │   │   │   │       └── com
+│   │   │   │   │           └── getcapacitor
+│   │   │   │   │               └── myapp
+│   │   │   │   │                   └── ExampleInstrumentedTest.java
+│   │   │   │   ├── main
+│   │   │   │   │   ├── java
+│   │   │   │   │   │   └── com
+│   │   │   │   │   │       └── omnixra
+│   │   │   │   │   │           └── ai
+│   │   │   │   │   │               └── MainActivity.java
+│   │   │   │   │   ├── res
+│   │   │   │   │   │   ├── drawable
+│   │   │   │   │   │   │   ├── ic_launcher_background.xml
+│   │   │   │   │   │   │   └── splash.png
+│   │   │   │   │   │   ├── drawable-land-hdpi
+│   │   │   │   │   │   │   └── splash.png
+│   │   │   │   │   │   ├── drawable-land-mdpi
+│   │   │   │   │   │   │   └── splash.png
+│   │   │   │   │   │   ├── drawable-land-xhdpi
+│   │   │   │   │   │   │   └── splash.png
+│   │   │   │   │   │   ├── drawable-land-xxhdpi
+│   │   │   │   │   │   │   └── splash.png
+│   │   │   │   │   │   ├── drawable-land-xxxhdpi
+│   │   │   │   │   │   │   └── splash.png
+│   │   │   │   │   │   ├── drawable-port-hdpi
+│   │   │   │   │   │   │   └── splash.png
+│   │   │   │   │   │   ├── drawable-port-mdpi
+│   │   │   │   │   │   │   └── splash.png
+│   │   │   │   │   │   ├── drawable-port-xhdpi
+│   │   │   │   │   │   │   └── splash.png
+│   │   │   │   │   │   ├── drawable-port-xxhdpi
+│   │   │   │   │   │   │   └── splash.png
+│   │   │   │   │   │   ├── drawable-port-xxxhdpi
+│   │   │   │   │   │   │   └── splash.png
+│   │   │   │   │   │   ├── drawable-v24
+│   │   │   │   │   │   │   └── ic_launcher_foreground.xml
+│   │   │   │   │   │   ├── layout
+│   │   │   │   │   │   │   └── activity_main.xml
+│   │   │   │   │   │   ├── mipmap-anydpi-v26
+│   │   │   │   │   │   │   ├── ic_launcher.xml
+│   │   │   │   │   │   │   └── ic_launcher_round.xml
+│   │   │   │   │   │   ├── mipmap-hdpi
+│   │   │   │   │   │   │   ├── ic_launcher.png
+│   │   │   │   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   │   │   │   └── ic_launcher_round.png
+│   │   │   │   │   │   ├── mipmap-mdpi
+│   │   │   │   │   │   │   ├── ic_launcher.png
+│   │   │   │   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   │   │   │   └── ic_launcher_round.png
+│   │   │   │   │   │   ├── mipmap-xhdpi
+│   │   │   │   │   │   │   ├── ic_launcher.png
+│   │   │   │   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   │   │   │   └── ic_launcher_round.png
+│   │   │   │   │   │   ├── mipmap-xxhdpi
+│   │   │   │   │   │   │   ├── ic_launcher.png
+│   │   │   │   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   │   │   │   └── ic_launcher_round.png
+│   │   │   │   │   │   ├── mipmap-xxxhdpi
+│   │   │   │   │   │   │   ├── ic_launcher.png
+│   │   │   │   │   │   │   ├── ic_launcher_foreground.png
+│   │   │   │   │   │   │   └── ic_launcher_round.png
+│   │   │   │   │   │   ├── values
+│   │   │   │   │   │   │   ├── ic_launcher_background.xml
+│   │   │   │   │   │   │   ├── strings.xml
+│   │   │   │   │   │   │   └── styles.xml
+│   │   │   │   │   │   └── xml
+│   │   │   │   │   │       └── file_paths.xml
+│   │   │   │   │   └── AndroidManifest.xml
+│   │   │   │   └── test
+│   │   │   │       └── java
+│   │   │   │           └── com
+│   │   │   │               └── getcapacitor
+│   │   │   │                   └── myapp
+│   │   │   │                       └── ExampleUnitTest.java
+│   │   │   ├── build.gradle
+│   │   │   ├── capacitor.build.gradle
+│   │   │   └── proguard-rules.pro
+│   │   ├── gradle
+│   │   │   └── wrapper
+│   │   │       ├── gradle-wrapper.jar
+│   │   │       └── gradle-wrapper.properties
+│   │   ├── build.gradle
+│   │   ├── capacitor.settings.gradle
+│   │   ├── gradle.properties
+│   │   ├── gradlew
+│   │   ├── gradlew.bat
+│   │   ├── settings.gradle
+│   │   └── variables.gradle
 │   ├── public
-│   │   └── favicon.svg
+│   │   ├── icons
+│   │   │   ├── icon-192.svg
+│   │   │   ├── icon-512.svg
+│   │   │   └── maskable-512.svg
+│   │   ├── favicon.svg
+│   │   ├── manifest.json
+│   │   ├── pwa.js
+│   │   ├── pwa.js.5min-backup
+│   │   ├── pwa.js.before-cleanup-backup
+│   │   ├── pwa.js.before-install-remove-backup
+│   │   ├── pwa.js.before-remove-backup
+│   │   ├── robots.txt
+│   │   └── sw.js
 │   ├── src
 │   │   ├── api
 │   │   │   └── axios.js
@@ -33,9 +138,19 @@
 │   │   │   └── VideoTrimmer.jsx
 │   │   ├── context
 │   │   │   ├── AuthContext.jsx
-│   │   │   └── PostsContext.jsx
+│   │   │   ├── PostsContext.jsx
+│   │   │   └── SocketContext.jsx
 │   │   ├── pages
+│   │   │   ├── AdminAnalytics.jsx
+│   │   │   ├── AdminAnnouncements.jsx
 │   │   │   ├── AdminDashboard.jsx
+│   │   │   ├── AdminJobs.jsx
+│   │   │   ├── AdminLogin.jsx
+│   │   │   ├── AdminModeration.jsx
+│   │   │   ├── AdminPostAI.jsx
+│   │   │   ├── AdminSettings.jsx
+│   │   │   ├── AdminUsers.jsx
+│   │   │   ├── AdminVouchers.jsx
 │   │   │   ├── ApplicationsPage.jsx
 │   │   │   ├── CVPage.jsx
 │   │   │   ├── ChatPage.jsx
@@ -59,15 +174,21 @@
 │   │   │   ├── SavedChatsPage.jsx
 │   │   │   ├── SavedPostsPage.jsx
 │   │   │   ├── SettingsPage.jsx
+│   │   │   ├── SharedAIPage.jsx
 │   │   │   └── UserProfilePage.jsx
 │   │   ├── utils
 │   │   │   ├── baseUrl.js
 │   │   │   ├── helpers.js
-│   │   │   └── share.js
+│   │   │   ├── native.js
+│   │   │   ├── push.js
+│   │   │   ├── share.js
+│   │   │   └── terminalLog.js
 │   │   ├── App.jsx
 │   │   ├── index.css
 │   │   └── main.jsx
+│   ├── capacitor.config.json
 │   ├── index.html
+│   ├── index.html.omnixra-backup
 │   ├── package-lock.json
 │   ├── package.json
 │   └── vite.config.js
@@ -82,6 +203,7 @@
 │   │   ├── Boost.js
 │   │   ├── Chat.js
 │   │   ├── Company.js
+│   │   ├── ConnectionRequest.js
 │   │   ├── Conversation.js
 │   │   ├── Job.js
 │   │   ├── Post.js
@@ -95,45 +217,73 @@
 │   │   ├── boosts.js
 │   │   ├── chats.js
 │   │   ├── companies.js
+│   │   ├── connections.js
 │   │   ├── jobs.js
 │   │   ├── messages.js
 │   │   ├── news.js
 │   │   ├── posts.js
 │   │   ├── profile.js
+│   │   ├── remoteJobs.js
 │   │   ├── scrapedJobs.js
+│   │   ├── seo.js
 │   │   ├── share.js
 │   │   ├── video.js
 │   │   └── vouchers.js
 │   ├── scraper
 │   │   ├── sources
 │   │   │   ├── iharare.js
+│   │   │   ├── jsearch.js
 │   │   │   ├── vacancyMail.js
 │   │   │   └── zimboJobs.js
+│   │   ├── enrichJobs.js
+│   │   ├── generateAIJobs.js
 │   │   ├── index.js
 │   │   └── normalizer.js
 │   ├── seed
 │   │   └── seedCompanies.js
-│   ├── uploads
 │   ├── utils
 │   │   ├── aiService.js
 │   │   └── slugify.js
+│   ├── check-and-clean.js
+│   ├── check-conversations.js
+│   ├── check-db.js
+│   ├── check-likes.js
+│   ├── check-post-types.js
 │   ├── check-posts.js
+│   ├── check-unread.js
+│   ├── clean-db.js
+│   ├── clean-inbox.js
 │   ├── debug-ai-posts.js
 │   ├── debug-ai-user.js
+│   ├── debug-comments.js
 │   ├── debug-connections.js
 │   ├── debug-follow.js
 │   ├── debug-mongoose.js
 │   ├── debug-posts.js
+│   ├── debug-user-data.js
+│   ├── delete-all-conversations.js
+│   ├── delete-broken-ai-posts.js
+│   ├── delete-self-conversation.js
 │   ├── fix-ai-posts.js
+│   ├── fix-ai-prefix-posts.js
+│   ├── fix-duplicates.js
+│   ├── fix-likes.js
+│   ├── force-fix-likes.js
 │   ├── package-lock.json
 │   ├── package.json
+│   ├── perf-test-posts.js
 │   ├── server.js
+│   ├── socket.js
+│   ├── test-comment.js
 │   ├── test-scraper.js
+│   ├── test-unread-api.js
 │   ├── update-news.js
 │   └── update-users.js
 ├── fix-and-run.sh
 ├── package-lock.json
 ├── package.json
-└── render-build.sh
+├── render-build.sh
+├── setup-omnixra-pwa.sh
+└── tree-output.txt
 
-19 directories, 118 files
+61 directories, 226 files
