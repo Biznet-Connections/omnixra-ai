@@ -4,57 +4,62 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
-// GET all companies (paginated + signed-up companies)
+// GET all companies — cursor pagination (scales to millions)
+// Query: ?limit=20&cursor=<lastCompanyId>
 router.get("/", async (req, res) => {
-  console.log("=== GET ALL COMPANIES ===");
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
-    const skip = (page - 1) * limit;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const cursor = req.query.cursor;
 
-    // Only on page 1, fetch signed-up companies too
-    const seededCompanies = await Company.find()
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    // ── Signed-up companies ONLY on first page (no cursor) ──
+    let signedUp = [];
+    if (!cursor) {
+      const signedUpUsers = await User.find({ accountType: "company" })
+        .select("companyName name email location industry verified createdAt")
+        .sort({ _id: -1 })
+        .limit(20)
+        .lean();
 
-    let allCompanies = [...seededCompanies];
-
-    // Add signed-up companies only on first page
-    if (page === 1) {
-      const signedUpCompanies = await User.find({ accountType: "company" })
-        .select("companyName name email location industry verified")
-        .limit(20);
-
-      const formattedSignedUp = signedUpCompanies.map(user => ({
+      signedUp = signedUpUsers.map(user => ({
         _id: user._id,
         name: user.companyName || user.name,
         email: user.email,
         location: user.location || "Zimbabwe",
         category: "Company",
-        industry: "Other",
+        industry: user.industry || "Other",
         verified: user.verified || false,
-        source: "signup"
+        source: "signup",
+        createdAt: user.createdAt
       }));
-
-      allCompanies = [...formattedSignedUp, ...allCompanies];
     }
 
-    const total = await Company.countDocuments();
-    const hasMore = page * limit < total;
+    // ── Seeded companies via cursor ──
+    const query = {};
+    if (cursor) query._id = { $lt: cursor };
 
-    console.log(`Serving page ${page}: ${allCompanies.length} companies (total: ${total})`);
+    const seeded = await Company.find(query)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
+      .select("name email location category industry verified createdAt")
+      .lean();
+
+    const hasMoreSeeded = seeded.length > limit;
+    const seededPage = hasMoreSeeded ? seeded.slice(0, limit) : seeded;
+    const lastSeeded = seededPage[seededPage.length - 1];
+    const nextCursor = hasMoreSeeded && lastSeeded ? lastSeeded._id.toString() : null;
+
+    // ── Merge: signed-up first (only page 1), then seeded ──
+    const companies = [...signedUp, ...seededPage];
 
     res.json({
-      companies: allCompanies,
-      hasMore,
-      total,
-      page,
-      nextPage: hasMore ? page + 1 : null
+      companies,
+      hasMore: hasMoreSeeded,
+      nextCursor,
+      count: companies.length
     });
   } catch (error) {
     console.error("Get companies error:", error);
-    res.status(500).json({ message: error.message, companies: [], hasMore: false, total: 0, page: 1 });
+    res.status(500).json({ message: error.message, companies: [], hasMore: false, nextCursor: null, count: 0 });
   }
 });
 
