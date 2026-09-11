@@ -21,7 +21,18 @@ export const SocketProvider = ({ children }) => {
     }
 
     const token = localStorage.getItem("omnixra_token");
-    const newSocket = io({
+    
+    // Detect native app (Capacitor)
+    const isNative = typeof window !== "undefined" && (
+      window.Capacitor?.isNativePlatform?.() ||
+      window.location.protocol === "capacitor:" ||
+      window.location.protocol === "file:"
+    );
+    
+    // Socket server URL: production in native, auto in web
+    const socketURL = isNative ? "https://omnixra-ai.com" : undefined;
+    
+    const newSocket = io(socketURL, {
       auth: { token },
       transports: ["websocket", "polling"],
       reconnection: true,

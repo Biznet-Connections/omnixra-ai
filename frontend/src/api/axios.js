@@ -1,8 +1,19 @@
 import axios from "axios";
 
-const baseURL = import.meta.env.PROD
+// Detect if running inside Capacitor (native Android/iOS app)
+const isNative = typeof window !== "undefined" && (
+  window.Capacitor?.isNativePlatform?.() ||
+  window.location.protocol === "capacitor:" ||
+  window.location.protocol === "file:"
+);
+
+// API base URL:
+// - Native app → always production
+// - Web dev    → /api (proxied by Vite)
+// - Web prod   → production
+const baseURL = isNative
   ? "https://omnixra-ai.com/api"
-  : "/api";
+  : (import.meta.env.PROD ? "https://omnixra-ai.com/api" : "/api");
 
 const api = axios.create({
   baseURL,

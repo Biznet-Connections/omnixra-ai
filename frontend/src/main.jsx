@@ -4,8 +4,12 @@ import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 import "./index.css";
 import "./utils/terminalLog";
+import { setupNativeUX } from "./utils/native";
 
 console.log("🔥 main.jsx loaded");
+
+// Setup native app behavior (status bar, splash, keyboard, back button)
+setupNativeUX();
 
 // Unregister old service workers, then register new one in production
 if ('serviceWorker' in navigator) {
