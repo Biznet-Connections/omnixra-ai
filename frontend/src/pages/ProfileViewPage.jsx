@@ -52,7 +52,7 @@ function ProfileViewPage({ profile, setPage }) {
           <div className="profile-header">
             <div className="profile-big-avatar">
               {profile.profilePicture ? (
-                <img src={profile.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "18px", objectFit: "cover" }} />
+                <img src={profile.profilePicture} alt="" loading="eager" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "18px", objectFit: "cover" }} />
               ) : (
                 profile.name?.[0] || "U"
               )}

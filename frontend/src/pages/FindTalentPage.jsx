@@ -68,7 +68,7 @@ function FindTalentPage({ setPage, setSelectedProfile }) {
                 <div className="flex items-start gap-3">
                   <div className="avatar avatar-large bg-gradient-to-br from-indigo-500 to-purple-600">
                     {person.profilePicture ? (
-                      <img src={person.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+                      <img src={person.profilePicture} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
                     ) : (
                       person.name?.[0] || "U"
                     )}

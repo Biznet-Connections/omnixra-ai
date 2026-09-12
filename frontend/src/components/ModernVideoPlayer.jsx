@@ -45,6 +45,7 @@ function ModernVideoPlayer({ src, text, authorName }) {
           muted={isMuted}
           loop
           playsInline
+          preload="none"
           className="modern-video"
         />
         <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} className="sound-toggle">

@@ -95,7 +95,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
                   <div className="comment-header">
                     <div className="avatar avatar-xs bg-gradient-to-br from-indigo-500 to-purple-600">
                       {c.user?.profilePicture ? (
-                        <img src={c.user.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+                        <img src={c.user.profilePicture} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
                       ) : (c.user?.name?.[0] || "U")}
                     </div>
                     <div>

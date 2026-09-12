@@ -2,6 +2,7 @@ import express from "express";
 import Job from "../models/Job.js";
 import Application from "../models/Application.js";
 import { protect } from "../middleware/auth.js";
+import { cacheShort } from "../middleware/cache.js";
 
 const router = express.Router();
 
@@ -42,7 +43,7 @@ function calculateMatch(userCategory, jobCategory, userSkills = []) {
 }
 
 // GET all active jobs (paginated)
-router.get("/", async (req, res) => {
+router.get("/", cacheShort(60, 120), async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -60,7 +61,7 @@ router.get("/", async (req, res) => {
 });
 
 // GET job by slug (for shared links)
-router.get("/slug/:slug", async (req, res) => {
+router.get("/slug/:slug", cacheShort(300, 600), async (req, res) => {
   try {
     const job = await Job.findOne({ slug: req.params.slug });
     if (!job) return res.status(404).json({ message: "Job not found" });

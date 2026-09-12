@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command, CopyObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 
 console.log("🔥 R2 utility loaded");
@@ -8,7 +8,10 @@ console.log("   R2_SECRET_ACCESS_KEY:", process.env.R2_SECRET_ACCESS_KEY ? "✅ 
 console.log("   R2_BUCKET_NAME:", process.env.R2_BUCKET_NAME || "❌ missing");
 console.log("   R2_PUBLIC_URL:", process.env.R2_PUBLIC_URL || "❌ missing");
 
-// Create client lazily (after env is loaded)
+// Cache images at the edge + browser for 1 year. Immutable because URLs
+// contain a random hash (crypto.randomBytes) — content never changes for a key.
+const CACHE_HEADERS = "public, max-age=31536000, immutable";
+
 let _r2 = null;
 function getR2Client() {
   if (_r2) return _r2;
@@ -32,11 +35,13 @@ export async function uploadToR2(buffer, mimetype, folder = "posts") {
     Bucket: process.env.R2_BUCKET_NAME,
     Key: key,
     Body: buffer,
-    ContentType: mimetype
+    ContentType: mimetype,
+    CacheControl: CACHE_HEADERS,
+    ContentDisposition: "inline"
   }));
 
   const url = `${process.env.R2_PUBLIC_URL}/${key}`;
-  console.log(`✅ Uploaded to R2: ${url}`);
+  console.log(`✅ Uploaded to R2 (cached 1y): ${url}`);
   return url;
 }
 
@@ -54,6 +59,48 @@ export async function deleteFromR2(url) {
   }
 }
 
+// Re-tag every object in the bucket with the new Cache-Control headers.
+// R2 does not support partial updates — we use CopyObject with MetadataDirective=REPLACE.
+export async function retagExistingObjects() {
+  const r2 = getR2Client();
+  const bucket = process.env.R2_BUCKET_NAME;
+  let continuationToken = undefined;
+  let total = 0, ok = 0, failed = 0;
+
+  do {
+    const list = await r2.send(new ListObjectsV2Command({
+      Bucket: bucket,
+      ContinuationToken: continuationToken,
+      MaxKeys: 1000
+    }));
+
+    for (const obj of (list.Contents || [])) {
+      total++;
+      try {
+        await r2.send(new CopyObjectCommand({
+          Bucket: bucket,
+          Key: obj.Key,
+          CopySource: `${bucket}/${encodeURIComponent(obj.Key)}`,
+          MetadataDirective: "REPLACE",
+          ContentType: obj.Key.endsWith(".png") ? "image/png"
+                       : obj.Key.endsWith(".webp") ? "image/webp"
+                       : obj.Key.endsWith(".mp4") ? "video/mp4"
+                       : "image/jpeg",
+          CacheControl: CACHE_HEADERS,
+          ContentDisposition: "inline"
+        }));
+        ok++;
+      } catch (err) {
+        failed++;
+        console.error(`  ❌ ${obj.Key}: ${err.message}`);
+      }
+    }
+    continuationToken = list.NextContinuationToken;
+  } while (continuationToken);
+
+  return { total, ok, failed };
+}
+
 export function isBase64Image(str) {
   return typeof str === "string" && str.startsWith("data:image");
 }
@@ -67,4 +114,4 @@ export function parseBase64Image(base64Str) {
   };
 }
 
-export default { uploadToR2, deleteFromR2 };
+export default { uploadToR2, deleteFromR2, retagExistingObjects };

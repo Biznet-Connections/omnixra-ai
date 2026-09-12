@@ -159,7 +159,7 @@ function PostComposer({ onClose, onPosted }) {
             <>
               <div className="flex gap-3 items-center mb-4">
                 <div className="avatar avatar-small bg-gradient-to-br from-indigo-500 to-purple-600">
-                  {user?.profilePicture ? <img src={user.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : user?.name?.[0] || "U"}
+                  {user?.profilePicture ? <img src={user.profilePicture} alt="" loading="eager" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : user?.name?.[0] || "U"}
                 </div>
                 <div className="text-sm font-semibold">{user?.name || user?.companyName || "User"}</div>
               </div>
@@ -167,7 +167,7 @@ function PostComposer({ onClose, onPosted }) {
 
               {imagePreview && !showCrop && (
                 <div className="post-image-container mt-3 relative">
-                  <img src={imagePreview} alt="Preview" className="post-image" />
+                  <img src={imagePreview} alt="Preview" className="post-image" decoding="async" />
                   <button onClick={() => setShowCrop(true)} className="absolute top-2 right-2 bg-black/60 rounded-full p-1.5"><Crop size={16} /></button>
                 </div>
               )}

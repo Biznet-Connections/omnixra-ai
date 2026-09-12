@@ -107,7 +107,7 @@ function MyNetworkPage({ setPage }) {
               connections.map(person => (
                 <div key={person._id} className="talent-card flex items-center gap-3">
                   <button onClick={() => { setPage("user-profile"); window.selectedUserId = person._id; }} className="avatar avatar-small bg-gradient-to-br from-indigo-500 to-purple-600">
-                    {person.profilePicture ? <img src={person.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : person.name?.[0]}
+                    {person.profilePicture ? <img src={person.profilePicture} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : person.name?.[0]}
                   </button>
                   <div className="flex-1">
                     <div className="font-semibold text-sm">{person.name}</div>
@@ -128,7 +128,7 @@ function MyNetworkPage({ setPage }) {
               pendingRequests.map(request => (
                 <div key={request._id} className="talent-card flex items-center gap-3">
                   <div className="avatar avatar-small bg-gradient-to-br from-indigo-500 to-purple-600">
-                    {request.sender?.profilePicture ? <img src={request.sender.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : request.sender?.name?.[0]}
+                    {request.sender?.profilePicture ? <img src={request.sender.profilePicture} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : request.sender?.name?.[0]}
                   </div>
                   <div className="flex-1">
                     <div className="font-semibold text-sm">{request.sender?.name}</div>
@@ -150,7 +150,7 @@ function MyNetworkPage({ setPage }) {
               sentRequests.map(request => (
                 <div key={request._id} className="talent-card flex items-center gap-3">
                   <div className="avatar avatar-small bg-gradient-to-br from-indigo-500 to-purple-600">
-                    {request.recipient?.profilePicture ? <img src={request.recipient.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : request.recipient?.name?.[0]}
+                    {request.recipient?.profilePicture ? <img src={request.recipient.profilePicture} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : request.recipient?.name?.[0]}
                   </div>
                   <div className="flex-1">
                     <div className="font-semibold text-sm">{request.recipient?.name}</div>

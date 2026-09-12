@@ -51,7 +51,7 @@ function ProfileMenu({ onClose, onNavigate }) {
         <div className="profile-menu-header">
           <div className="avatar avatar-large bg-gradient-to-br from-indigo-500 to-purple-600">
             {user?.profilePicture ? (
-              <img src={user.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+              <img src={user.profilePicture} alt="" loading="eager" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
             ) : (
               user?.name?.[0] || "U"
             )}

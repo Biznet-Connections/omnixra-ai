@@ -70,7 +70,7 @@ function FollowingPage({ setPage, setSelectedUserId }) {
                   onClick={() => { setSelectedUserId?.(person._id); setPage("user-profile"); }}
                   className="avatar avatar-small bg-gradient-to-br from-indigo-500 to-purple-600"
                 >
-                  {person.profilePicture ? <img src={person.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : person.name?.[0]}
+                  {person.profilePicture ? <img src={person.profilePicture} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : person.name?.[0]}
                 </button>
                 <button onClick={() => { setSelectedUserId?.(person._id); setPage("user-profile"); }} className="flex-1 text-left">
                   <div className="font-semibold text-sm">{person.name}</div>

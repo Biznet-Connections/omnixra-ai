@@ -69,7 +69,7 @@ function AdminPostAI({ setPage }) {
 
           {preview && (
             <div className="admin-post-image-wrap">
-              <img src={preview} alt="Preview" />
+              <img src={preview} alt="Preview" decoding="async" />
               <button onClick={() => { setImage(null); setPreview(null); }} className="admin-post-image-remove">
                 <X size={16} />
               </button>

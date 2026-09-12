@@ -394,7 +394,7 @@ function InboxPage({ setPage }) {
                     <button onClick={() => openConversation(conv._id)} className="talent-card flex items-center gap-3 w-full text-left">
                       <div className="relative">
                         <div className="avatar avatar-small bg-gradient-to-br from-indigo-500 to-purple-600">
-                          {other?.profilePicture ? <img src={other.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : other?.name?.[0]}
+                          {other?.profilePicture ? <img src={other.profilePicture} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : other?.name?.[0]}
                         </div>
                         {isOnline && <div className="online-dot" />}
                       </div>
@@ -459,7 +459,7 @@ function InboxPage({ setPage }) {
         </button>
         <div className="relative">
           <div className="avatar avatar-small bg-gradient-to-br from-indigo-500 to-purple-600">
-            {otherParticipant?.profilePicture ? <img src={otherParticipant.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : otherParticipant?.name?.[0]}
+            {otherParticipant?.profilePicture ? <img src={otherParticipant.profilePicture} alt="" loading="eager" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : otherParticipant?.name?.[0]}
           </div>
           {isOtherOnline && <div className="online-dot" />}
         </div>

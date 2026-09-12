@@ -167,7 +167,7 @@ function UserProfilePage({ userId, setPage }) {
               {isAI ? <AIAvatar size="large" /> : profile.profilePicLocked ? (
                 <div className="flex flex-col items-center text-slate-500"><Lock size={20} /><span className="text-[9px] mt-1">Locked</span></div>
               ) : profile.profilePicture ? (
-                <img src={profile.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "22px", objectFit: "cover" }} />
+                <img src={profile.profilePicture} alt="" loading="eager" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "22px", objectFit: "cover" }} />
               ) : (
                 profile.name?.[0] || "U"
               )}
@@ -215,7 +215,7 @@ function UserProfilePage({ userId, setPage }) {
               {posts.map(p => (
                 <div key={p._id} className="post-card">
                   <p className="text-sm text-slate-300">{p.text}</p>
-                  {p.image && <img src={p.image} alt="" className="post-image mt-3" />}
+                  {p.image && <img src={p.image} alt="" className="post-image mt-3" loading="lazy" decoding="async" />}
                   {p.video && <ModernVideoPlayer src={p.video} text={p.text} authorName={profile.name} />}
                   {!p.image && !p.video && <div className="h-2" />}
                   <div className="flex gap-4 mt-2 text-[10px] text-slate-600">
@@ -242,7 +242,7 @@ function UserProfilePage({ userId, setPage }) {
               <div className="space-y-2">
                 {profile.connections.map(conn => (
                   <div key={conn._id} className="flex items-center gap-3 p-2 hover:bg-white/[.03] rounded-lg">
-                    <div className="avatar avatar-small bg-gradient-to-br from-indigo-500 to-purple-600">{conn.profilePicture ? <img src={conn.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : conn.name?.[0]}</div>
+                    <div className="avatar avatar-small bg-gradient-to-br from-indigo-500 to-purple-600">{conn.profilePicture ? <img src={conn.profilePicture} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : conn.name?.[0]}</div>
                     <div>
                       <div className="font-semibold text-sm">{conn.name}</div>
                       <div className="text-[10px] text-slate-600">{conn.headline}</div>
@@ -259,7 +259,7 @@ function UserProfilePage({ userId, setPage }) {
         <div className="modal-backdrop" onClick={() => setShowFullPic(false)}>
           <div className="full-picture-modal" onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowFullPic(false)} className="absolute top-4 right-4 bg-black/60 rounded-full p-2"><X size={20} /></button>
-            <img src={profile.profilePicture} alt="" style={{ maxWidth: "100%", maxHeight: "90vh", objectFit: "contain", borderRadius: "12px" }} />
+            <img src={profile.profilePicture} alt="" loading="eager" decoding="async" style={{ maxWidth: "100%", maxHeight: "90vh", objectFit: "contain", borderRadius: "12px" }} />
           </div>
         </div>
       )}

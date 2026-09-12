@@ -94,7 +94,7 @@ function AdminUsers({ setPage }) {
             {filtered.map(user => (
               <div key={user._id} className="admin-user-card">
                 <div className="admin-user-avatar">
-                  {user.profilePicture ? <img src={user.profilePicture} alt="" /> : user.name?.[0] || "U"}
+                  {user.profilePicture ? <img src={user.profilePicture} alt="" loading="lazy" decoding="async" /> : user.name?.[0] || "U"}
                 </div>
                 <div className="admin-user-info">
                   <div className="admin-user-name">

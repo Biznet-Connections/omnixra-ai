@@ -72,7 +72,7 @@ function EditProfilePage({ setPage }) {
           <label className="cursor-pointer">
             <div className="profile-big-avatar">
               {user?.profilePicture ? (
-                <img src={user.profilePicture} alt="" style={{ width: "100%", height: "100%", borderRadius: "22px", objectFit: "cover" }} />
+                <img src={user.profilePicture} alt="" loading="eager" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "22px", objectFit: "cover" }} />
               ) : (
                 <Camera size={30} />
               )}

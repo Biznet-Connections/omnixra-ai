@@ -2,6 +2,7 @@ import express from "express";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
 import { protect } from "../middleware/auth.js";
+import { cacheShort } from "../middleware/cache.js";
 import { uploadToR2, isBase64Image, parseBase64Image } from "../utils/r2.js";
 
 const router = express.Router();
@@ -21,7 +22,7 @@ router.post("/debug/log-batch", (req, res) => {
 
 // GET ALL POSTS — Cursor pagination (scales to millions)
 // Query: ?limit=10&cursor=<lastPostId>
-router.get("/", async (req, res) => {
+router.get("/", cacheShort(30, 60), async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 10, 30);
     const cursor = req.query.cursor;
@@ -96,7 +97,7 @@ router.get("/", async (req, res) => {
 });
 
 // GET AI NEWS POSTS
-router.get("/news", async (req, res) => {
+router.get("/news", cacheShort(120, 240), async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 30, 100);
     const posts = await Post.find({ authorType: "ai", deleted: false })

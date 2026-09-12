@@ -224,7 +224,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
           <button onClick={() => onViewProfile?.(post.author)} className="flex-shrink-0">
             {isAI ? <AIAvatar size="medium" /> : (
               <div className="avatar avatar-medium bg-gradient-to-br from-indigo-500 to-purple-600">
-                {authorPicLocked ? <Lock size={18} /> : authorProfilePic ? <img src={authorProfilePic} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : authorInitial}
+                {authorPicLocked ? <Lock size={18} /> : authorProfilePic ? <img src={authorProfilePic} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : authorInitial}
               </div>
             )}
           </button>
@@ -292,7 +292,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
           </p>
         )}
 
-        {post.image ? <div className="post-image-container mt-4"><img src={post.image} alt="Post" className="post-image" loading="lazy" /></div> : post.hasImage ? <PostImage postId={realId} /> : null}
+        {post.image ? <div className="post-image-container mt-4"><img src={post.image} alt="Post" className="post-image" loading="lazy" decoding="async" /></div> : post.hasImage ? <PostImage postId={realId} /> : null}
         {post.video && <ModernVideoPlayer src={post.video} text={post.text} authorName={authorName} />}
 
         {!isPending && !isEditing && (
@@ -335,7 +335,7 @@ function PostImage({ postId }) {
 
   if (loading) return <div className="post-image-container mt-4"><div className="post-image-placeholder">Loading image...</div></div>;
   if (!image) return null;
-  return <div className="post-image-container mt-4"><img src={image} alt="Post" className="post-image" loading="lazy" /></div>;
+  return <div className="post-image-container mt-4"><img src={image} alt="Post" className="post-image" loading="lazy" decoding="async" /></div>;
 }
 
 export default PostCard;
