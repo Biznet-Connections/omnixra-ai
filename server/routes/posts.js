@@ -347,8 +347,12 @@ router.delete("/:id", protect, async (req, res) => {
 // FOLLOW USER
 router.put("/follow-user/:userId", protect, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user._id);
     const targetId = req.params.userId;
+    // ── Prevent self-follow ──
+    if (req.user._id.toString() === targetId.toString()) {
+      return res.status(400).json({ message: "You cannot follow yourself." });
+    }
+    const currentUser = await User.findById(req.user._id);
     const idx = currentUser.followingUsers.indexOf(targetId);
     let isFollowing;
     if (idx > -1) {

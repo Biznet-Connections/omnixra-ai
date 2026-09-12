@@ -4874,3 +4874,27 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
   }
 }
 
+
+/* Phase 2D — Optimistic UI comment states */
+.comment-author-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.2), rgba(168, 85, 247, 0.2));
+  color: #a5b4fc;
+  border: 1px solid rgba(129, 140, 248, 0.3);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.comment-pending {
+  opacity: 0.55;
+  transition: opacity 0.25s ease-in-out;
+}
+.comment-pending-label {
+  font-size: 10px;
+  color: #64748b;
+  font-style: italic;
+  margin-left: 6px;
+}

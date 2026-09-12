@@ -11,14 +11,11 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
   const [replyTo, setReplyTo] = useState(null);
   const [replyText, setReplyText] = useState("");
 
+  const postAuthorId = (post.author?._id || post.author)?.toString();
+
   const fetchComments = async () => {
-    console.log("🔥 fetchComments called for post:", post._id);
     try {
       const res = await api.get(`/posts/${realId}/comments`);
-      console.log("✅ Fetched comments:", res.data.comments?.length, "for post:", post._id);
-      const count = res.data.comments?.length || 0;
-      const first = res.data.comments?.[0]?.text || "NONE";
-      const firstUser = res.data.comments?.[0]?.user?.name || "NO USER";
       setComments(res.data.comments || []);
     } catch (err) {
       console.error("Fetch comments error:", err);
@@ -36,14 +33,28 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
     const text = commentText.trim();
     setCommentText("");
     playSound("comment");
+
+    const tempId = `temp-${Date.now()}`;
+    const optimistic = {
+      _id: tempId,
+      text,
+      user: { name: "You", _id: post.currentUserId },
+      likes: 0,
+      replies: [],
+      createdAt: new Date().toISOString(),
+      pending: true
+    };
+    setComments(prev => [...prev, optimistic]);
+    onUpdate?.({ ...post, totalComments: (post.totalComments || 0) + 1 });
+
     try {
-      const res = await api.post(`/posts/${realId}/comment`, { text });
-      await fetchComments();
-      if (res.data?.totalComments != null) {
-        onUpdate?.({ ...post, totalComments: res.data.totalComments });
-      }
+      await api.post(`/posts/${realId}/comment`, { text });
+      const res = await api.get(`/posts/${realId}/comments`);
+      setComments(res.data.comments || []);
     } catch (err) {
       console.error("Comment error:", err);
+      setComments(prev => prev.filter(c => c._id !== tempId));
+      onUpdate?.({ ...post, totalComments: Math.max(0, (post.totalComments || 1) - 1) });
     }
   };
 
@@ -53,22 +64,53 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
     setReplyText("");
     setReplyTo(null);
     playSound("comment");
+
+    const tempId = `temp-reply-${Date.now()}`;
+    const optimisticReply = {
+      _id: tempId,
+      text,
+      user: { name: "You" },
+      createdAt: new Date().toISOString(),
+      pending: true
+    };
+    setComments(prev => prev.map(c =>
+      c._id === commentId
+        ? { ...c, replies: [...(c.replies || []), optimisticReply] }
+        : c
+    ));
+
     try {
       await api.post(`/posts/${realId}/comment/${commentId}/reply`, { text });
-      await fetchComments();
+      const res = await api.get(`/posts/${realId}/comments`);
+      setComments(res.data.comments || []);
     } catch (err) {
       console.error("Reply error:", err);
+      setComments(prev => prev.map(c =>
+        c._id === commentId
+          ? { ...c, replies: (c.replies || []).filter(r => r._id !== tempId) }
+          : c
+      ));
     }
   };
 
   const handleLikeComment = async (commentId) => {
+    setComments(prev => prev.map(c =>
+      c._id === commentId ? { ...c, likes: (c.likes || 0) + 1 } : c
+    ));
     try {
       await api.put(`/posts/${realId}/comment/${commentId}/like`);
-      await fetchComments();
+      const res = await api.get(`/posts/${realId}/comments`);
+      setComments(res.data.comments || []);
     } catch (err) {
       console.error("Like comment error:", err);
+      setComments(prev => prev.map(c =>
+        c._id === commentId ? { ...c, likes: Math.max(0, (c.likes || 1) - 1) } : c
+      ));
     }
   };
+
+  const isPostAuthor = (userId) =>
+    userId && postAuthorId && userId.toString() === postAuthorId;
 
   return (
     <div className="comments-bottom-sheet-backdrop" onClick={onClose}>
@@ -91,7 +133,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
           ) : (
             <div className="space-y-3">
               {comments.map((c, i) => (
-                <div key={c._id || i} className="comment-thread">
+                <div key={c._id || i} className={`comment-thread ${c.pending ? "comment-pending" : ""}`}>
                   <div className="comment-header">
                     <div className="avatar avatar-xs bg-gradient-to-br from-indigo-500 to-purple-600">
                       {c.user?.profilePicture ? (
@@ -99,7 +141,12 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
                       ) : (c.user?.name?.[0] || "U")}
                     </div>
                     <div>
-                      <span className="comment-name">{c.user?.name || "User"}</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="comment-name">{c.user?.name || "User"}</span>
+                        {isPostAuthor(c.user?._id) && (
+                          <span className="comment-author-badge">Author</span>
+                        )}
+                      </div>
                       <p className="comment-text">{c.text}</p>
                     </div>
                   </div>
@@ -111,13 +158,19 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
                     <button onClick={() => setReplyTo(replyTo === c._id ? null : c._id)} className="comment-action-btn">
                       Reply
                     </button>
+                    {c.pending && <span className="comment-pending-label">Sending...</span>}
                   </div>
 
                   {c.replies?.length > 0 && (
                     <div className="comment-replies">
                       {c.replies.map((r, j) => (
-                        <div key={j}>
-                          <span className="comment-name">{r.user?.name || "User"}</span>
+                        <div key={r._id || j} className={r.pending ? "comment-pending" : ""}>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="comment-name">{r.user?.name || "User"}</span>
+                            {isPostAuthor(r.user?._id) && (
+                              <span className="comment-author-badge">Author</span>
+                            )}
+                          </div>
                           <p className="comment-text">{r.text}</p>
                         </div>
                       ))}

@@ -8,6 +8,8 @@ import VerifiedBadge from "../components/VerifiedBadge";
 import AIAvatar from "../components/AIAvatar";
 
 function UserProfilePage({ userId, setPage }) {
+  const { user: currentUser } = useAuth();
+
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [following, setFollowing] = useState(false);
@@ -18,9 +20,14 @@ function UserProfilePage({ userId, setPage }) {
     requestId: null
   });
   const [showConnections, setShowConnections] = useState(false);
+
+  // Detect if this is the viewer's own profile
+  const isOwnProfile = !!(
+    currentUser && profile &&
+    (currentUser._id?.toString() === profile._id?.toString())
+  );
   const [showFullPic, setShowFullPic] = useState(false);
   const [loading, setLoading] = useState(true);
-  const { user: currentUser } = useAuth();
 
   useEffect(() => {
     if (userId) {
@@ -29,7 +36,7 @@ function UserProfilePage({ userId, setPage }) {
         .then(res => {
           setProfile(res.data.user);
           setPosts(res.data.posts || []);
-          setFollowing(res.data.isFollowing || false);
+          if (isOwnProfile) { setFollowing(false); } else { setFollowing(res.data.isFollowing || false); }
           setLoading(false);
         })
         .catch(err => {
@@ -189,7 +196,7 @@ function UserProfilePage({ userId, setPage }) {
               </div>
             </div>
           </div>
-          {!isAI && (
+          {!isAI && !isOwnProfile && (
             <div className="flex gap-2 mt-4">
               <button onClick={handleConnect} className={`connect-button ${connectionStatus.isConnected ? "connected" : ""} ${connectionStatus.requestSent ? "request-sent" : ""}`}>
                 {getConnectIcon()}
@@ -201,6 +208,14 @@ function UserProfilePage({ userId, setPage }) {
               </button>
               <button onClick={handleMessage} className="outline-button">
                 <MessageCircle size={14} /> Message
+              </button>
+            </div>
+          )}
+
+          {isOwnProfile && !isAI && (
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => window.location.hash = "#edit-profile"} className="primary-button">
+                Edit Profile
               </button>
             </div>
           )}

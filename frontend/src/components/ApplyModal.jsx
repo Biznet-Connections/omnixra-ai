@@ -24,19 +24,10 @@ function ApplyModal({ job, onClose, onApplied }) {
       setError("Please write a message to apply.");
       return;
     }
-    setSubmitting(true);
-    try {
-      const res = await api.post(`/jobs/${job._id}/apply`, { message, cvAttachment: cvFile });
-      setSuccess(true);
-      setTimeout(() => {
-        onApplied?.(res.data.application);
-        onClose();
-      }, 1500);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to apply");
-    } finally {
-      setSubmitting(false);
-    }
+    api.post(`/jobs/${job._id}/apply`, { message, cvAttachment: cvFile })
+      .then(res => { onApplied?.(res.data.application); })
+      .catch(err => { console.warn("Apply failed:", err.message); });
+    onClose();
   };
 
   return (
