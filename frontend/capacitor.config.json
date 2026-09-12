@@ -1,4 +1,4 @@
- {
+﻿{
   "appId": "com.omnixra.ai",
   "appName": "Omnixra AI",
   "webDir": "dist",
@@ -8,15 +8,6 @@
     "captureInput": true,
     "webContentsDebuggingEnabled": true,
     "backgroundColor": "#06070b"
-  },
-  "server": {
-    "androidScheme": "https",
-    "iosScheme": "https",
-    "hostname": "omnixra-ai.com",
-    "allowNavigation": [
-      "omnixra-ai.com",
-      "*.omnixra-ai.com"
-    ]
   },
   "plugins": {
     "SplashScreen": {

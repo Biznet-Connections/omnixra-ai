@@ -39,7 +39,24 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const app = express();
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || "*", credentials: true }));
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "*").split(",").map(s => s.trim());
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // No origin (mobile apps, curl) ? allow
+    if (!origin) return callback(null, true);
+    // Wildcard ? allow all
+    if (allowedOrigins.includes("*")) return callback(null, true);
+    // Explicit list ? check
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Native Capacitor origins ? always allow
+    if (origin.startsWith("capacitor://") || origin.startsWith("http://localhost") || origin.startsWith("https://localhost")) {
+      return callback(null, true);
+    }
+    callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true
+}));
 app.use(compression({ threshold: 1024, level: 6 }));
 app.use(express.json({ limit: "50mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

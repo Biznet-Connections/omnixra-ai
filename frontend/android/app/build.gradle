@@ -52,3 +52,13 @@ try {
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }
+
+// -- Workaround: skip lint analysis tasks that need network downloads --
+allprojects {
+    tasks.configureEach { task ->
+        def name = task.name.toLowerCase()
+        if (name.contains('lint') || name.contains('extractdebugannotations') || name.contains('extractreleaseannotations')) {
+            task.enabled = false
+        }
+    }
+}

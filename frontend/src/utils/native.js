@@ -1,5 +1,4 @@
 // Centralized native (Capacitor) detection and helpers
-// IMPORTANT: Import paths use variables so Vite ignores them in web builds
 
 export const isNative = typeof window !== "undefined" && (
   window.Capacitor?.isNativePlatform?.() ||
@@ -11,39 +10,24 @@ export const getPlatform = () => {
   return window.Capacitor?.getPlatform?.() || "web";
 };
 
-// Dynamic import helper — bypasses Vite static analysis
-async function loadPlugin(pluginName) {
-  // Use variable so Vite can't statically resolve
-  const path = pluginName;
-  return await import(/* @vite-ignore */ path);
-}
-
+// Setup native UX (status bar, splash, keyboard, etc.)
 export async function setupNativeUX() {
-  if (!isNative) {
-    console.log("🌐 Web mode — skipping native setup");
-    return;
-  }
+  if (!isNative) return;
 
-  // StatusBar
   try {
-    const mod = await loadPlugin("@capacitor/status-bar");
-    const { StatusBar, Style } = mod;
+    const { StatusBar, Style } = await import("@capacitor/status-bar");
     await StatusBar.setStyle({ style: Style.Dark });
     await StatusBar.setBackgroundColor({ color: "#06070b" });
     await StatusBar.setOverlaysWebView({ overlay: false });
   } catch (e) { console.log("StatusBar not available:", e.message); }
 
-  // SplashScreen
   try {
-    const mod = await loadPlugin("@capacitor/splash-screen");
-    const { SplashScreen } = mod;
+    const { SplashScreen } = await import("@capacitor/splash-screen");
     await SplashScreen.hide({ fadeOutDuration: 300 });
   } catch (e) { console.log("SplashScreen not available:", e.message); }
 
-  // Keyboard
   try {
-    const mod = await loadPlugin("@capacitor/keyboard");
-    const { Keyboard } = mod;
+    const { Keyboard } = await import("@capacitor/keyboard");
     Keyboard.addListener("keyboardWillShow", (info) => {
       document.body.style.paddingBottom = `${info.keyboardHeight}px`;
     });
@@ -52,10 +36,8 @@ export async function setupNativeUX() {
     });
   } catch (e) { console.log("Keyboard not available:", e.message); }
 
-  // App (back button)
   try {
-    const mod = await loadPlugin("@capacitor/app");
-    const { App: CapApp } = mod;
+    const { App: CapApp } = await import("@capacitor/app");
     CapApp.addListener("backButton", ({ canGoBack }) => {
       if (canGoBack) {
         window.history.back();
@@ -63,16 +45,16 @@ export async function setupNativeUX() {
         CapApp.exitApp();
       }
     });
-  } catch (e) { console.log("App plugin not available:", e.message); }
+  } catch (e) { console.log("App not available:", e.message); }
 
   console.log("📱 Native UX setup complete:", getPlatform());
 }
 
+// Haptic feedback
 export async function hapticLight() {
   if (!isNative) return;
   try {
-    const mod = await loadPlugin("@capacitor/haptics");
-    const { Haptics, ImpactStyle } = mod;
+    const { Haptics, ImpactStyle } = await import("@capacitor/haptics");
     await Haptics.impact({ style: ImpactStyle.Light });
   } catch (e) { /* ignore */ }
 }
@@ -80,8 +62,7 @@ export async function hapticLight() {
 export async function hapticMedium() {
   if (!isNative) return;
   try {
-    const mod = await loadPlugin("@capacitor/haptics");
-    const { Haptics, ImpactStyle } = mod;
+    const { Haptics, ImpactStyle } = await import("@capacitor/haptics");
     await Haptics.impact({ style: ImpactStyle.Medium });
   } catch (e) { /* ignore */ }
 }
