@@ -36,6 +36,18 @@ export function initSocket(server) {
     onlineUsers.get(socket.userId).add(socket.id);
 
     socket.join(`user:${socket.userId}`);
+
+    // ── Feed room: everyone in the app joins this. Only posts broadcast here. ──
+    socket.join("feed");
+
+    // ── Post rooms: joined only when user opens a post's comments ──
+    socket.on("join-post", (postId) => {
+      if (postId) socket.join(`post:${postId}`);
+    });
+    socket.on("leave-post", (postId) => {
+      if (postId) socket.leave(`post:${postId}`);
+    });
+
     socket.broadcast.emit("user-online", socket.userId);
 
     socket.on("typing", ({ conversationId, recipientId, isTyping }) => {
@@ -89,11 +101,12 @@ export function isUserOnline(userId) {
 }
 
 export function emitNewPost(post) {
-  if (io) io.emit("new-post", post);
+  // Only users in the feed room (all logged-in users) — skip unconnected sockets
+  if (io) io.to("feed").emit("new-post", post);
 }
 
 export function emitPostDeleted(postId) {
-  if (io) io.emit("post-deleted", { postId });
+  if (io) io.to("feed").emit("post-deleted", { postId });
 }
 
 export function emitNewMessage(conversationId, recipientId, message) {
@@ -114,4 +127,15 @@ export function emitFollowUpdate(targetUserId, followerId, isFollowing) {
 
 export function emitUnreadCount(userId, count) {
   if (io) io.to(`user:${userId}`).emit("unread-count", { count });
+}
+
+// ── Scoped post emits: to post's own room + feed room ──
+export function emitPostLiked(postId, likes) {
+  if (!io) return;
+  io.to(`post:${postId}`).to("feed").emit("post-liked", { postId, likes });
+}
+
+export function emitPostCommented(postId, comments, totalComments) {
+  if (!io) return;
+  io.to(`post:${postId}`).to("feed").emit("post-commented", { postId, comments, totalComments });
 }

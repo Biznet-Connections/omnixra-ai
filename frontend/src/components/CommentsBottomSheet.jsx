@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import { X, Heart, Send } from "lucide-react";
 import api from "../api/axios";
 import { playSound } from "../utils/helpers";
+import { useSocket } from "../context/SocketContext";
 
 function CommentsBottomSheet({ post, onClose, onUpdate }) {
   const realId = post._originalId || post._id;
+  const { joinPost, leavePost } = useSocket();
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +28,12 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
 
   useEffect(() => {
     fetchComments();
+  }, [realId]);
+
+  // Join the post room while the comments sheet is open (real-time comments)
+  useEffect(() => {
+    if (realId) joinPost(realId);
+    return () => { if (realId) leavePost(realId); };
   }, [realId]);
 
   const handleAddComment = async () => {

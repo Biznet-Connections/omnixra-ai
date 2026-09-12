@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import { protect } from "../middleware/auth.js";
 import { cacheShort } from "../middleware/cache.js";
 import { uploadToR2, isBase64Image, parseBase64Image } from "../utils/r2.js";
+import { emitPostLiked, emitPostCommented } from "../socket.js";
 
 const router = express.Router();
 
@@ -225,6 +226,13 @@ router.put("/:id/like", protect, async (req, res) => {
     const populated = await Post.findById(post._id)
       .populate("author", "name profilePicture profilePicLocked headline category companyName accountType")
       .lean();
+
+    // ── Scoped real-time emit (post room + feed only) ──
+    try {
+      const likeCount = typeof populated.likes === "number" ? populated.likes : 0;
+      emitPostLiked(post._id.toString(), likeCount);
+    } catch (e) { console.warn("emitPostLiked failed:", e.message); }
+
     res.json({
       ...populated,
       likes: typeof populated.likes === "number" ? populated.likes : 0,
@@ -252,6 +260,12 @@ router.post("/:id/comment", protect, async (req, res) => {
       .populate("comments.user", "name profilePicture profilePicLocked")
       .populate("comments.replies.user", "name profilePicture profilePicLocked")
       .lean();
+
+    // ── Scoped real-time emit ──
+    try {
+      emitPostCommented(post._id.toString(), populated.comments || [], post.comments.length);
+    } catch (e) { console.warn("emitPostCommented failed:", e.message); }
+
     res.json({ comments: populated.comments || [], totalComments: post.comments.length });
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -228,7 +228,7 @@ router.delete("/:id", protect, async (req, res) => {
     await conversation.deleteOne();
 
     const io = getIO();
-    io.emit("conversation-deleted", { conversationId: req.params.id });
+    io.to(`user:${req.user._id}`).emit("conversation-deleted", { conversationId: req.params.id });
 
     res.json({ message: "Conversation deleted for everyone" });
   } catch (error) {

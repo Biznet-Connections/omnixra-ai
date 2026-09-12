@@ -128,6 +128,14 @@ export const SocketProvider = ({ children }) => {
     };
   }, [user?._id]);
 
+  const joinPost = (postId) => {
+    if (socket && postId) socket.emit("join-post", postId);
+  };
+
+  const leavePost = (postId) => {
+    if (socket && postId) socket.emit("leave-post", postId);
+  };
+
   const emitTyping = (conversationId, recipientId, isTyping) => {
     if (socket) socket.emit("typing", { conversationId, recipientId, isTyping });
   };
@@ -137,7 +145,7 @@ export const SocketProvider = ({ children }) => {
   };
 
   return (
-    <SocketContext.Provider value={{ socket, onlineUsers, typingUsers, lastSeenMap, emitTyping, emitMarkRead }}>
+    <SocketContext.Provider value={{ socket, onlineUsers, typingUsers, lastSeenMap, emitTyping, emitMarkRead, joinPost, leavePost }}>
       {children}
     </SocketContext.Provider>
   );
