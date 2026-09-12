@@ -28,18 +28,35 @@ router.get("/", cacheShort(30, 60), async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 10, 30);
     const cursor = req.query.cursor;
 
+    // Compound cursor (createdAt + _id) so ordering is stable even when
+    // many docs share the same createdAt millisecond.
     const query = { deleted: false };
-    if (cursor) query._id = { $lt: cursor };
+    if (cursor) {
+      // Look up the cursor's createdAt so we can do a stable (createdAt, _id) pagination
+      const last = await Post.findById(cursor).select("createdAt _id").lean();
+      if (last) {
+        query.$or = [
+          { createdAt: { $lt: last.createdAt } },
+          { createdAt: last.createdAt, _id: { $lt: last._id } }
+        ];
+      } else {
+        // Cursor doc no longer exists — just fall back to plain _id pagination
+        query._id = { $lt: cursor };
+      }
+    }
 
     const posts = await Post.find(query)
-      .sort({ _id: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .limit(limit + 1)
       .select("text image video mediaType authorType author likes comments shares createdAt visibility edited")
       .lean();
 
     const hasMore = posts.length > limit;
     const pageItems = hasMore ? posts.slice(0, limit) : posts;
-    const nextCursor = hasMore ? pageItems[pageItems.length - 1]._id.toString() : null;
+    // Only set nextCursor if there is at least one item to point at
+    const nextCursor = pageItems.length > 0
+      ? pageItems[pageItems.length - 1]._id.toString()
+      : null;
 
     const authorIds = [...new Set(pageItems.map(p => p.author?.toString()).filter(Boolean))];
     const authors = await User.find({ _id: { $in: authorIds } })
@@ -116,17 +133,27 @@ router.get("/my-posts", protect, async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 20, 50);
     const cursor = req.query.cursor;
     const query = { author: req.user._id, deleted: false };
-    if (cursor) query._id = { $lt: cursor };
+    if (cursor) {
+      const last = await Post.findById(cursor).select("createdAt _id").lean();
+      if (last) {
+        query.$or = [
+          { createdAt: { $lt: last.createdAt } },
+          { createdAt: last.createdAt, _id: { $lt: last._id } }
+        ];
+      } else {
+        query._id = { $lt: cursor };
+      }
+    }
 
     const posts = await Post.find(query)
-      .sort({ _id: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .limit(limit + 1)
       .populate("author", "name profilePicture profilePicLocked headline category companyName")
       .lean();
 
     const hasMore = posts.length > limit;
     const items = hasMore ? posts.slice(0, limit) : posts;
-    const nextCursor = hasMore ? items[items.length - 1]._id.toString() : null;
+    const nextCursor = items.length > 0 ? items[items.length - 1]._id.toString() : null;
 
     res.json({ posts: items, hasMore, nextCursor });
   } catch (error) { res.status(500).json({ message: error.message }); }

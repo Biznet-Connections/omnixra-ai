@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import LoadingScreen from "./components/LoadingScreen";
+import ErrorBoundary from "./components/ErrorBoundary";
 import AuthScreen from "./components/AuthScreen";
 import BottomNav from "./components/BottomNav";
 import DesktopSidebar from "./components/DesktopSidebar";
@@ -187,7 +188,9 @@ function AppContent() {
   return (
     <div className="app-root">
       {!isAdminPage && <DesktopSidebar page={page} setPage={handleNavClick} />}
-      <main className="app-main">{renderPage()}</main>
+      <main className="app-main">
+        <ErrorBoundary key={page}>{renderPage()}</ErrorBoundary>
+      </main>
       {!isAdminPage && <BottomNav page={page} setPage={handleNavClick} />}
       {showPostComposer && <PostComposer onClose={() => setShowPostComposer(false)} />}
     </div>
