@@ -17,6 +17,18 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [pendingVerification, setPendingVerification] = useState(null); // { email, from: "signup" | "signin" }
 
+  // Listen for user-loaded event from OAuth flow
+  useEffect(() => {
+    const handleUserLoaded = (event) => {
+      if (event.detail) {
+        setUser(event.detail);
+        setLoading(false);
+      }
+    };
+    window.addEventListener("auth-user-loaded", handleUserLoaded);
+    return () => window.removeEventListener("auth-user-loaded", handleUserLoaded);
+  }, []);
+
   useEffect(() => {
     const token = localStorage.getItem("omnixra_token");
     const cachedUser = localStorage.getItem("omnixra_user");

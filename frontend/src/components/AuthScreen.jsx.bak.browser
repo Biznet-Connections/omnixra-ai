@@ -3,8 +3,6 @@ import { Sparkles, Mail, Lock, MapPin, Building2, User, ArrowRight, ArrowLeft, S
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import ForgotPasswordFlow from "../pages/ForgotPasswordFlow";
-import { Browser } from "@capacitor/browser";
-import { Capacitor } from "@capacitor/core";
 
 function AuthScreen() {
   const [mode, setMode] = useState("signin");
@@ -70,10 +68,12 @@ function AuthScreen() {
     setShowSuggestions(false);
   };
 
-  const handleGoogleSignIn = async () => {
-    const isNative = Capacitor.isNativePlatform();
-    console.log("🔵 Google sign-in. isNative:", isNative);
+  const handleGoogleSignIn = () => {
+    const isNative = window.Capacitor?.isNativePlatform?.() ||
+      window.location.protocol === "capacitor:" ||
+      window.location.protocol === "file:";
 
+    // Pass account type so backend creates correct user
     const params = new URLSearchParams();
     if (isNative) params.set("platform", "native");
     if (mode === "signup" && accountType) params.set("type", accountType);
@@ -81,7 +81,7 @@ function AuthScreen() {
     const url = `https://omnixra-ai.com/api/oauth/google${params.toString() ? "?" + params.toString() : ""}`;
 
     if (isNative) {
-      await Browser.open({ url, windowName: "_system" });
+      window.open(url, "_system");
     } else {
       window.location.href = url;
     }

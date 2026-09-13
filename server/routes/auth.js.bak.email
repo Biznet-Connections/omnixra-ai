@@ -80,7 +80,11 @@ router.post("/signup", async (req, res) => {
 
     // 5. Send code (skip for admin)
     if (!isAdmin) {
-      sendVerificationCode(user.email, code).catch(e => console.warn("Verification email error:", e.message));
+      const sendResult = await sendVerificationCode(user.email, code);
+      if (!sendResult.sent) {
+        console.warn("Verification email failed:", sendResult.reason);
+        // Still return success — code is saved, user can request resend
+      }
     }
 
     // 6. Respond
@@ -198,7 +202,10 @@ router.post("/resend-code", async (req, res) => {
     user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
-    sendVerificationCode(user.email, code).catch(e => console.warn("Resend error:", e.message));
+    const sendResult = await sendVerificationCode(user.email, code);
+    if (!sendResult.sent) {
+      return res.status(500).json({ message: "Could not send email. Try again." });
+    }
 
     res.json({ message: "New code sent. Check your email." });
   } catch (error) {
@@ -240,7 +247,7 @@ router.post("/signin", async (req, res) => {
       user.verificationCodeHash = hashCode(code);
       user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
       await user.save();
-      sendVerificationCode(user.email, code).catch(e => console.warn("Signin resend error:", e.message));
+      await sendVerificationCode(user.email, code);
       return res.status(403).json({
         message: "Please verify your email. A new code was sent.",
         requiresVerification: true,
@@ -297,7 +304,7 @@ router.post("/forgot-password", async (req, res) => {
     user.resetCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
-    sendResetCode(user.email, code).catch(e => console.warn("Reset code error:", e.message));
+    await sendResetCode(user.email, code);
     res.json(genericResponse);
   } catch (error) {
     console.error("Forgot password error:", error);

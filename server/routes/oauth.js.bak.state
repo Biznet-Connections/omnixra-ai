@@ -22,17 +22,10 @@ function generateToken(id) {
 // Redirects user to Google's consent screen
 router.get("/google", (req, res) => {
   const client = getClient();
-  const platform = req.query.platform === "native" ? "native" : "web";
-  const type = req.query.type === "company" ? "company" : "jobseeker";
-
-  // Encode in state so Google passes it back untouched
-  const state = Buffer.from(JSON.stringify({ platform, type })).toString("base64url");
-
   const url = client.generateAuthUrl({
     access_type: "offline",
     scope: ["openid", "email", "profile"],
     prompt: "select_account",
-    state,
   });
   res.redirect(url);
 });
@@ -40,22 +33,9 @@ router.get("/google", (req, res) => {
 // ── Step 2: Google redirects back here ──
 router.get("/google/callback", async (req, res) => {
   try {
-    const { code, state } = req.query;
-
-    // Decode state (platform + type) — survives Google round-trip
-    let platform = "web";
-    let requestedType = "jobseeker";
-    try {
-      const parsed = JSON.parse(Buffer.from(state || "", "base64url").toString());
-      platform = parsed.platform || "web";
-      requestedType = parsed.type || "jobseeker";
-    } catch (e) { /* default web/jobseeker */ }
-
+    const { code } = req.query;
     if (!code) {
-      const errUrl = platform === "native"
-        ? "omnixraapp://oauth?error=missing_code"
-        : "https://omnixra-ai.com/auth-callback#error=missing_code";
-      return res.redirect(errUrl);
+      return res.redirect("omnixraapp://oauth?error=missing_code");
     }
 
     const client = getClient();
@@ -103,8 +83,8 @@ router.get("/google/callback", async (req, res) => {
     // Return to app with token in URL — deep link
     // For web: redirect to home with token in localStorage via frontend route
     // For native: deep link back into app
-    const accountType = requestedType === "company" ? "company" : "jobseeker";
-    const isNative = platform === "native";
+    const accountType = req.query.type === "company" ? "company" : "jobseeker";
+    const isNative = req.query.platform === "native";
 
     if (isNative) {
       return res.redirect(`omnixraapp://oauth?token=${token}&userId=${user._id}`);

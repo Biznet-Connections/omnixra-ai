@@ -184,9 +184,10 @@ function ForgotPasswordFlow({ onClose }) {
               </div>
               {error && <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">{error}</div>}
               <button onClick={handleSendCode} disabled={loading} className="primary-button w-full mt-5 disabled:opacity-50">
-                {loading ? "Sending..." : "Send reset code"}
+                {loading ? "Sending... (may take up to 30s)" : "Send reset code"}
                 {!loading && <Sparkles size={16} />}
               </button>
+              {loading && <p className="text-[10px] text-slate-500 text-center mt-3">Rendering email on server... please wait</p>}
             </>
           )}
 

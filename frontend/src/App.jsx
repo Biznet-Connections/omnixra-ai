@@ -80,6 +80,25 @@ function AppContent() {
   };
 
   // ── ALL useEffects (in order) ──
+  // ── Listen for native OAuth deep-link token (from main.jsx) ──
+  useEffect(() => {
+    const handleOauthToken = async (event) => {
+      const token = event.detail?.token;
+      if (!token) return;
+      try {
+        const { default: api } = await import("./api/axios");
+        const res = await api.get("/auth/me");
+        localStorage.setItem("omnixra_user", JSON.stringify(res.data));
+        window.dispatchEvent(new CustomEvent("auth-user-loaded", { detail: res.data }));
+        setPage("home");
+      } catch (e) {
+        console.error("OAuth /auth/me failed:", e.message);
+      }
+    };
+    window.addEventListener("oauth-token-received", handleOauthToken);
+    return () => window.removeEventListener("oauth-token-received", handleOauthToken);
+  }, []);
+
   useEffect(() => {
     const handlePopState = () => {
       if (!goBack()) window.history.back();

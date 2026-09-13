@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
@@ -18,8 +18,58 @@ const isNative =
     window.location.protocol === "capacitor:" ||
     window.location.protocol === "file:");
 
+// ── Native OAuth deep link handler ──
+// When the app is opened via omnixraapp://oauth?token=... (from Google),
+// forward the token into the app.
+if (isNative) {
+  (async () => {
+    try {
+      const { App: CapApp } = await import("@capacitor/app");
+      const { Browser } = await import("@capacitor/browser");
+
+      CapApp.addListener("appUrlOpen", async (event) => {
+        console.log("🔗 appUrlOpen:", event.url);
+        if (!event.url.startsWith("omnixraapp://oauth")) return;
+
+        try { await Browser.close(); } catch (e) { }
+
+        const query = event.url.split("?")[1] || "";
+        const params = new URLSearchParams(query);
+        const token = params.get("token");
+        const userId = params.get("userId");
+        const error = params.get("error");
+
+        if (error) {
+          console.warn("OAuth error:", error);
+          window.dispatchEvent(new CustomEvent("oauth-error", { detail: { error } }));
+          return;
+        }
+
+        if (token && token.length > 20) {
+          console.log("🔗 Got OAuth token, storing...");
+          localStorage.setItem("omnixra_token", token);
+          if (userId) localStorage.setItem("omnixra_userId", userId);
+          window.dispatchEvent(new CustomEvent("oauth-token-received", { detail: { token, userId } }));
+        }
+      });
+
+      // Also handle the initial launch (cold start via deep link)
+      const launchUrl = await CapApp.getLaunchUrl();
+      if (launchUrl?.url?.startsWith("omnixraapp://oauth")) {
+        const query = launchUrl.url.split("?")[1] || "";
+        const params = new URLSearchParams(query);
+        const token = params.get("token");
+        if (token) {
+          localStorage.setItem("omnixra_token", token);
+        }
+      }
+    } catch (e) {
+      console.warn("Deep link setup error:", e.message);
+    }
+  })();
+}
+
 // ALWAYS unregister any existing service workers inside the native app
-// AND on web in dev — prevents stale SW from intercepting API calls.
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {
     return Promise.all(registrations.map((reg) => reg.unregister()));
@@ -27,7 +77,6 @@ if ("serviceWorker" in navigator) {
     console.log("🔥 Unregistered SWs:", results.length);
   });
 
-  // Only register SW on the WEB (production browser), never in the native app.
   if (!isNative && import.meta.env.PROD) {
     setTimeout(() => {
       navigator.serviceWorker
