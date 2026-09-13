@@ -6,8 +6,6 @@ import BottomNav from "./components/BottomNav";
 import DesktopSidebar from "./components/DesktopSidebar";
 import HomePage from "./pages/HomePage";
 import AuthCallback from "./pages/AuthCallback";
-import VerifyEmailScreen from "./pages/VerifyEmailScreen";
-import CompanySetupScreen from "./pages/CompanySetupScreen";
 import ChatPage from "./pages/ChatPage";
 import JobsPage from "./pages/JobsPage";
 import CompaniesPage from "./pages/CompaniesPage";
@@ -52,7 +50,7 @@ function AppContent() {
   const [focusPostId, setFocusPostId] = useState(null);
   const [focusJobSlug, setFocusJobSlug] = useState(null);
   const [history, setHistory] = useState([]);
-  const { user, loading: authLoading, pendingVerification } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   // ── Helper functions ──
   const navigate = (to) => {
@@ -162,24 +160,6 @@ function AppContent() {
   }
   if (!user) return <AuthScreen />;
 
-  // ── Pending email verification → show VerifyEmailScreen ──
-  if (pendingVerification && !user) {
-    return (
-      <VerifyEmailScreen
-        email={pendingVerification.email}
-        setPage={setPage}
-      />
-    );
-  }
-
-  // ── Company user without company name → setup screen ──
-  const needsCompanySetup =
-    user &&
-    user.accountType === "company" &&
-    (!user.companyName || user.companyName.trim() === "");
-  if (needsCompanySetup) {
-    return <CompanySetupScreen setPage={setPage} />;
-  }
   // ── Main render helpers ──
   const renderPage = () => {
     switch (page) {

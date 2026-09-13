@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Sparkles, Mail, Lock, MapPin, Building2, User, ArrowRight, ArrowLeft, Search, Check } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
-import ForgotPasswordFlow from "../pages/ForgotPasswordFlow";
+import { Clipboard } from "@capacitor/clipboard";
 
 function AuthScreen() {
   const [mode, setMode] = useState("signin");
@@ -21,6 +21,8 @@ function AuthScreen() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [industries, setIndustries] = useState([]);
@@ -62,42 +64,33 @@ function AuthScreen() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Native clipboard paste — bypasses WebView paste bug
+  const pasteFromClipboard = async (field) => {
+    try {
+      const { value } = await Clipboard.read();
+      if (value) {
+        setFormData(prev => ({ ...prev, [field]: value.trim() }));
+      }
+    } catch (err) {
+      console.error("Clipboard read error:", err);
+    }
+  };
+
   const selectIndustry = (industry) => {
     setFormData({ ...formData, category: industry });
     setSearchQuery(industry);
     setShowSuggestions(false);
   };
 
-  const handleGoogleSignIn = () => {
-    const isNative = window.Capacitor?.isNativePlatform?.() ||
-      window.location.protocol === "capacitor:" ||
-      window.location.protocol === "file:";
-
-    // Pass account type so backend creates correct user
-    const params = new URLSearchParams();
-    if (isNative) params.set("platform", "native");
-    if (mode === "signup" && accountType) params.set("type", accountType);
-
-    const url = `https://omnixra-ai.com/api/oauth/google${params.toString() ? "?" + params.toString() : ""}`;
-
-    if (isNative) {
-      window.open(url, "_system");
-    } else {
-      window.location.href = url;
-    }
-  };
-
   const handleSubmit = async () => {
     setError("");
     setLoading(true);
-
     try {
       if (mode === "signup") {
         const name = accountType === "company"
           ? formData.companyName
           : (formData.firstName + " " + formData.lastName).trim();
-
-        const result = await signup({
+        await signup({
           name,
           email: formData.email,
           password: formData.password,
@@ -107,35 +100,106 @@ function AuthScreen() {
           category: formData.category || "General",
           discoverable: formData.discoverable
         });
-
-        // If backend asks for verification, AuthContext sets pendingVerification
-        // App.jsx will render the VerifyEmailScreen automatically
-        if (result?.requiresVerification) {
-          // Nothing more to do here — App.jsx handles routing
-          return;
-        }
       } else {
-        const result = await signin({
+        await signin({
           email: formData.email,
           password: formData.password
         });
-
-        // If signin returns 403 verification required, App.jsx picks it up
-        if (result?.requiresVerification) {
-          return;
-        }
       }
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || "Something went wrong";
-      setError(msg);
+      setError(err.response?.data?.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Forgot Password flow (full 3-step) ──
+  const handleGoogleSignIn = () => {
+    // Detect if running inside Capacitor native app
+    const isNative = window.Capacitor?.isNativePlatform?.() ||
+      window.location.protocol === "capacitor:" ||
+      window.location.protocol === "file:";
+
+    // Build the OAuth URL
+    const platform = isNative ? "?platform=native" : "";
+    const url = `https://omnixra-ai.com/api/oauth/google${platform}`;
+
+    if (isNative) {
+      // Open in system browser (Chrome Custom Tab)
+      window.open(url, "_system");
+    } else {
+      // Web: navigate directly
+      window.location.href = url;
+    }
+  };
+const handleForgotPassword = async () => {
+    setLoading(true);
+    try {
+      await api.post("/auth/forgot-password", { email: forgotEmail });
+      setForgotSent(true);
+    } catch (err) {
+      setError("Unable to process request");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (forgotPassword) {
-    return <ForgotPasswordFlow onClose={() => setForgotPassword(false)} />;
+    return (
+      <div className="min-h-screen auth-background flex items-center justify-center p-4">
+        <div className="auth-glow auth-glow-one" />
+        <div className="auth-glow auth-glow-two" />
+        <div className="w-full max-w-md relative z-10">
+          <div className="auth-card">
+            <button onClick={() => setForgotPassword(false)} className="text-slate-600 hover:text-white flex items-center gap-2 mb-5">
+              <ArrowLeft size={16} />
+              Back to Sign in
+            </button>
+            <h1 className="text-2xl font-bold">Forgot Password</h1>
+            <p className="text-xs text-slate-500 mt-2">Enter your email and we'll help you reset it.</p>
+            {forgotSent ? (
+              <div className="mt-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs text-emerald-400">
+                If that email exists, a reset link has been sent.
+              </div>
+            ) : (
+              <>
+                <div className="mt-5">
+                  <label className="form-label">Email address</label>
+                  <div className="form-field">
+              <Mail size={16} className="input-icon" />
+              <input
+                type="email"
+                name="email"
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
+                inputMode="email"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
+                value={formData.email}
+                onChange={handleChange}
+                className="form-input has-icon"
+              />
+              <button
+                type="button"
+                onClick={() => pasteFromClipboard("email")}
+                className="clipboard-paste-btn"
+                title="Paste from clipboard"
+              >
+                📋
+              </button>
+            </div>
+                </div>
+                <button onClick={handleForgotPassword} disabled={loading} className="primary-button w-full mt-5">
+                  {loading ? "Sending..." : "Send Reset Link"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -177,24 +241,7 @@ function AuthScreen() {
         </div>
 
         <div className="auth-card">
-          {/* Account type picker — only on signup */}
-          {mode === "signup" && (
-            <div className="mb-5">
-              <div className="text-[11px] text-slate-500 mb-2">I am joining as</div>
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setAccountType("jobseeker")} className={"auth-choice " + (accountType === "jobseeker" ? "auth-choice-active" : "")}>
-                  <User size={16} />
-                  <span>Job Seeker</span>
-                </button>
-                <button type="button" onClick={() => setAccountType("company")} className={"auth-choice " + (accountType === "company" ? "auth-choice-active" : "")}>
-                  <Building2 size={16} />
-                  <span>Company</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Google Sign-In button */}
+          {/* Google Sign-In button — same on web + native */}
           <button
             type="button"
             onClick={handleGoogleSignIn}
@@ -213,16 +260,45 @@ function AuthScreen() {
             <span>or</span>
           </div>
 
-          {/* Signup name fields */}
+          {mode === "signup" && (
+            <div className="mb-5">
+              <div className="text-[11px] text-slate-500 mb-2">I am joining as</div>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setAccountType("jobseeker")} className={"auth-choice " + (accountType === "jobseeker" ? "auth-choice-active" : "")}>
+                  <User size={16} />
+                  <span>Job Seeker</span>
+                </button>
+                <button type="button" onClick={() => setAccountType("company")} className={"auth-choice " + (accountType === "company" ? "auth-choice-active" : "")}>
+                  <Building2 size={16} />
+                  <span>Company</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {mode === "signup" && accountType === "jobseeker" && (
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="form-label">First name</label>
-                <input name="firstName" autoComplete="given-name" autoCapitalize="words" value={formData.firstName} onChange={handleChange} className="form-input" />
+                <input
+                  name="firstName"
+                  autoComplete="given-name"
+                  autoCapitalize="words"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  className="form-input"
+                />
               </div>
               <div>
                 <label className="form-label">Last name</label>
-                <input name="lastName" autoComplete="family-name" autoCapitalize="words" value={formData.lastName} onChange={handleChange} className="form-input" />
+                <input
+                  name="lastName"
+                  autoComplete="family-name"
+                  autoCapitalize="words"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  className="form-input"
+                />
               </div>
             </div>
           )}
@@ -232,12 +308,18 @@ function AuthScreen() {
               <label className="form-label">Company name</label>
               <div className="form-field">
                 <Building2 size={16} className="input-icon" />
-                <input name="companyName" autoComplete="organization" autoCapitalize="words" value={formData.companyName} onChange={handleChange} className="form-input has-icon" />
+                <input
+                  name="companyName"
+                  autoComplete="organization"
+                  autoCapitalize="words"
+                  value={formData.companyName}
+                  onChange={handleChange}
+                  className="form-input has-icon"
+                />
               </div>
             </div>
           )}
 
-          {/* Email */}
           <div className="mt-4">
             <label className="form-label">Email address</label>
             <div className="form-field">
@@ -250,10 +332,21 @@ function AuthScreen() {
                 autoCorrect="off"
                 spellCheck="false"
                 inputMode="email"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
                 value={formData.email}
                 onChange={handleChange}
                 className="form-input has-icon"
               />
+              <button
+                type="button"
+                onClick={() => pasteFromClipboard("email")}
+                className="clipboard-paste-btn"
+                title="Paste from clipboard"
+              >
+                📋
+              </button>
             </div>
           </div>
 
@@ -268,17 +361,26 @@ function AuthScreen() {
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck="false"
+                data-lpignore="true"
+                data-form-type="other"
                 value={formData.password}
                 onChange={handleChange}
                 className="form-input has-icon has-right"
               />
+              <button
+                type="button"
+                onClick={() => pasteFromClipboard("password")}
+                className="clipboard-paste-btn clipboard-paste-btn-pwd"
+                title="Paste from clipboard"
+              >
+                📋
+              </button>
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="password-toggle">
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
           </div>
 
-          {/* Industry (signup only) */}
           {mode === "signup" && (
             <div className="mt-4 relative">
               <label className="form-label">Your Industry</label>
@@ -342,13 +444,19 @@ function AuthScreen() {
             </div>
           )}
 
-          {/* Location (signup only) */}
           {mode === "signup" && (
             <div className="mt-4">
               <label className="form-label">Location</label>
               <div className="form-field">
                 <MapPin size={16} className="input-icon" />
-                <input name="location" autoComplete="address-level2" autoCapitalize="words" value={formData.location} onChange={handleChange} className="form-input has-icon" />
+                <input
+                  name="location"
+                  autoComplete="address-level2"
+                  autoCapitalize="words"
+                  value={formData.location}
+                  onChange={handleChange}
+                  className="form-input has-icon"
+                />
               </div>
             </div>
           )}

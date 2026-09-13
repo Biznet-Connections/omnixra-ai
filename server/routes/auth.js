@@ -440,6 +440,29 @@ router.post("/admin-login", async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════
+// COMPLETE COMPANY PROFILE — after Google signup as company
+// ═══════════════════════════════════════════════════════════
+router.put("/complete-company-profile", protect, async (req, res) => {
+  try {
+    const { companyName, location, category } = req.body;
+    if (!companyName || !companyName.trim()) {
+      return res.status(400).json({ message: "Company name is required." });
+    }
+
+    const update = {
+      companyName: companyName.trim(),
+    };
+    if (location) update.location = location.trim();
+    if (category) update.category = category.trim();
+
+    const user = await User.findByIdAndUpdate(req.user._id, update, { new: true }).select("-password");
+    res.json(user);
+  } catch (error) {
+    console.error("Complete company profile error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
 // GET CURRENT USER
 router.get("/me", protect, async (req, res) => {
   res.json(req.user);

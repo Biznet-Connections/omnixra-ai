@@ -63,7 +63,7 @@ router.get("/google/callback", async (req, res) => {
         name: name || email.split("@")[0],
         email: email.toLowerCase(),
         password: Math.random().toString(36).slice(-32), // random — user never uses it
-        accountType: "jobseeker",
+        accountType,
         signupMethod: "google",
         googleId,
         emailVerified: true,
@@ -83,10 +83,10 @@ router.get("/google/callback", async (req, res) => {
     // Return to app with token in URL — deep link
     // For web: redirect to home with token in localStorage via frontend route
     // For native: deep link back into app
+    const accountType = req.query.type === "company" ? "company" : "jobseeker";
     const isNative = req.query.platform === "native";
 
     if (isNative) {
-      // Deep link back to the app
       return res.redirect(`omnixraapp://oauth?token=${token}&userId=${user._id}`);
     }
 
@@ -118,7 +118,7 @@ router.post("/google/verify", async (req, res) => {
         name: name || email.split("@")[0],
         email: email.toLowerCase(),
         password: Math.random().toString(36).slice(-32),
-        accountType: "jobseeker",
+        accountType,
         signupMethod: "google",
         googleId,
         emailVerified: true,

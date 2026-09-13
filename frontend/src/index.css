@@ -5177,3 +5177,55 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
   height: 1px;
   background: rgba(148, 163, 184, 0.2);
 }
+
+/* ============================================================
+   OTP INPUT (6 digits)
+============================================================ */
+.otp-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 20px 0;
+}
+.otp-box {
+  width: 44px;
+  height: 54px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: #e2e8f0;
+  background: rgba(15, 15, 30, 0.6);
+  border: 1.5px solid rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+  outline: none;
+  transition: all 0.15s;
+  caret-color: #8b5cf6;
+}
+.otp-box:focus {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.08);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.check-circle {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 10px 40px rgba(16, 185, 129, 0.35);
+  animation: checkPop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes checkPop {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
+/* Remove clipboard paste button styles (no longer used) */
+.clipboard-paste-btn {
+  display: none;
+}
