@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
+import android.webkit.JavascriptInterface;
 import android.widget.FrameLayout;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.getcapacitor.BridgeActivity;
@@ -11,12 +12,12 @@ import com.getcapacitor.Bridge;
 
 public class MainActivity extends BridgeActivity {
     private SwipeRefreshLayout swipeRefresh;
+    private boolean atTop = true;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Disable autofill on WebView
         try {
             Bridge bridge = getBridge();
             if (bridge != null) {
@@ -27,7 +28,6 @@ public class MainActivity extends BridgeActivity {
             }
         } catch (Exception e) { }
 
-        // Wrap WebView in SwipeRefreshLayout
         try {
             Bridge bridge = getBridge();
             if (bridge != null) {
@@ -41,6 +41,7 @@ public class MainActivity extends BridgeActivity {
                     swipeRefresh.setColorSchemeColors(0xFF8B5CF6, 0xFF6366F1, 0xFFA855F7);
                     swipeRefresh.setProgressBackgroundColorSchemeColor(0xFF0F0F1E);
                     swipeRefresh.setDistanceToTriggerSync(220);
+                    swipeRefresh.setEnabled(true);
 
                     swipeRefresh.addView(webView, new FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -52,17 +53,9 @@ public class MainActivity extends BridgeActivity {
                         ViewGroup.LayoutParams.MATCH_PARENT
                     ));
 
-                    // CRITICAL: Only allow pull when WebView is scrolled to top
-                    swipeRefresh.setEnabled(true);
-                    swipeRefresh.setOnChildScrollUpCallback((parentView, child) -> {
-                        // Return true when we should DISABLE refresh (not at top)
-                        // Return false when we should ALLOW refresh (at top)
-                        final boolean[] shouldDisable = { false };
-                        // We need this synchronously — use canScrollVertically on WebView
-                        return webView.canScrollVertically(-1);
-                    });
+                    // Only allow pull when JS says we're at top
+                    swipeRefresh.setOnChildScrollUpCallback((p, child) -> !atTop);
 
-                    // Refresh trigger
                     swipeRefresh.setOnRefreshListener(() -> {
                         webView.evaluateJavascript(
                             "window.dispatchEvent(new CustomEvent('native-refresh'));",
@@ -70,9 +63,14 @@ public class MainActivity extends BridgeActivity {
                         );
                     });
 
-                    // Expose native functions to JS
+                    // JS bridge: JS tells native whether we're at top
                     webView.addJavascriptInterface(new Object() {
-                        @android.webkit.JavascriptInterface
+                        @JavascriptInterface
+                        public void setAtTop(boolean isTop) {
+                            atTop = isTop;
+                        }
+
+                        @JavascriptInterface
                         public void stopRefresh() {
                             runOnUiThread(() -> {
                                 if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
@@ -80,9 +78,24 @@ public class MainActivity extends BridgeActivity {
                         }
                     }, "OmnixraNative");
 
-                    // Wire up done event
+                    // Hook done event
                     webView.post(() -> webView.evaluateJavascript(
                         "window.addEventListener('native-refresh-done', () => { if (window.OmnixraNative) window.OmnixraNative.stopRefresh(); });",
+                        null
+                    ));
+
+                    // Monitor scroll position and tell native atTop status
+                    webView.post(() -> webView.evaluateJavascript(
+                        "(function() {" +
+                        "  const scroller = document.querySelector('.page-scroll');" +
+                        "  if (!scroller) { setTimeout(arguments.callee, 500); return; }" +
+                        "  const update = () => {" +
+                        "    const atTop = scroller.scrollTop <= 0;" +
+                        "    if (window.OmnixraNative) window.OmnixraNative.setAtTop(atTop);" +
+                        "  };" +
+                        "  scroller.addEventListener('scroll', update, { passive: true });" +
+                        "  update();" +
+                        "})();",
                         null
                     ));
                 }

@@ -26,9 +26,7 @@ export const PostsProvider = ({ children }) => {
   const hasMoreRef = useRef(true);
   const cursorRef = useRef(null);
   const postsCountRef = useRef(0);
-  const postsRef = useRef([]);
   postsCountRef.current = posts.length;
-  postsRef.current = posts;
 
   // ── Initial fetch (or forced reload) ──
   const fetchPosts = useCallback(async (force = false) => {
@@ -58,34 +56,30 @@ export const PostsProvider = ({ children }) => {
     try {
       setError(null);
 
-      // Get the CURRENT posts from state
-      const currentPosts = [...postsCountRef.current ? [] : []];
-      // Actually fetch fresh data from refs
-      let current = [];
-      setPosts(prev => { current = prev; return prev; });
-      // Wait a tick for setPosts to run
-      await new Promise(r => setTimeout(r, 0));
-      current = postsRef.current;
+      // Facebook-style: fetch from a RANDOM position in the DB each time
+      console.log("🔄 [REFRESH] Calling /posts/random");
+      const res = await api.get("/posts/random?limit=30");
+      console.log("🔄 [REFRESH] Response:", res.status, res.data?.posts?.length, "posts");
+      const data = res.data;
+      const allPosts = data.posts || [];
 
-      if (current && current.length > 0) {
-        // SHUFFLE the existing posts
-        const shuffled = shuffleArray(current);
-        setPosts(shuffled);
-        console.log("🔄 [REFRESH] Shuffled", shuffled.length, "existing posts");
-      } else {
-        // Fallback: fetch if empty
-        console.log("🔄 [REFRESH] No posts to shuffle, fetching...");
-        const res = await api.get("/posts/random?limit=30");
-        const data = res.data;
-        setPosts(shuffleArray(data.posts || []));
-      }
+      // Shuffle the batch so even a similar set looks different
+      const shuffled = shuffleArray(allPosts);
+
+      // Show first 12
+      const visible = shuffled.slice(0, 12);
+      setPosts(visible);
+      hasMoreRef.current = data.hasMore ?? true;
+      setHasMore(true);
+      cursorRef.current = null;
 
       // Scroll to top
       const scroller = document.querySelector(".page-scroll");
       if (scroller) scroller.scrollTo({ top: 0, behavior: "smooth" });
 
+      console.log("🔄 [REFRESH] Fetched", allPosts.length, "random posts, showing", visible.length);
     } catch (err) {
-      console.error("🔄 [REFRESH] ERROR:", err.message);
+      console.error("🔄 [REFRESH] ERROR:", err.message, err.response?.status);
       setError("Failed to refresh. Please try again.");
     } finally {
       console.log("🔄 [REFRESH] END");

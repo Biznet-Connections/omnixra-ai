@@ -11,6 +11,11 @@ import api from "../api/axios";
 
 function HomePage({ setPage, setSelectedUserId }) {
   const { posts, loading, loadingMore, hasMore, fetchPosts, refreshPosts, loadMorePosts, removePost, updatePost } = usePosts();
+
+  // Wire native pull-to-refresh → refreshPosts
+  useEffect(() => {
+    if (refreshPosts) setNativeRefreshHandler(refreshPosts);
+  }, [refreshPosts]);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showLoadingDots, setShowLoadingDots] = useState(false);
