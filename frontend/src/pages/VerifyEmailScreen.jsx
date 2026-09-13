@@ -141,7 +141,7 @@ function VerifyEmailScreen({ email, setPage }) {
             disabled={loading || code.some((d) => !d)}
             className="primary-button w-full mt-5 disabled:opacity-50"
           >
-            {loading ? "Verifying..." : "Verify code"}
+            {loading ? (<span className="btn-loading"><span className="btn-loading-dot" /><span className="btn-loading-dot" /><span className="btn-loading-dot" /><span className="btn-loading-text">Verifying...</span></span>) : "Verify code"}
             {!loading && <Sparkles size={16} />}
           </button>
 

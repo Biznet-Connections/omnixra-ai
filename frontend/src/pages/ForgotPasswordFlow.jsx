@@ -220,7 +220,7 @@ function ForgotPasswordFlow({ onClose }) {
               </div>
               {error && <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 text-center">{error}</div>}
               <button onClick={handleVerifyCode} disabled={loading || code.some((d) => !d)} className="primary-button w-full mt-5 disabled:opacity-50">
-                {loading ? "Verifying..." : "Verify code"}
+                {loading ? (<span className="btn-loading"><span className="btn-loading-dot" /><span className="btn-loading-dot" /><span className="btn-loading-dot" /><span className="btn-loading-text">Verifying...</span></span>) : "Verify code"}
               </button>
               <div className="text-center text-xs text-slate-500 mt-4">
                 Didn't get it?{" "}
@@ -285,7 +285,7 @@ function ForgotPasswordFlow({ onClose }) {
               {error && <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">{error}</div>}
 
               <button onClick={handleResetPassword} disabled={loading} className="primary-button w-full mt-5 disabled:opacity-50">
-                {loading ? "Updating..." : "Update password"}
+                {loading ? (<span className="btn-loading"><span className="btn-loading-dot" /><span className="btn-loading-dot" /><span className="btn-loading-dot" /><span className="btn-loading-text">Updating...</span></span>) : "Update password"}
               </button>
             </>
           )}
