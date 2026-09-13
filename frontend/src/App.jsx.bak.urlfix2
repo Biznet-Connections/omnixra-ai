@@ -45,16 +45,7 @@ import { SocketProvider } from "./context/SocketContext";
 function AppContent() {
   // ── ALL HOOKS AT THE TOP ──
   const [splashDone, setSplashDone] = useState(false);
-  const [page, setPage] = useState(() => {
-    if (typeof window === "undefined") return "home";
-    const path = window.location.pathname;
-    if (path.startsWith("/auth-callback")) return "auth-callback";
-    if (path.startsWith("/admin-login")) return "admin-login";
-    if (path.startsWith("/admin")) return "admin";
-    if (path.startsWith("/shared-ai/")) return "shared-ai";
-    if (path.startsWith("/job/")) return "jobs";
-    return "home";
-  });
+  const [page, setPage] = useState("home");
   const [showPostComposer, setShowPostComposer] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [sharedChatId, setSharedChatId] = useState(null);
