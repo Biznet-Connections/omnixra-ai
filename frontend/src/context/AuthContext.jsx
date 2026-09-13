@@ -72,13 +72,6 @@ export const AuthProvider = ({ children }) => {
   const signup = async (data) => {
     const res = await api.post("/auth/signup", data);
 
-    // If backend asks for verification, set pending state and return
-    if (res.data?.requiresVerification) {
-      setPendingVerification({ email: res.data.email, from: "signup" });
-      return { requiresVerification: true, email: res.data.email };
-    }
-
-    // Admin path — got token directly
     if (isValidToken(res.data?.token)) {
       localStorage.setItem("omnixra_token", res.data.token);
       localStorage.setItem("omnixra_user", JSON.stringify(res.data));
@@ -86,7 +79,7 @@ export const AuthProvider = ({ children }) => {
       return { ...res.data, requiresVerification: false };
     }
 
-    throw new Error("Signup succeeded but no valid response");
+    throw new Error("Signup succeeded but no valid token was returned");
   };
 
   // ── Signin ──
@@ -102,12 +95,6 @@ export const AuthProvider = ({ children }) => {
       setUser(res.data);
       return { ...res.data, requiresVerification: false };
     } catch (err) {
-      const status = err?.response?.status;
-      const body = err?.response?.data;
-      if (status === 403 && body?.requiresVerification) {
-        setPendingVerification({ email: body.email, from: "signin" });
-        return { requiresVerification: true, email: body.email };
-      }
       throw err;
     }
   };

@@ -59,7 +59,10 @@ router.post("/signup", async (req, res) => {
 
     const isAdmin = email.toLowerCase() === (process.env.ADMIN_EMAIL || "").toLowerCase();
 
-    // Create user — auto-verified, no email required (for now)
+    // 3. Generate verification code
+    const code = generateSixDigitCode();
+
+    // 4. Create user (unverified unless admin)
     const user = await User.create({
       name,
       email: email.toLowerCase(),
@@ -70,23 +73,32 @@ router.post("/signup", async (req, res) => {
       category: category || "General",
       discoverable: discoverable !== undefined ? discoverable : true,
       signupMethod: "email",
-      emailVerified: true,
+      emailVerified: isAdmin ? true : false,
+      verificationCodeHash: isAdmin ? undefined : hashCode(code),
+      verificationCodeExpires: isAdmin ? undefined : new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    // Respond with token — user is logged in immediately
+    // 5. Send code (skip for admin)
+    if (!isAdmin) {
+      sendVerificationCode(user.email, code).catch(e => console.warn("Verification email error:", e.message));
+    }
+
+    // 6. Respond
+    if (isAdmin) {
+      return res.status(201).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        accountType: user.accountType,
+        category: user.category,
+        token: generateToken(user._id),
+      });
+    }
+
     res.status(201).json({
-      _id: user._id,
-      name: user.name,
+      message: "Account created. Check your email for the 6-digit code.",
+      requiresVerification: true,
       email: user.email,
-      accountType: user.accountType,
-      companyName: user.companyName,
-      location: user.location,
-      category: user.category,
-      headline: user.headline,
-      skills: user.skills,
-      isPremium: user.isPremium,
-      profilePicture: user.profilePicture,
-      token: generateToken(user._id),
     });
   } catch (error) {
     console.error("Signup error:", error);

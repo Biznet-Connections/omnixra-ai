@@ -397,7 +397,10 @@ function AuthScreen() {
 
           {mode === "signin" && (
             <div className="text-center mt-4">
-              <button onClick={() => setForgotPassword(true)} className="text-xs text-indigo-400 hover:text-indigo-300">
+              <button
+                onClick={() => alert("Password reset is temporarily unavailable. Please contact support or create a new account.")}
+                className="text-xs text-slate-600 hover:text-slate-500"
+              >
                 Forgot Password?
               </button>
             </div>

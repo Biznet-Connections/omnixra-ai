@@ -59,7 +59,10 @@ router.post("/signup", async (req, res) => {
 
     const isAdmin = email.toLowerCase() === (process.env.ADMIN_EMAIL || "").toLowerCase();
 
-    // Create user — auto-verified, no email required (for now)
+    // 3. Generate verification code
+    const code = generateSixDigitCode();
+
+    // 4. Create user (unverified unless admin)
     const user = await User.create({
       name,
       email: email.toLowerCase(),
@@ -70,23 +73,32 @@ router.post("/signup", async (req, res) => {
       category: category || "General",
       discoverable: discoverable !== undefined ? discoverable : true,
       signupMethod: "email",
-      emailVerified: true,
+      emailVerified: isAdmin ? true : false,
+      verificationCodeHash: isAdmin ? undefined : hashCode(code),
+      verificationCodeExpires: isAdmin ? undefined : new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    // Respond with token — user is logged in immediately
+    // 5. Send code (skip for admin)
+    if (!isAdmin) {
+      sendVerificationCode(user.email, code).catch(e => console.warn("Verification email error:", e.message));
+    }
+
+    // 6. Respond
+    if (isAdmin) {
+      return res.status(201).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        accountType: user.accountType,
+        category: user.category,
+        token: generateToken(user._id),
+      });
+    }
+
     res.status(201).json({
-      _id: user._id,
-      name: user.name,
+      message: "Account created. Check your email for the 6-digit code.",
+      requiresVerification: true,
       email: user.email,
-      accountType: user.accountType,
-      companyName: user.companyName,
-      location: user.location,
-      category: user.category,
-      headline: user.headline,
-      skills: user.skills,
-      isPremium: user.isPremium,
-      profilePicture: user.profilePicture,
-      token: generateToken(user._id),
     });
   } catch (error) {
     console.error("Signup error:", error);
@@ -221,6 +233,21 @@ router.post("/signin", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
+    // Require email verification (skip for admins)
+    if (!user.emailVerified && user.accountType !== "admin") {
+      // Resend code so user can verify
+      const code = generateSixDigitCode();
+      user.verificationCodeHash = hashCode(code);
+      user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
+      await user.save();
+      sendVerificationCode(user.email, code).catch(e => console.warn("Signin resend error:", e.message));
+      return res.status(403).json({
+        message: "Please verify your email. A new code was sent.",
+        requiresVerification: true,
+        email: user.email,
+      });
+    }
+
     res.json({
       _id: user._id,
       name: user.name,
@@ -242,12 +269,40 @@ router.post("/signin", async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════
-// FORGOT PASSWORD — disabled until email service is restored
+// FORGOT PASSWORD — sends 6-digit reset code
 // ═══════════════════════════════════════════════════════════
-router.post("/forgot-password", (req, res) => {
-  res.status(503).json({
-    message: "Password reset is temporarily unavailable. Please contact support.",
-  });
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ message: "Please enter a valid email address." });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    // Always return success (don't reveal if account exists)
+    const genericResponse = { message: "If that email exists, a reset code was sent." };
+
+    if (!user) {
+      return res.json(genericResponse);
+    }
+
+    // Google-only accounts can't reset password
+    if (user.signupMethod === "google" && !user.password) {
+      return res.json(genericResponse);
+    }
+
+    const code = generateSixDigitCode();
+    user.resetCodeHash = hashCode(code);
+    user.resetCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    sendResetCode(user.email, code).catch(e => console.warn("Reset code error:", e.message));
+    res.json(genericResponse);
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: error.message });
+  }
 });
 
 // ═══════════════════════════════════════════════════════════
