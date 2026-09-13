@@ -29,7 +29,6 @@ if ("serviceWorker" in navigator) {
 
   // Only register SW on the WEB (production browser), never in the native app.
   if (!isNative && import.meta.env.PROD) {
-    // Small delay to ensure unregister completes first
     setTimeout(() => {
       navigator.serviceWorker
         .register("/sw.js", { updateViaCache: "none" })

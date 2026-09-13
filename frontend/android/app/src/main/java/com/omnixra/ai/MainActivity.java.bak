@@ -1,0 +1,98 @@
+package com.omnixra.ai;
+
+import android.os.Bundle;
+import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.WebView;
+import android.widget.FrameLayout;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.Bridge;
+
+public class MainActivity extends BridgeActivity {
+    private SwipeRefreshLayout swipeRefresh;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // 1. Disable autofill on WebView (fixes Samsung paste bug)
+        try {
+            Bridge bridge = getBridge();
+            if (bridge != null) {
+                WebView webView = bridge.getWebView();
+                if (webView != null) {
+                    webView.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
+                }
+            }
+        } catch (Exception e) {
+            // Silent
+        }
+
+        // 2. Wrap WebView in SwipeRefreshLayout (native pull-to-refresh)
+        try {
+            Bridge bridge = getBridge();
+            if (bridge != null) {
+                WebView webView = bridge.getWebView();
+                if (webView != null && webView.getParent() instanceof ViewGroup) {
+                    ViewGroup parent = (ViewGroup) webView.getParent();
+                    int webViewIndex = parent.indexOfChild(webView);
+
+                    // Remove webView from its current parent
+                    parent.removeView(webView);
+
+                    // Create SwipeRefreshLayout
+                    swipeRefresh = new SwipeRefreshLayout(this);
+                    swipeRefresh.setColorSchemeColors(0xFF8B5CF6, 0xFF6366F1, 0xFFA855F7);
+                    swipeRefresh.setProgressBackgroundColorSchemeColor(0xFF0F0F1E);
+                    swipeRefresh.setDistanceToTriggerSync(220);
+
+                    // Add webView into SwipeRefreshLayout
+                    swipeRefresh.addView(webView, new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    ));
+
+                    // Insert SwipeRefreshLayout back at same index
+                    parent.addView(swipeRefresh, webViewIndex, new ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    ));
+
+                    // Listen for pull-to-refresh
+                    swipeRefresh.setOnRefreshListener(() -> {
+                        // Send event to React
+                        webView.evaluateJavascript(
+                            "window.dispatchEvent(new CustomEvent('native-refresh'));",
+                            null
+                        );
+                    });
+
+                    // Expose a JS function to stop the spinner from React
+                    webView.addJavascriptInterface(new Object() {
+                        @android.webkit.JavascriptInterface
+                        public void stopRefresh() {
+                            runOnUiThread(() -> {
+                                if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+                            });
+                        }
+                    }, "OmnixraNative");
+
+                    // Listen for refresh completion from JS
+                    webView.post(() -> webView.evaluateJavascript(
+                        "window.addEventListener('native-refresh-done', () => { if (window.OmnixraNative) window.OmnixraNative.stopRefresh(); });",
+                        null
+                    ));
+                }
+            }
+        } catch (Exception e) {
+            // Silent
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        // Let WebView handle back button
+        super.onBackPressed();
+    }
+}

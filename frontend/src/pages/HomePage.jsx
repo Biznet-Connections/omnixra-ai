@@ -4,11 +4,13 @@ import PostCard from "../components/PostCard";
 import ProfileMenu from "../components/ProfileMenu";
 import LoadingDots from "../components/LoadingDots";
 import { usePosts } from "../context/PostsContext";
+import PullToRefresh from "../components/PullToRefresh";
+import { setNativeRefreshHandler } from "../utils/nativeRefresh";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 
 function HomePage({ setPage, setSelectedUserId }) {
-  const { posts, loading, loadingMore, hasMore, fetchPosts, loadMorePosts, removePost, updatePost } = usePosts();
+  const { posts, loading, loadingMore, hasMore, fetchPosts, refreshPosts, loadMorePosts, removePost, updatePost } = usePosts();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showLoadingDots, setShowLoadingDots] = useState(false);

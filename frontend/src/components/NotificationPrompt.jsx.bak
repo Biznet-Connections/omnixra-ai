@@ -1,0 +1,84 @@
+﻿import React, { useState } from "react";
+import { Bell, Sparkles, X } from "lucide-react";
+import { PushNotifications } from "@capacitor/push-notifications";
+import { Capacitor } from "@capacitor/core";
+
+function NotificationPrompt({ onComplete }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleEnable = async () => {
+    setLoading(true);
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const result = await PushNotifications.requestPermissions();
+        console.log("🔔 Push permission result:", result.receive);
+        // NOTE: Skip register() until FCM is set up — it crashes without Firebase
+        // if (result.receive === "granted") {
+        //   await PushNotifications.register();
+        // }
+      } else if ("Notification" in window) {
+        await Notification.requestPermission();
+      }
+    } catch (e) {
+      console.warn("Notification permission error:", e);
+    } finally {
+      setLoading(false);
+      onComplete();
+    }
+  };
+
+  const handleSkip = () => {
+    onComplete();
+  };
+
+  return (
+    <div className="notif-prompt-backdrop">
+      <div className="notif-prompt-card">
+        <button onClick={handleSkip} className="notif-prompt-close">
+          <X size={18} />
+        </button>
+
+        <div className="notif-prompt-icon">
+          <Bell size={32} strokeWidth={1.8} />
+          <div className="notif-prompt-badge">
+            <Sparkles size={12} />
+          </div>
+        </div>
+
+        <h2 className="notif-prompt-title">Stay in the loop</h2>
+        <p className="notif-prompt-desc">
+          Get instant alerts for new jobs, AI career news, and messages from employers.
+        </p>
+
+        <div className="notif-prompt-features">
+          <div className="notif-prompt-feature">
+            <span className="dot dot-purple" />
+            <span>Job matches picked for you</span>
+          </div>
+          <div className="notif-prompt-feature">
+            <span className="dot dot-blue" />
+            <span>Daily AI career news digest</span>
+          </div>
+          <div className="notif-prompt-feature">
+            <span className="dot dot-pink" />
+            <span>Messages from employers</span>
+          </div>
+        </div>
+
+        <button
+          onClick={handleEnable}
+          disabled={loading}
+          className="notif-prompt-btn primary"
+        >
+          {loading ? "Enabling..." : "Enable Notifications"}
+        </button>
+
+        <button onClick={handleSkip} className="notif-prompt-btn secondary">
+          Not now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default NotificationPrompt;

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Sparkles, Mail, Lock, MapPin, Building2, User, ArrowRight, ArrowLeft, Search, Check } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
+import { Clipboard } from "@capacitor/clipboard";
 
 function AuthScreen() {
   const [mode, setMode] = useState("signin");
@@ -22,8 +23,6 @@ function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
-  
-  // Industry search states
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [industries, setIndustries] = useState([]);
@@ -34,20 +33,18 @@ function AuthScreen() {
   const popularIndustries = [
     { name: "Information Technology", emoji: "💻" },
     { name: "Finance & Accounting", emoji: "💰" },
-    { name: "Healthcare", emoji: "🏥" },
+    { name: "Healthcare", emoji: "🩺" },
     { name: "Education", emoji: "📚" },
     { name: "Construction", emoji: "🏗️" },
     { name: "Driving", emoji: "🚗" }
   ];
 
-  // Search industries with debounce
   useEffect(() => {
     if (!searchQuery.trim()) {
       setIndustries([]);
       setShowSuggestions(false);
       return;
     }
-
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
@@ -60,12 +57,23 @@ function AuthScreen() {
         setSearching(false);
       }
     }, 400);
-
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // Native clipboard paste — bypasses WebView paste bug
+  const pasteFromClipboard = async (field) => {
+    try {
+      const { value } = await Clipboard.read();
+      if (value) {
+        setFormData(prev => ({ ...prev, [field]: value.trim() }));
+      }
+    } catch (err) {
+      console.error("Clipboard read error:", err);
+    }
   };
 
   const selectIndustry = (industry) => {
@@ -77,13 +85,11 @@ function AuthScreen() {
   const handleSubmit = async () => {
     setError("");
     setLoading(true);
-
     try {
       if (mode === "signup") {
         const name = accountType === "company"
           ? formData.companyName
-          : `${formData.firstName} ${formData.lastName}`.trim();
-
+          : (formData.firstName + " " + formData.lastName).trim();
         await signup({
           name,
           email: formData.email,
@@ -141,9 +147,31 @@ function AuthScreen() {
                 <div className="mt-5">
                   <label className="form-label">Email address</label>
                   <div className="form-field">
-                    <Mail size={16} className="input-icon" />
-                    <input type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} className="form-input has-icon" placeholder="" />
-                  </div>
+              <Mail size={16} className="input-icon" />
+              <input
+                type="email"
+                name="email"
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
+                inputMode="email"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
+                value={formData.email}
+                onChange={handleChange}
+                className="form-input has-icon"
+              />
+              <button
+                type="button"
+                onClick={() => pasteFromClipboard("email")}
+                className="clipboard-paste-btn"
+                title="Paste from clipboard"
+              >
+                📋
+              </button>
+            </div>
                 </div>
                 <button onClick={handleForgotPassword} disabled={loading} className="primary-button w-full mt-5">
                   {loading ? "Sending..." : "Send Reset Link"}
@@ -199,11 +227,11 @@ function AuthScreen() {
             <div className="mb-5">
               <div className="text-[11px] text-slate-500 mb-2">I am joining as</div>
               <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setAccountType("jobseeker")} className={`auth-choice ${accountType === "jobseeker" ? "auth-choice-active" : ""}`}>
+                <button type="button" onClick={() => setAccountType("jobseeker")} className={"auth-choice " + (accountType === "jobseeker" ? "auth-choice-active" : "")}>
                   <User size={16} />
                   <span>Job Seeker</span>
                 </button>
-                <button type="button" onClick={() => setAccountType("company")} className={`auth-choice ${accountType === "company" ? "auth-choice-active" : ""}`}>
+                <button type="button" onClick={() => setAccountType("company")} className={"auth-choice " + (accountType === "company" ? "auth-choice-active" : "")}>
                   <Building2 size={16} />
                   <span>Company</span>
                 </button>
@@ -215,11 +243,25 @@ function AuthScreen() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="form-label">First name</label>
-                <input name="firstName" value={formData.firstName} onChange={handleChange} className="form-input" placeholder="" />
+                <input
+                  name="firstName"
+                  autoComplete="given-name"
+                  autoCapitalize="words"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  className="form-input"
+                />
               </div>
               <div>
                 <label className="form-label">Last name</label>
-                <input name="lastName" value={formData.lastName} onChange={handleChange} className="form-input" placeholder="" />
+                <input
+                  name="lastName"
+                  autoComplete="family-name"
+                  autoCapitalize="words"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  className="form-input"
+                />
               </div>
             </div>
           )}
@@ -229,7 +271,14 @@ function AuthScreen() {
               <label className="form-label">Company name</label>
               <div className="form-field">
                 <Building2 size={16} className="input-icon" />
-                <input name="companyName" value={formData.companyName} onChange={handleChange} className="form-input has-icon" placeholder="" />
+                <input
+                  name="companyName"
+                  autoComplete="organization"
+                  autoCapitalize="words"
+                  value={formData.companyName}
+                  onChange={handleChange}
+                  className="form-input has-icon"
+                />
               </div>
             </div>
           )}
@@ -238,7 +287,29 @@ function AuthScreen() {
             <label className="form-label">Email address</label>
             <div className="form-field">
               <Mail size={16} className="input-icon" />
-              <input type="email" name="email" value={formData.email} onChange={handleChange} className="form-input has-icon" placeholder="" />
+              <input
+                type="email"
+                name="email"
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
+                inputMode="email"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
+                value={formData.email}
+                onChange={handleChange}
+                className="form-input has-icon"
+              />
+              <button
+                type="button"
+                onClick={() => pasteFromClipboard("email")}
+                className="clipboard-paste-btn"
+                title="Paste from clipboard"
+              >
+                📋
+              </button>
             </div>
           </div>
 
@@ -246,7 +317,27 @@ function AuthScreen() {
             <label className="form-label">Password</label>
             <div className="form-field">
               <Lock size={16} className="input-icon" />
-              <input type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="form-input has-icon has-right" placeholder="" />
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
+                data-lpignore="true"
+                data-form-type="other"
+                value={formData.password}
+                onChange={handleChange}
+                className="form-input has-icon has-right"
+              />
+              <button
+                type="button"
+                onClick={() => pasteFromClipboard("password")}
+                className="clipboard-paste-btn clipboard-paste-btn-pwd"
+                title="Paste from clipboard"
+              >
+                📋
+              </button>
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="password-toggle">
                 {showPassword ? "Hide" : "Show"}
               </button>
@@ -259,6 +350,9 @@ function AuthScreen() {
               <div className="form-field">
                 <Search size={16} className="input-icon" />
                 <input
+                  name="category"
+                  autoComplete="off"
+                  autoCapitalize="words"
                   value={formData.category || searchQuery}
                   onChange={(e) => { setSearchQuery(e.target.value); setFormData({ ...formData, category: "" }); }}
                   onFocus={() => searchQuery && setShowSuggestions(true)}
@@ -268,7 +362,6 @@ function AuthScreen() {
                 {formData.category && <Check size={16} className="text-emerald-400 absolute right-3" />}
               </div>
 
-              {/* Suggestions dropdown */}
               {showSuggestions && (
                 <div className="industry-suggestions">
                   {searching ? (
@@ -299,7 +392,6 @@ function AuthScreen() {
                 </div>
               )}
 
-              {/* Popular industries when empty */}
               {!searchQuery && !formData.category && (
                 <div className="mt-2">
                   <div className="text-[9px] text-slate-600 mb-2">Popular industries:</div>
@@ -320,7 +412,14 @@ function AuthScreen() {
               <label className="form-label">Location</label>
               <div className="form-field">
                 <MapPin size={16} className="input-icon" />
-                <input name="location" value={formData.location} onChange={handleChange} className="form-input has-icon" placeholder="" />
+                <input
+                  name="location"
+                  autoComplete="address-level2"
+                  autoCapitalize="words"
+                  value={formData.location}
+                  onChange={handleChange}
+                  className="form-input has-icon"
+                />
               </div>
             </div>
           )}

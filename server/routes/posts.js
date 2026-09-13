@@ -114,6 +114,76 @@ router.get("/", cacheShort(30, 60), async (req, res) => {
   }
 });
 
+// GET /random — 30 posts from a random position (Facebook-style refresh)
+router.get("/random", async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 30, 50);
+    const total = await Post.countDocuments({ deleted: false });
+
+    if (total === 0) return res.json({ posts: [] });
+
+    const maxSkip = Math.max(0, total - limit);
+    const randomSkip = Math.floor(Math.random() * (maxSkip + 1));
+
+    const posts = await Post.find({ deleted: false })
+      .sort({ createdAt: -1 })
+      .skip(randomSkip)
+      .limit(limit)
+      .select("text image video mediaType authorType author likes comments shares createdAt visibility edited")
+      .lean();
+
+    // Hydrate authors
+    const authorIds = [...new Set(posts.map(p => p.author?.toString()).filter(Boolean))];
+    const authors = await User.find({ _id: { $in: authorIds } })
+      .select("name headline category profilePicture profilePicLocked accountType")
+      .lean();
+    const authorMap = {};
+    authors.forEach(a => { authorMap[a._id.toString()] = a; });
+
+    const result = posts.map(post => {
+      const author = authorMap[post.author?.toString()];
+      return {
+        _id: post._id,
+        text: post.text,
+        image: post.image || null,
+        video: post.video || null,
+        hasImage: !!post.image,
+        hasVideo: !!post.video,
+        mediaType: post.mediaType,
+        authorType: post.authorType,
+        author: author ? {
+          _id: post.author,
+          name: author.name,
+          headline: author.headline,
+          category: author.category,
+          profilePicture: author.profilePicture || null,
+          profilePicLocked: author.profilePicLocked || false,
+          accountType: author.accountType
+        } : {
+          _id: post.author,
+          name: "User",
+          headline: "Professional",
+          category: "General",
+          profilePicture: null,
+          profilePicLocked: false
+        },
+        likes: typeof post.likes === "number" ? post.likes : 0,
+        totalComments: Array.isArray(post.comments) ? post.comments.length : 0,
+        shares: post.shares || 0,
+        comments: [],
+        createdAt: post.createdAt,
+        visibility: post.visibility,
+        edited: post.edited || false
+      };
+    });
+
+    res.json({ posts: result, skip: randomSkip, total });
+  } catch (error) {
+    console.error("Random posts error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // GET AI NEWS POSTS
 router.get("/news", cacheShort(120, 240), async (req, res) => {
   try {

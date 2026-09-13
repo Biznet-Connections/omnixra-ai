@@ -1,19 +1,17 @@
-import axios from "axios";
+﻿import axios from "axios";
 
-// Detect if running inside Capacitor (native Android/iOS app)
-const isNative = typeof window !== "undefined" && (
-  window.Capacitor?.isNativePlatform?.() ||
-  window.location.protocol === "capacitor:" ||
-  window.location.protocol === "file:"
-);
+// Detect local dev web (Vite dev server only)
+const isDevWeb =
+  typeof window !== "undefined" &&
+  window.location.hostname === "localhost" &&
+  window.location.port === "5173";
 
-// API base URL:
-// - Native app → always production
-// - Web dev    → /api (proxied by Vite)
-// - Web prod   → production
-const baseURL = isNative
-  ? "https://omnixra-ai.com/api"
-  : (import.meta.env.PROD ? "https://omnixra-ai.com/api" : "/api");
+// Everything except local dev goes to production
+const baseURL = isDevWeb
+  ? "/api"
+  : "https://omnixra-ai.com/api";
+
+console.log("🔥 [AXIOS] baseURL =", baseURL, "| isDevWeb =", isDevWeb);
 
 const api = axios.create({
   baseURL,

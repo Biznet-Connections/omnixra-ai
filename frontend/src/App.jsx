@@ -40,7 +40,8 @@ import { PostsProvider } from "./context/PostsContext";
 import { SocketProvider } from "./context/SocketContext";
 
 function AppContent() {
-  const [loading, setLoading] = useState(true);
+  // ── ALL HOOKS AT THE TOP ──
+  const [splashDone, setSplashDone] = useState(false);
   const [page, setPage] = useState("home");
   const [showPostComposer, setShowPostComposer] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
@@ -48,8 +49,9 @@ function AppContent() {
   const [focusPostId, setFocusPostId] = useState(null);
   const [focusJobSlug, setFocusJobSlug] = useState(null);
   const [history, setHistory] = useState([]);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
+  // ── Helper functions ──
   const navigate = (to) => {
     setHistory(prev => [...prev, page]);
     setPage(to);
@@ -65,6 +67,7 @@ function AppContent() {
     return false;
   };
 
+  // ── ALL useEffects (in order) ──
   useEffect(() => {
     const handlePopState = () => {
       if (!goBack()) window.history.back();
@@ -73,7 +76,7 @@ function AppContent() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [history]);
 
-  // Check URL for admin pages on mount
+  // Check URL for admin + shared links on mount
   useEffect(() => {
     const path = window.location.pathname;
     if (path.startsWith("/admin-login")) {
@@ -81,11 +84,6 @@ function AppContent() {
     } else if (path.startsWith("/admin")) {
       setPage("admin");
     }
-  }, []);
-
-  // Check URL for shared links
-  useEffect(() => {
-    const path = window.location.pathname;
     if (path.startsWith("/shared-ai/")) {
       const chatId = path.split("/shared-ai/")[1];
       setSharedChatId(chatId);
@@ -98,29 +96,19 @@ function AppContent() {
       const slug = path.split("/job/")[1];
       setFocusJobSlug(slug);
       setPage("jobs");
-    } else if (path.startsWith("/admin-login")) {
-      setPage("admin-login");
-    } else if (path.startsWith("/admin")) {
-      setPage("admin");
     }
   }, []);
 
-  // Check for redirect after sign in
+  // Redirect after sign-in
   useEffect(() => {
     if (user) {
       const redirect = localStorage.getItem("omnixra_redirect");
       if (redirect) {
         try {
           const redirectData = JSON.parse(redirect);
-          if (redirectData.page) {
-            setPage(redirectData.page);
-          }
-          if (redirectData.userId) {
-            setSelectedUserId(redirectData.userId);
-          }
-          if (redirectData.chatId) {
-            setSharedChatId(redirectData.chatId);
-          }
+          if (redirectData.page) setPage(redirectData.page);
+          if (redirectData.userId) setSelectedUserId(redirectData.userId);
+          if (redirectData.chatId) setSharedChatId(redirectData.chatId);
           localStorage.removeItem("omnixra_redirect");
         } catch (e) {
           localStorage.removeItem("omnixra_redirect");
@@ -129,9 +117,39 @@ function AppContent() {
     }
   }, [user]);
 
-  if (loading) return <LoadingScreen onFinish={() => setLoading(false)} />;
 
-  // Allow admin login page even without user
+
+  // ── EARLY RETURNS (all hooks above this line) ──
+  // Trigger native Android notification permission ONCE after sign-in
+  useEffect(() => {
+    return; // TEMP: disabled for debug
+    if (!user) return;
+    if (localStorage.getItem("omnixra_notif_prompted")) return;
+    localStorage.setItem("omnixra_notif_prompted", "1");
+
+    const t = setTimeout(async () => {
+      try {
+        const { PushNotifications } = await import("@capacitor/push-notifications");
+        const { Capacitor } = await import("@capacitor/core");
+        if (Capacitor.isNativePlatform()) {
+          const result = await PushNotifications.requestPermissions();
+          console.log("🔔 Permission result:", result.receive);
+          // register() waits for FCM setup — safe to enable later
+        } else if ("Notification" in window) {
+          await Notification.requestPermission();
+        }
+      } catch (e) {
+        console.warn("Notif perm error:", e);
+      }
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [user]);
+
+  const appReady = splashDone && !authLoading;
+  if (!appReady) return <LoadingScreen onFinish={() => setSplashDone(true)} />;
+
+
+  // Admin login path
   const path = window.location.pathname;
   const isAdminLoginPath = path.startsWith("/admin-login");
   if (!user && isAdminLoginPath) {
@@ -139,6 +157,7 @@ function AppContent() {
   }
   if (!user) return <AuthScreen />;
 
+  // ── Main render helpers ──
   const renderPage = () => {
     switch (page) {
       case "home": return <HomePage setPage={navigate} setSelectedUserId={setSelectedUserId} focusPostId={focusPostId} />;
@@ -182,8 +201,7 @@ function AppContent() {
     }
     navigate(navPage);
   };
-
-  const isAdminPage = page === "admin" || page === "admin-login" || page.startsWith("admin-");
+const isAdminPage = page === "admin" || page === "admin-login" || page.startsWith("admin-");
 
   return (
     <div className="app-root">

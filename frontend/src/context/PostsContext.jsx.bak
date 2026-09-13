@@ -8,8 +8,8 @@ export const PostsProvider = ({ children }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
   const [error, setError] = useState(null);
   const { user } = useAuth();
 
@@ -22,57 +22,95 @@ export const PostsProvider = ({ children }) => {
     return shuffled;
   };
 
+  const loadingRef = useRef(false);
+  const hasMoreRef = useRef(true);
+  const cursorRef = useRef(null);
+  const postsCountRef = useRef(0);
+  postsCountRef.current = posts.length;
+
+  // ── Initial fetch (or forced reload) ──
   const fetchPosts = useCallback(async (force = false) => {
-    if (!force && posts.length > 0) return;
+    if (!force && postsCountRef.current > 0) return;
     try {
       setLoading(true);
       setError(null);
-      const res = await api.get("/posts?page=1&limit=7");
+      const res = await api.get("/posts?limit=10");
       const data = res.data;
       const shuffled = shuffleArray(data.posts || []);
       setPosts(shuffled);
       setHasMore(data.hasMore);
-      setPage(2);
+      hasMoreRef.current = data.hasMore;
+      cursorRef.current = data.nextCursor || null;
     } catch (err) {
       console.error("Fetch posts error:", err.message);
       setError("Failed to load posts. Please refresh.");
     } finally {
       setLoading(false);
     }
-  }, [posts.length]);
+  }, []);
 
-  const loadingRef = useRef(false);
-  const hasMoreRef = useRef(true);
-  const pageRef = useRef(2);
+  // ── Pull-to-refresh (Facebook-style): fetch bigger pool, shuffle, show fresh mix ──
+  const refreshPosts = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      setError(null);
 
+      // Fetch 30 posts (3x the normal page) for a bigger shuffle pool
+      const res = await api.get("/posts?limit=30");
+      const data = res.data;
+      const allPosts = data.posts || [];
+
+      // Shuffle the entire pool
+      const shuffled = shuffleArray(allPosts);
+
+      // Show top 12 in the feed
+      const visible = shuffled.slice(0, 12);
+      setPosts(visible);
+
+      // Remaining 18 stay in memory for pagination
+      // Set cursor to the last visible post's ID so "load more" continues from there
+      hasMoreRef.current = shuffled.length > visible.length || data.hasMore;
+      setHasMore(hasMoreRef.current);
+      cursorRef.current = data.nextCursor || null;
+
+      // Facebook-style: scroll feed back to top
+      const scroller = document.querySelector(".page-scroll");
+      if (scroller) scroller.scrollTo({ top: 0, behavior: "smooth" });
+
+      console.log("🔄 [REFRESH] loaded", allPosts.length, "posts, showing", visible.length);
+    } catch (err) {
+      console.error("Refresh error:", err.message);
+      setError("Failed to refresh. Please try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  // ── Load more (infinite scroll) ──
   const loadMorePosts = useCallback(async () => {
-    // Wait for any in-flight load to complete
     while (loadingRef.current) {
       await new Promise(r => setTimeout(r, 100));
     }
     loadingRef.current = true;
 
-    // Endless loop: when we run out, restart from page 1 with shuffled order
     if (!hasMoreRef.current) {
-      // Don't loop if we have no posts
-      if (posts.length === 0) {
-        console.log("📱 [FEED] No posts in DB — stopping loop");
+      if (postsCountRef.current === 0) {
         loadingRef.current = false;
         return;
       }
-      console.log("📱 [FEED] No more posts — looping back with shuffle");
       try {
-        const res = await api.get("/posts?page=1&limit=7");
+        const res = await api.get("/posts?limit=10");
         const data = res.data;
         const shuffled = shuffleArray(data.posts || []);
         const recycled = shuffled.map(p => ({
           ...p,
-          _id: `${p._id}__recycle_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          _id: p._id + "__recycle_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
           _originalId: p._id
         }));
         setPosts(prev => [...prev, ...recycled]);
-        hasMoreRef.current = true;
-        pageRef.current = 2;
+        hasMoreRef.current = data.hasMore;
+        setHasMore(data.hasMore);
+        cursorRef.current = data.nextCursor || null;
       } catch (err) {
         console.error("Feed loop error:", err.message);
       } finally {
@@ -83,7 +121,10 @@ export const PostsProvider = ({ children }) => {
 
     setLoadingMore(true);
     try {
-      const res = await api.get(`/posts?page=${pageRef.current}&limit=7`);
+      const url = cursorRef.current
+        ? "/posts?limit=10&cursor=" + encodeURIComponent(cursorRef.current)
+        : "/posts?limit=10";
+      const res = await api.get(url);        // ← FIXED: was missing
       const data = res.data;
       setPosts(prev => {
         const existingIds = new Set(prev.map(p => p._id));
@@ -92,21 +133,21 @@ export const PostsProvider = ({ children }) => {
       });
       hasMoreRef.current = data.hasMore;
       setHasMore(data.hasMore);
-      pageRef.current += 1;
+      cursorRef.current = data.nextCursor || null;
     } catch (err) {
       console.error("Load more error:", err.message);
     } finally {
       loadingRef.current = false;
       setLoadingMore(false);
     }
-  }, [posts.length]);
+  }, []);
 
   const addPost = (post) => setPosts(prev => [post, ...prev]);
   const updatePost = (updatedPost) => setPosts(prev => prev.map(p => p._id === updatedPost._id ? updatedPost : p));
   const removePost = (postId) => setPosts(prev => prev.filter(p => p._id !== postId));
 
   return (
-    <PostsContext.Provider value={{ posts, loading, loadingMore, hasMore, error, fetchPosts, loadMorePosts, addPost, updatePost, removePost }}>
+    <PostsContext.Provider value={{ posts, loading, loadingMore, refreshing, hasMore, error, fetchPosts, refreshPosts, loadMorePosts, addPost, updatePost, removePost }}>
       {children}
     </PostsContext.Provider>
   );

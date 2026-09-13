@@ -8,6 +8,7 @@ export const PostsProvider = ({ children }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState(null);
   const { user } = useAuth();
@@ -25,9 +26,9 @@ export const PostsProvider = ({ children }) => {
   const hasMoreRef = useRef(true);
   const cursorRef = useRef(null);
   const postsCountRef = useRef(0);
-
   postsCountRef.current = posts.length;
 
+  // ── Initial fetch (or forced reload) ──
   const fetchPosts = useCallback(async (force = false) => {
     if (!force && postsCountRef.current > 0) return;
     try {
@@ -48,6 +49,41 @@ export const PostsProvider = ({ children }) => {
     }
   }, []);
 
+  // ── Pull-to-refresh (Facebook-style): fetch bigger pool, shuffle, show fresh mix ──
+  const refreshPosts = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      setError(null);
+
+      // Facebook-style: fetch from a RANDOM position in the DB each time
+      const res = await api.get("/posts/random?limit=30");
+      const data = res.data;
+      const allPosts = data.posts || [];
+
+      // Shuffle the batch so even a similar set looks different
+      const shuffled = shuffleArray(allPosts);
+
+      // Show first 12
+      const visible = shuffled.slice(0, 12);
+      setPosts(visible);
+      hasMoreRef.current = data.hasMore ?? true;
+      setHasMore(true);
+      cursorRef.current = null;
+
+      // Scroll to top
+      const scroller = document.querySelector(".page-scroll");
+      if (scroller) scroller.scrollTo({ top: 0, behavior: "smooth" });
+
+      console.log("🔄 [REFRESH] Fetched", allPosts.length, "random posts, showing", visible.length);
+    } catch (err) {
+      console.error("Refresh error:", err.message);
+      setError("Failed to refresh. Please try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  // ── Load more (infinite scroll) ──
   const loadMorePosts = useCallback(async () => {
     while (loadingRef.current) {
       await new Promise(r => setTimeout(r, 100));
@@ -56,11 +92,9 @@ export const PostsProvider = ({ children }) => {
 
     if (!hasMoreRef.current) {
       if (postsCountRef.current === 0) {
-        console.log("📱 [FEED] No posts in DB — stopping loop");
         loadingRef.current = false;
         return;
       }
-      console.log("📱 [FEED] End reached — restarting from top (shuffled)");
       try {
         const res = await api.get("/posts?limit=10");
         const data = res.data;
@@ -87,7 +121,7 @@ export const PostsProvider = ({ children }) => {
       const url = cursorRef.current
         ? "/posts?limit=10&cursor=" + encodeURIComponent(cursorRef.current)
         : "/posts?limit=10";
-      const res = await api.get(url);
+      const res = await api.get(url);        // ← FIXED: was missing
       const data = res.data;
       setPosts(prev => {
         const existingIds = new Set(prev.map(p => p._id));
@@ -110,7 +144,7 @@ export const PostsProvider = ({ children }) => {
   const removePost = (postId) => setPosts(prev => prev.filter(p => p._id !== postId));
 
   return (
-    <PostsContext.Provider value={{ posts, loading, loadingMore, hasMore, error, fetchPosts, loadMorePosts, addPost, updatePost, removePost }}>
+    <PostsContext.Provider value={{ posts, loading, loadingMore, refreshing, hasMore, error, fetchPosts, refreshPosts, loadMorePosts, addPost, updatePost, removePost }}>
       {children}
     </PostsContext.Provider>
   );

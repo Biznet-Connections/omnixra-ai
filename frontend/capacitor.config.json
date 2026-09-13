@@ -1,4 +1,4 @@
-﻿{
+{
   "appId": "com.omnixra.ai",
   "appName": "Omnixra AI",
   "webDir": "dist",
@@ -7,12 +7,12 @@
     "allowMixedContent": true,
     "captureInput": true,
     "webContentsDebuggingEnabled": true,
-    "backgroundColor": "#06070b"
+    "backgroundColor": "#05060a"
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 2000,
-      "backgroundColor": "#06070b",
+      "launchShowDuration": 200,
+      "backgroundColor": "#05060a",
       "androidSplashResourceName": "splash",
       "androidScaleType": "CENTER_CROP",
       "showSpinner": false
