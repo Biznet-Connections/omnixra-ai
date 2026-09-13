@@ -5,6 +5,7 @@ import AuthScreen from "./components/AuthScreen";
 import BottomNav from "./components/BottomNav";
 import DesktopSidebar from "./components/DesktopSidebar";
 import HomePage from "./pages/HomePage";
+import AuthCallback from "./pages/AuthCallback";
 import ChatPage from "./pages/ChatPage";
 import JobsPage from "./pages/JobsPage";
 import CompaniesPage from "./pages/CompaniesPage";
@@ -79,7 +80,9 @@ function AppContent() {
   // Check URL for admin + shared links on mount
   useEffect(() => {
     const path = window.location.pathname;
-    if (path.startsWith("/admin-login")) {
+    if (path.startsWith("/auth-callback")) {
+      setPage("auth-callback");
+    } else if (path.startsWith("/admin-login")) {
       setPage("admin-login");
     } else if (path.startsWith("/admin")) {
       setPage("admin");
@@ -161,6 +164,7 @@ function AppContent() {
   const renderPage = () => {
     switch (page) {
       case "home": return <HomePage setPage={navigate} setSelectedUserId={setSelectedUserId} focusPostId={focusPostId} />;
+      case "auth-callback": return <AuthCallback setPage={navigate} />;
       case "myai": return <ChatPage />;
       case "jobs": return <JobsPage focusJobSlug={focusJobSlug} />;
       case "companies": return <CompaniesPage />;

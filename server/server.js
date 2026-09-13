@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 import { connectDB } from "./config/db.js";
 import { initSocket } from "./socket.js";
 import authRoutes from "./routes/auth.js";
+import oauthRoutes from "./routes/oauth.js";
 import jobRoutes from "./routes/jobs.js";
 import companyRoutes from "./routes/companies.js";
 import voucherRoutes from "./routes/vouchers.js";
@@ -62,6 +63,7 @@ app.use(express.json({ limit: "50mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/oauth", oauthRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/vouchers", voucherRoutes);
