@@ -1,14 +1,8 @@
- import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ModalPortal from "./ModalPortal";
-import { trimVideoClient } from "../utils/clientVideoTrimmer";
+import api from "../api/axios";
 
-function formatBytes(bytes) {
-  if (!bytes || bytes < 1024) return (bytes || 0) + " B";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-}
-
-export default function VideoTrimmer({ videoSrc, videoFile, onTrim, onCancel }) {
+export default function VideoTrimmer({ videoSrc, onTrim, onCancel }) {
   const videoRef = useRef(null);
   const timelineRef = useRef(null);
   const [duration, setDuration] = useState(0);
@@ -18,11 +12,8 @@ export default function VideoTrimmer({ videoSrc, videoFile, onTrim, onCancel }) 
   const [dragging, setDragging] = useState(null);
   const dragStart = useRef(null);
   const [processing, setProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const MIN_DURATION = 1;
-
-  const fileSize = videoFile?.size || 0;
 
   const handleLoadedMetadata = () => {
     const d = videoRef.current?.duration || 0;
@@ -45,7 +36,7 @@ export default function VideoTrimmer({ videoSrc, videoFile, onTrim, onCancel }) 
     if (!Number.isFinite(seconds)) return "00:00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
   const seekTo = (time) => {
@@ -58,7 +49,7 @@ export default function VideoTrimmer({ videoSrc, videoFile, onTrim, onCancel }) 
   const previewSelection = async () => {
     if (!videoRef.current) return;
     videoRef.current.currentTime = start;
-    try { await videoRef.current.play(); } catch (e) { console.log("Playback blocked:", e); }
+    try { await videoRef.current.play(); } catch (error) { console.log("Playback blocked:", error); }
   };
 
   const getTimeFromPointer = (clientX) => {
@@ -114,32 +105,35 @@ export default function VideoTrimmer({ videoSrc, videoFile, onTrim, onCancel }) 
     };
   }, [dragging, start, end, duration]);
 
-  const handleTrim = async () => {
+  const dataURLToBlob = async (dataURL) => {
+    const response = await fetch(dataURL);
+    return await response.blob();
+  };
+
+  const handleRealTrim = async () => {
     try {
-      if (!videoFile) {
-        setError("Video file missing. Please re-pick the video.");
-        return;
-      }
+      if (!videoSrc) return;
       setProcessing(true);
-      setProgress(0);
       setError("");
+      const blob = await dataURLToBlob(videoSrc);
+      const formData = new FormData();
+      formData.append("video", blob, "omnixra-video.mp4");
+      formData.append("start", String(start));
+      formData.append("end", String(end));
 
-      // If range is full length, skip FFmpeg (no trim needed)
-      const isFullRange = start <= 0.05 && Math.abs(end - duration) <= 0.05;
-
-      let blob;
-      if (isFullRange) {
-        console.log("🎬 [TRIM] Full range — skipping FFmpeg");
-        blob = videoFile;
-        setProgress(100);
-      } else {
-        blob = await trimVideoClient(videoFile, start, end, setProgress);
+            const response = await api.post("/video/trim", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 90000,
+      });
+      const data = response.data;
+      if (!data || !data.success) {
+        throw new Error(data?.message || "Video trimming failed");
       }
-
-      onTrim({ blob, start, end, duration });
-    } catch (err) {
-      console.error("Trim error:", err);
-      setError(err?.message || "Could not trim video.");
+      console.log("✅ REAL TRIMMED VIDEO:", data);
+      onTrim(data);
+    } catch (error) {
+      console.error("Trim error:", error);
+      setError(error.message || "Could not trim video.");
     } finally {
       setProcessing(false);
     }
@@ -155,12 +149,9 @@ export default function VideoTrimmer({ videoSrc, videoFile, onTrim, onCancel }) 
         <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-[#111] text-white shadow-2xl">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
             <button onClick={(e) => { e.stopPropagation(); onCancel(); }} className="text-sm text-white/70 hover:text-white">Cancel</button>
-            <h2 className="font-semibold">
-              Trim video
-              {fileSize > 0 && <span className="text-white/50 font-normal text-xs ml-2">· {formatBytes(fileSize)}</span>}
-            </h2>
-            <button disabled={processing} onClick={(e) => { e.stopPropagation(); handleTrim(); }} className="text-sm font-semibold text-blue-400 hover:text-blue-300 disabled:opacity-50">
-              {processing ? progress + "%" : "Done"}
+            <h2 className="font-semibold">Trim video</h2>
+            <button disabled={processing} onClick={(e) => { e.stopPropagation(); handleRealTrim(); }} className="text-sm font-semibold text-blue-400 hover:text-blue-300 disabled:opacity-50">
+              {processing ? "Processing..." : "Done"}
             </button>
           </div>
 
@@ -176,27 +167,18 @@ export default function VideoTrimmer({ videoSrc, videoFile, onTrim, onCancel }) 
 
           <div className="px-5 pb-5 pt-4">
             <div ref={timelineRef} className="relative h-16 cursor-pointer rounded-lg bg-neutral-800 touch-none" style={{ touchAction: "none" }}>
-              <div className="absolute left-0 top-0 bottom-0 bg-black/70 rounded-l-lg" style={{ width: startPercent + "%" }} />
-              <div className="absolute right-0 top-0 bottom-0 bg-black/70 rounded-r-lg" style={{ width: (100 - endPercent) + "%" }} />
-              <div className="absolute top-0 bottom-0 border-y-2 border-blue-400" style={{ left: startPercent + "%", width: (endPercent - startPercent) + "%" }} onPointerDown={(e) => handlePointerDown("selection", e)} />
-              <div className="pointer-events-none absolute top-0 bottom-0 w-[2px] bg-white" style={{ left: playheadPercent + "%" }} />
-              <div className="absolute top-0 bottom-0 z-10 w-6 -translate-x-1/2 cursor-ew-resize touch-none" style={{ left: startPercent + "%", touchAction: "none" }} onPointerDown={(e) => handlePointerDown("start", e)}>
+              <div className="absolute left-0 top-0 bottom-0 bg-black/70 rounded-l-lg" style={{ width: `${startPercent}%` }} />
+              <div className="absolute right-0 top-0 bottom-0 bg-black/70 rounded-r-lg" style={{ width: `${100 - endPercent}%` }} />
+              <div className="absolute top-0 bottom-0 border-y-2 border-blue-400" style={{ left: `${startPercent}%`, width: `${endPercent - startPercent}%` }} onPointerDown={(e) => handlePointerDown("selection", e)} />
+              <div className="pointer-events-none absolute top-0 bottom-0 w-[2px] bg-white" style={{ left: `${playheadPercent}%` }} />
+              <div className="absolute top-0 bottom-0 z-10 w-6 -translate-x-1/2 cursor-ew-resize touch-none" style={{ left: `${startPercent}%`, touchAction: "none" }} onPointerDown={(e) => handlePointerDown("start", e)}>
                 <div className="absolute left-1/2 top-1/2 h-10 w-5 -translate-x-1/2 -translate-y-1/2 rounded border-2 border-white bg-blue-500 shadow-lg"><div className="absolute left-1/2 top-1/2 h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 bg-white/80" /></div>
               </div>
-              <div className="absolute top-0 bottom-0 z-10 w-6 -translate-x-1/2 cursor-ew-resize touch-none" style={{ left: endPercent + "%", touchAction: "none" }} onPointerDown={(e) => handlePointerDown("end", e)}>
+              <div className="absolute top-0 bottom-0 z-10 w-6 -translate-x-1/2 cursor-ew-resize touch-none" style={{ left: `${endPercent}%`, touchAction: "none" }} onPointerDown={(e) => handlePointerDown("end", e)}>
                 <div className="absolute left-1/2 top-1/2 h-10 w-5 -translate-x-1/2 -translate-y-1/2 rounded border-2 border-white bg-blue-500 shadow-lg"><div className="absolute left-1/2 top-1/2 h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 bg-white/80" /></div>
               </div>
             </div>
           </div>
-
-          {processing && (
-            <div className="px-5 pb-3">
-              <div style={{ height: 4, background: "#1e1e2e", borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: progress + "%", background: "linear-gradient(90deg, #6366f1, #a855f7)", transition: "width 0.15s" }} />
-              </div>
-              <div className="text-xs text-slate-400 mt-2 text-center">Trimming on device… {progress}%</div>
-            </div>
-          )}
 
           {error && <div className="px-5 pb-2 text-xs text-red-400">{error}</div>}
 

@@ -1,4 +1,4 @@
- import React, { useState } from "react";
+import React, { useState } from "react";
 import { Image as ImageIcon, Video, X, Send, Sparkles, Globe, Users, Lock, Crop, Scissors } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -16,10 +16,9 @@ function PostComposer({ onClose, onPosted }) {
   const [text, setText] = useState("");
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [videoFile, setVideoFile] = useState(null);          // original File
-  const [videoBlob, setVideoBlob] = useState(null);           // trimmed Blob
-  const [videoPreview, setVideoPreview] = useState(null);     // object URL
+  const [video, setVideo] = useState(null);
   const [thumbnailUrl, setThumbnailUrl] = useState(null);
+  const [videoPreview, setVideoPreview] = useState(null);
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
@@ -45,25 +44,13 @@ function PostComposer({ onClose, onPosted }) {
   const handleVideoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 50 * 1024 * 1024) { setError("Video too large. Max 50MB."); return; }
-
-    // Store the actual File (for trimmer)
-    setVideoFile(file);
-    // Object URL for preview (fast, no base64 conversion)
-    const url = URL.createObjectURL(file);
-    setVideoPreview(url);
-    setVideoBlob(null);
-    setThumbnailUrl(null);
-
-    // Generate poster in background
-    generateVideoPoster(file).then((poster) => {
-      if (poster) {
-        setThumbnailUrl(poster);
-        console.log("🎨 [POSTER] Generated client-side");
-      }
-    });
-
-    setShowTrim(true);
+    if (file.size > 10 * 1024 * 1024) { setError("Video too large. Max 10MB."); return; }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setVideoPreview(reader.result);
+      setShowTrim(true);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleCropDone = (croppedBlob) => {
@@ -76,24 +63,15 @@ function PostComposer({ onClose, onPosted }) {
     reader.readAsDataURL(croppedBlob);
   };
 
-  const handleTrimDone = (result) => {
-    const { blob } = result;
-    setVideoBlob(blob);
-    if (videoPreview) URL.revokeObjectURL(videoPreview);
-    setVideoPreview(URL.createObjectURL(blob));
+  const handleTrimDone = (trimData) => {
+    if (trimData?.url) {
+      setVideo(trimData.url);
+      setVideoPreview(trimData.url);
+    }
     setShowTrim(false);
-    console.log("✂️ [TRIM DONE] Blob size:", blob.size, "bytes");
   };
 
-  const handleTrimCancel = () => {
-    setShowTrim(false);
-    // If user cancels and had not yet trimmed, clear video
-    if (!videoBlob) {
-      setVideoFile(null);
-      if (videoPreview) URL.revokeObjectURL(videoPreview);
-      setVideoPreview(null);
-    }
-  };
+  const handleTrimCancel = () => setShowTrim(false);
 
   const enhanceWithAI = async () => {
     if (!text.trim()) { setError("Write something first."); return; }
@@ -102,7 +80,7 @@ function PostComposer({ onClose, onPosted }) {
       const res = await api.post("/ai/chat", {
         messages: [
           { role: "system", content: "Enhance the user's post. Return ONLY the enhanced text. No prefixes, no quotes, no explanations." },
-          { role: "user", content: "Enhance this post: \"" + text + "\"" }
+          { role: "user", content: `Enhance this post: "${text}"` }
         ]
       });
       let enhancedText = res.data.text || "";
@@ -125,29 +103,24 @@ function PostComposer({ onClose, onPosted }) {
   };
 
   const handleSubmit = async () => {
-    if (!text.trim() && !image && !videoBlob && !videoFile) {
-      setError("Write something or add a photo/video.");
-      return;
-    }
-    if (posting) return;
-    if (posted) return;
+    if (!text.trim() && !image && !video) { setError("Write something or add a photo/video."); return; }
+    if (posting) return; // ← prevent double-submit
+    if (posted) return;   // ← prevent re-post after success
     setPosting(true);
-    setError("");
 
     const optimisticPost = {
-      _id: "temp_" + Date.now(),
+      _id: `temp_${Date.now()}`,
       author: { _id: user._id, name: user.name, profilePicture: user.profilePicture, headline: user.headline, accountType: user.accountType },
       authorType: user.accountType,
       text: text.trim(),
       image,
-      video: videoBlob ? videoPreview : null,
-      thumbnailUrl,
+      video,
       visibility,
       likes: 0,
       comments: [],
       shares: 0,
       createdAt: new Date(),
-      pending: true,
+      pending: true
     };
 
     addPost(optimisticPost);
@@ -155,44 +128,15 @@ function PostComposer({ onClose, onPosted }) {
     playSound("post");
 
     try {
-      let videoKey = null;
-
-      // Upload trimmed video to R2 directly
-      const videoToUpload = videoBlob || videoFile;
-      if (videoToUpload) {
-        setUploadProgress(1);
-        const contentType = videoToUpload.type || "video/mp4";
-        const result = await uploadToR2(
-          videoToUpload,
-          contentType,
-          (pct) => setUploadProgress(Math.max(1, pct)),
-          "videos"
-        );
-        videoKey = result.key;
-        setUploadProgress(100);
-        console.log("🎬 [POST] Video uploaded to R2:", videoKey);
-      }
-
-      const res = await api.post("/posts", {
-        text: text.trim(),
-        image,
-        video: videoKey ? null : null,     // never send video base64
-        videoKey,
-        thumbnailUrl,
-        visibility,
-      });
-
+      const res = await api.post("/posts", { text: text.trim(), image, video, thumbnailUrl, visibility });
       removePost(optimisticPost._id);
       addPost(res.data);
       setNewPost(res.data);
       setPosted(true);
     } catch (err) {
       console.error("Post failed:", err);
-      updatePost(optimisticPost._id, { pending: false, failed: true });
-      setError(err?.response?.data?.message || "Failed to post. Try again.");
-    } finally {
-      setUploadProgress(0);
-      setPosting(false);
+      updatePost({ ...optimisticPost, pending: false, failed: true });
+      onClose();
     }
   };
 
@@ -212,14 +156,14 @@ function PostComposer({ onClose, onPosted }) {
               <p className="text-sm text-slate-500 mt-2">Boost this post to reach more people?</p>
               <div className="flex gap-3 mt-5">
                 <button onClick={() => setShowBoost(true)} className="primary-button flex-1"><Sparkles size={16} /> Boost Post</button>
-                <button onClick={() => { onPosted && onPosted(newPost); onClose(); }} className="outline-button flex-1">Skip</button>
+                <button onClick={() => { onPosted?.(newPost); onClose(); }} className="outline-button flex-1">Skip</button>
               </div>
             </div>
           ) : (
             <>
               <div className="flex gap-3 items-center mb-4">
                 <div className="avatar avatar-small bg-gradient-to-br from-indigo-500 to-purple-600">
-                  {user?.profilePicture ? <img src={user.profilePicture} alt="" loading="eager" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : (user?.name?.[0] || "U")}
+                  {user?.profilePicture ? <img src={user.profilePicture} alt="" loading="eager" decoding="async" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} /> : user?.name?.[0] || "U"}
                 </div>
                 <div className="text-sm font-semibold">{user?.name || user?.companyName || "User"}</div>
               </div>
@@ -244,9 +188,9 @@ function PostComposer({ onClose, onPosted }) {
               <div className="mt-4">
                 <label className="form-label">Who can see this post?</label>
                 <div className="flex gap-2">
-                  <button onClick={() => setVisibility("public")} className={"outline-button " + (visibility === "public" ? "category-active" : "")}><Globe size={14} /> Public</button>
-                  <button onClick={() => setVisibility("connections")} className={"outline-button " + (visibility === "connections" ? "category-active" : "")}><Users size={14} /> Connections</button>
-                  <button onClick={() => setVisibility("onlyme")} className={"outline-button " + (visibility === "onlyme" ? "category-active" : "")}><Lock size={14} /> Only Me</button>
+                  <button onClick={() => setVisibility("public")} className={`outline-button ${visibility === "public" ? "category-active" : ""}`}><Globe size={14} /> Public</button>
+                  <button onClick={() => setVisibility("connections")} className={`outline-button ${visibility === "connections" ? "category-active" : ""}`}><Users size={14} /> Connections</button>
+                  <button onClick={() => setVisibility("onlyme")} className={`outline-button ${visibility === "onlyme" ? "category-active" : ""}`}><Lock size={14} /> Only Me</button>
                 </div>
               </div>
 
@@ -254,32 +198,27 @@ function PostComposer({ onClose, onPosted }) {
                 <label className="outline-button cursor-pointer"><ImageIcon size={16} /> Photo<input type="file" accept="image/*" onChange={handleImageChange} className="hidden" /></label>
                 <label className="outline-button cursor-pointer"><Video size={16} /> Video<input type="file" accept="video/*" onChange={handleVideoChange} className="hidden" /></label>
                 <button onClick={enhanceWithAI} disabled={enhancing} className="outline-button text-indigo-400"><Sparkles size={16} /> {enhancing ? "Enhancing..." : "AI Enhance"}</button>
-                <button onClick={handleSubmit} disabled={posting} className="primary-button ml-auto">
-                  {posting ? (uploadProgress > 0 && uploadProgress < 100 ? "Uploading " + uploadProgress + "%" : "Posting...") : "Post"}
-                  <Send size={14} />
-                </button>
+                {posting && uploadProgress > 0 && uploadProgress < 100 && (
+                  <div style={{ width: "100%", marginTop: 8 }}>
+                    <div style={{ height: 4, background: "#1e1e2e", borderRadius: 4, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: uploadProgress + "%", background: "linear-gradient(90deg, #6366f1, #a855f7)", transition: "width 0.2s" }} />
+                    </div>
+                    <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4, textAlign: "center" }}>
+                      Uploading… {uploadProgress}%
+                    </div>
+                  </div>
+                )}
+                <button onClick={handleSubmit} disabled={posting} className="primary-button ml-auto">{posting ? (uploadProgress > 0 && uploadProgress < 100 ? `Uploading ${uploadProgress}%` : "Posting...") : "Post"}<Send size={14} /></button>
               </div>
-
-              {posting && uploadProgress > 0 && uploadProgress < 100 && (
-                <div style={{ width: "100%", marginTop: 10 }}>
-                  <div style={{ height: 4, background: "#1e1e2e", borderRadius: 4, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: uploadProgress + "%", background: "linear-gradient(90deg, #6366f1, #a855f7)", transition: "width 0.2s" }} />
-                  </div>
-                  <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4, textAlign: "center" }}>
-                    Uploading video… {uploadProgress}%
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
       </div>
 
       {showCrop && <ImageCropper image={imagePreview} onCrop={handleCropDone} onCancel={() => setShowCrop(false)} />}
-      {showTrim && <VideoTrimmer videoSrc={videoPreview} videoFile={videoFile} onTrim={handleTrimDone} onCancel={handleTrimCancel} />}
-      {showBoost && <BoostModal post={newPost} onClose={() => { setShowBoost(false); setPosted(false); onPosted && onPosted(newPost); onClose(); }} />}
+      {showTrim && <VideoTrimmer videoSrc={videoPreview} onTrim={handleTrimDone} onCancel={handleTrimCancel} />}
+      {showBoost && <BoostModal post={newPost} onClose={() => { setShowBoost(false); setPosted(false); onPosted?.(newPost); onClose(); }} />}
     </>
   );
 }
-
 export default PostComposer;
