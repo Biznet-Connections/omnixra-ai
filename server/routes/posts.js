@@ -29,7 +29,7 @@ router.post("/debug/log-batch", (req, res) => {
 function diversifyPosts(posts) {
   if (!Array.isArray(posts) || posts.length < 2) return posts;
 
-  // Group posts by author, preserving chronological order within each group
+  // Group posts by author, preserving chronological order within groups
   const byAuthor = new Map();
   for (const p of posts) {
     const a = (p.author && p.author._id) ? String(p.author._id) : (p.author ? String(p.author) : "__anon__");
@@ -37,7 +37,7 @@ function diversifyPosts(posts) {
     byAuthor.get(a).push(p);
   }
 
-  // Round-robin: cycle through authors, pulling one post per author per round
+  // Round-robin: cycle authors, pull one post each per round
   const authorKeys = [...byAuthor.keys()];
   const result = [];
   let progress = true;

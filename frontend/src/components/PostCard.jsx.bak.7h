@@ -17,39 +17,6 @@ function logLike(msg) {
   }).catch(() => {});
 }
 
-
-function ShimmerImage({ src, alt = "" }) {
-  const [loaded, setLoaded] = React.useState(false);
-  return (
-    <div
-      className="post-image-container mt-4"
-      style={{ position: "relative", overflow: "hidden", borderRadius: 12, minHeight: loaded ? 0 : 220 }}
-    >
-      {!loaded && (
-        <div
-          className="media-shimmer"
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            borderRadius: 12,
-          }}
-        />
-      )}
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        decoding="async"
-        onLoad={() => setLoaded(true)}
-        onError={() => setLoaded(true)}
-        className={"post-image " + (loaded ? "media-fade-in" : "")}
-        style={{ opacity: loaded ? 1 : 0, transition: "opacity 0.4s ease-out" }}
-      />
-    </div>
-  );
-}
 function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onViewProfile }) {
   const { user } = useAuth();
   const realId = post._originalId || post._id;
@@ -326,7 +293,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
           </p>
         )}
 
-        {post.image ? <ShimmerImage src={post.image} alt="Post" /> : post.hasImage ? <PostImage postId={realId} /> : null}
+        {post.image ? <div className="post-image-container mt-4"><img src={post.image} alt="Post" className="post-image" loading="lazy" decoding="async" /></div> : post.hasImage ? <PostImage postId={realId} /> : null}
         {post.video ? (
           <ModernVideoPlayer
             src={post.video}
