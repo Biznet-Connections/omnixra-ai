@@ -7,7 +7,6 @@ import SkeletonPostCard from "../components/SkeletonPostCard";
 import { usePosts } from "../context/PostsContext";
 import { setNativeRefreshHandler } from "../utils/nativeRefresh";
 import { usePullToRefresh } from "../utils/usePullToRefresh";
-import { useNetworkRefresh } from "../utils/useNetworkRefresh";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 
@@ -41,16 +40,6 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
 
   // Enable native pull-to-refresh ONLY while Home is mounted
   usePullToRefresh(true);
-
-  // Auto-refresh feed when network comes back
-  useNetworkRefresh(() => {
-    console.log("🌐 [NETWORK] Auto-refreshing feed after reconnect");
-    if (typeof refreshPosts === "function") {
-      refreshPosts();
-    } else if (typeof fetchPosts === "function") {
-      fetchPosts(true);
-    }
-  });
 
   // Wire native pull-to-refresh -> refreshPosts
   useEffect(() => {

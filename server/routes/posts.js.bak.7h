@@ -28,28 +28,22 @@ router.post("/debug/log-batch", (req, res) => {
 // author differs from the previous one. If stuck, fall back to original.
 function diversifyPosts(posts) {
   if (!Array.isArray(posts) || posts.length < 2) return posts;
-
-  // Group posts by author, preserving chronological order within each group
-  const byAuthor = new Map();
-  for (const p of posts) {
-    const a = (p.author && p.author._id) ? String(p.author._id) : (p.author ? String(p.author) : "__anon__");
-    if (!byAuthor.has(a)) byAuthor.set(a, []);
-    byAuthor.get(a).push(p);
-  }
-
-  // Round-robin: cycle through authors, pulling one post per author per round
-  const authorKeys = [...byAuthor.keys()];
+  const remaining = [...posts];
   const result = [];
-  let progress = true;
-  while (progress) {
-    progress = false;
-    for (const k of authorKeys) {
-      const list = byAuthor.get(k);
-      if (list.length > 0) {
-        result.push(list.shift());
-        progress = true;
-      }
-    }
+  let lastAuthor = null;
+
+  while (remaining.length > 0) {
+    // Find first post whose author != lastAuthor
+    let idx = remaining.findIndex(p => {
+      const a = (p.author && p.author._id) ? String(p.author._id) : null;
+      return a !== lastAuthor;
+    });
+    // If none found (all remaining are same author), take first
+    if (idx === -1) idx = 0;
+
+    const chosen = remaining.splice(idx, 1)[0];
+    result.push(chosen);
+    lastAuthor = (chosen.author && chosen.author._id) ? String(chosen.author._id) : null;
   }
   return result;
 }
