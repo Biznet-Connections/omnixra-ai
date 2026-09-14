@@ -70,7 +70,6 @@ function PostComposer({ onClose, onPosted }) {
   const [videoBlob, setVideoBlob] = useState(null);
   const [videoPreview, setVideoPreview] = useState(null);
   const [videoSize, setVideoSize] = useState(0);
-  const [localVideoUrl, setLocalVideoUrl] = useState(null);
   const [thumbnailUrl, setThumbnailUrl] = useState(null);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
@@ -122,11 +121,7 @@ function PostComposer({ onClose, onPosted }) {
 
       setVideoBlob(blob);
       setVideoSize(blob.size);
-
-      // Create a local object URL for instant optimistic playback
-      const objUrl = URL.createObjectURL(blob);
-      setLocalVideoUrl(objUrl);
-      console.log("VIDEO in memory:", blob.size, "bytes; local URL:", objUrl);
+      console.log("VIDEO in memory:", blob.size, "bytes");
 
       // Generate poster from the in-memory Blob (background)
       generateVideoPoster(blob).then((poster) => {
@@ -222,10 +217,8 @@ function PostComposer({ onClose, onPosted }) {
       authorType: user.accountType,
       text: text.trim(),
       image,
-      video: localVideoUrl || null,
+      video: null,
       thumbnailUrl,
-      trimStart,
-      trimEnd,
       visibility,
       likes: 0,
       comments: [],
@@ -277,11 +270,6 @@ function PostComposer({ onClose, onPosted }) {
     } finally {
       setUploadProgress(0);
       setPosting(false);
-      // Revoke the local URL now that the real post has arrived
-      if (localVideoUrl) {
-        URL.revokeObjectURL(localVideoUrl);
-        setLocalVideoUrl(null);
-      }
     }
   };
 
