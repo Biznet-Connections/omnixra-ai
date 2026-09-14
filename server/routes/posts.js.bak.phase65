@@ -262,7 +262,7 @@ router.get("/:id", async (req, res) => {
 // CREATE POST
 router.post("/", protect, async (req, res) => {
   try {
-    const { text, image, video, thumbnailUrl, visibility } = req.body;
+    const { text, image, video, visibility } = req.body;
 
     // Upload image to R2 if it's base64
     let imageUrl = image;
@@ -281,7 +281,7 @@ router.post("/", protect, async (req, res) => {
     const post = await Post.create({
       author: req.user._id,
       authorType: req.user.accountType,
-      text, image: imageUrl, video: videoUrl, thumbnailUrl: thumbnailUrl || null,
+      text, image: imageUrl, video: videoUrl,
       visibility: visibility || "public",
       likes: 0,
       comments: []

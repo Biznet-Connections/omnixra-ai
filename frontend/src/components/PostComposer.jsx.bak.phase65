@@ -7,7 +7,6 @@ import { playSound } from "../utils/helpers";
 import BoostModal from "./BoostModal";
 import ImageCropper from "./ImageCropper";
 import VideoTrimmer from "./VideoTrimmer";
-import { generateVideoPoster } from "../utils/videoPoster";
 
 function PostComposer({ onClose, onPosted }) {
   const { user } = useAuth();
@@ -16,7 +15,6 @@ function PostComposer({ onClose, onPosted }) {
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [video, setVideo] = useState(null);
-  const [thumbnailUrl, setThumbnailUrl] = useState(null);
   const [videoPreview, setVideoPreview] = useState(null);
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
@@ -126,7 +124,7 @@ function PostComposer({ onClose, onPosted }) {
     playSound("post");
 
     try {
-      const res = await api.post("/posts", { text: text.trim(), image, video, thumbnailUrl, visibility });
+      const res = await api.post("/posts", { text: text.trim(), image, video, visibility });
       removePost(optimisticPost._id);
       addPost(res.data);
       setNewPost(res.data);

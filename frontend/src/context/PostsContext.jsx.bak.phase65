@@ -72,34 +72,40 @@ export const PostsProvider = ({ children }) => {
     hydratedRef.current = true;
   }, [user?._id]);
 
-  // ── 6.5C: Cursor-aware fetch + background prefetch ──
-  // Instead of fetching 3 then 10 (wasteful — re-fetches 1-3),
-  // fetch 6 first for instant paint, then prefetch NEXT cursor page.
-  const prefetchRef = useRef({ posts: [], cursor: null, hasMore: true });
-  const prefetchInFlightRef = useRef(false);
-
+  // ── 5C: Split fetch — 3 fast, then 10 in background ──
   const fetchPosts = useCallback(async (force = false) => {
     if (!force && postsCountRef.current > 0) return;
     try {
       setLoading(true);
       setError(null);
 
-      // Single fetch — 6 posts, plenty for first paint
-      const res = await api.get("/posts?limit=6");
-      const data = res.data;
-      const fresh = data.posts || [];
+      // STEP 1: fetch just 3 for instant first paint
+      const fast = await api.get("/posts?limit=3");
+      const fastData = fast.data;
+      const fastPosts = fastData.posts || [];
 
-      if (fresh.length > 0) {
-        setPosts(fresh);
-        cursorRef.current = data.nextCursor || null;
-        hasMoreRef.current = data.hasMore;
-        setHasMore(data.hasMore);
-        setLoading(false);
-        writeCache(user?._id, fresh, data.nextCursor, data.hasMore);
-        console.log("⚡ [INITIAL]", fresh.length, "posts rendered");
+      if (fastPosts.length > 0) {
+        setPosts(fastPosts);
+        cursorRef.current = fastData.nextCursor || null;
+        hasMoreRef.current = fastData.hasMore;
+        setHasMore(fastData.hasMore);
+        setLoading(false); // ← first 3 visible NOW
+        writeCache(user?._id, fastPosts, fastData.nextCursor, fastData.hasMore);
+        console.log("⚡ [FAST] First", fastPosts.length, "posts rendered");
+      }
 
-        // Fire background prefetch of next cursor page
-        prefetchNextPage(data.nextCursor);
+      // STEP 2: background fetch full 10 (fills the rest)
+      const full = await api.get("/posts?limit=10");
+      const fullData = full.data;
+      const allPosts = fullData.posts || [];
+
+      if (allPosts.length > 0) {
+        setPosts(allPosts);
+        cursorRef.current = fullData.nextCursor || null;
+        hasMoreRef.current = fullData.hasMore;
+        setHasMore(fullData.hasMore);
+        writeCache(user?._id, allPosts, fullData.nextCursor, fullData.hasMore);
+        console.log("📦 [FULL] Total", allPosts.length, "posts rendered");
       }
     } catch (err) {
       console.error("Fetch posts error:", err.message);
@@ -108,26 +114,6 @@ export const PostsProvider = ({ children }) => {
       setLoading(false);
     }
   }, [user?._id]);
-
-  // ── Prefetch next cursor page in background ──
-  const prefetchNextPage = useCallback(async (cursor) => {
-    if (!cursor || prefetchInFlightRef.current) return;
-    prefetchInFlightRef.current = true;
-    try {
-      const res = await api.get("/posts?limit=10&cursor=" + encodeURIComponent(cursor));
-      const data = res.data;
-      prefetchRef.current = {
-        posts: data.posts || [],
-        cursor: data.nextCursor || null,
-        hasMore: !!data.hasMore,
-      };
-      console.log("🚀 [PREFETCH] Next", prefetchRef.current.posts.length, "posts ready");
-    } catch (err) {
-      console.warn("Prefetch failed (non-blocking):", err.message);
-    } finally {
-      prefetchInFlightRef.current = false;
-    }
-  }, []);
 
   // ── Pull-to-refresh: shuffle in place, then fetch fresh ──
   const refreshPosts = useCallback(async () => {
@@ -161,23 +147,6 @@ export const PostsProvider = ({ children }) => {
       await new Promise(r => setTimeout(r, 100));
     }
     loadingRef.current = true;
-
-    // FAST PATH: use prefetched posts if available
-    const pf = prefetchRef.current;
-    if (pf.posts && pf.posts.length > 0) {
-      setPosts(prev => [...prev, ...pf.posts]);
-      hasMoreRef.current = pf.hasMore;
-      setHasMore(pf.hasMore);
-      cursorRef.current = pf.cursor;
-      // Clear prefetch so we don't append twice
-      prefetchRef.current = { posts: [], cursor: pf.cursor, hasMore: pf.hasMore };
-      writeCache(user?._id, [...postsRef.current, ...pf.posts], pf.cursor, pf.hasMore);
-      console.log("⚡ [LOAD MORE] Instant append", pf.posts.length, "from prefetch");
-      loadingRef.current = false;
-      // Fire next prefetch in background
-      prefetchNextPage(pf.cursor);
-      return;
-    }
 
     if (!hasMoreRef.current) {
       if (postsCountRef.current === 0) {
