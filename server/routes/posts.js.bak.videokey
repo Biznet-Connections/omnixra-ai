@@ -296,13 +296,6 @@ router.post("/", protect, async (req, res) => {
     let videoUrl = video;
     // Videos are usually sent as URLs already from VideoTrimmer — keep as-is
 
-    // Phase 7A: resolve videoKey to public R2 URL before saving
-    if (videoKey) {
-      const { buildPublicUrl } = await import("../utils/r2.js");
-      videoUrl = buildPublicUrl(videoKey);
-      console.log("[POST] videoKey resolved to:", videoUrl);
-    }
-
     const post = await Post.create({
       author: req.user._id,
       authorType: req.user.accountType,
