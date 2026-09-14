@@ -3,13 +3,14 @@ import { UserCheck, Newspaper, Briefcase, User, FileText, MessageCircle } from "
 import PostCard from "../components/PostCard";
 import ProfileMenu from "../components/ProfileMenu";
 import LoadingDots from "../components/LoadingDots";
+import SkeletonPostCard from "../components/SkeletonPostCard";
 import { usePosts } from "../context/PostsContext";
 import { setNativeRefreshHandler } from "../utils/nativeRefresh";
 import { usePullToRefresh } from "../utils/usePullToRefresh";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 
-function HomePage({ setPage, setSelectedUserId }) {
+function HomePage({ setPage, setSelectedUserId, focusPostId }) {
   const {
     posts,
     loading,
@@ -104,6 +105,38 @@ function HomePage({ setPage, setSelectedUserId }) {
     };
   }, [user?._id]);
 
+
+  // ── Deep-link: scroll to a specific post after it loads ──
+  useEffect(() => {
+    if (!focusPostId) return;
+
+    let cancelled = false;
+    let tries = 0;
+    const MAX_TRIES = 15; // ~3 seconds max
+
+    const tryScroll = () => {
+      if (cancelled) return;
+      const el = document.querySelector(`[data-post-id="${focusPostId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("post-highlight");
+        setTimeout(() => el.classList.remove("post-highlight"), 2600);
+        console.log("📌 [DEEP LINK] Scrolled to post", focusPostId);
+        return;
+      }
+      tries++;
+      if (tries < MAX_TRIES) {
+        setTimeout(tryScroll, 200);
+      } else {
+        console.warn("📌 [DEEP LINK] Post not found after", MAX_TRIES, "tries");
+      }
+    };
+
+    // Wait a tick for the feed to render
+    const t = setTimeout(tryScroll, 200);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [focusPostId, posts.length]);
+
   const fetchUnreadCount = async () => {
     try {
       const res = await api.get("/messages/unread/count");
@@ -145,9 +178,11 @@ function HomePage({ setPage, setSelectedUserId }) {
         </div>
 
         <div className="feed-section mt-4">
-          {loading ? (
-            <div className="flex justify-center mt-10">
-              <LoadingDots />
+          {loading && posts.length === 0 ? (
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <SkeletonPostCard key={i} />
+              ))}
             </div>
           ) : posts.length === 0 ? (
             <div className="empty-state">

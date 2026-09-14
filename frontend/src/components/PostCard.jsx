@@ -208,7 +208,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
 
   return (
     <>
-      <article className={`post-card ${isPending ? "post-pending" : ""}`}>
+      <article className={`post-card ${isPending ? "post-pending" : ""}`} data-post-id={realId}>
         {isPending && (
           <div className="post-pending-banner">
             <span>Posting...</span>

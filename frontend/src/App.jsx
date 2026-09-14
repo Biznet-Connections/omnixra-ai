@@ -107,6 +107,21 @@ function AppContent() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [history]);
 
+
+  // ── Deep link: /post/{id} → set focusPostId ──
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path.startsWith("/post/")) {
+      const postId = path.split("/post/")[1];
+      if (postId) {
+        setFocusPostId(postId);
+        setPage("home");
+        // Clean the URL so reloads don't re-trigger
+        window.history.replaceState({}, "", "/");
+      }
+    }
+  }, []);
+
   // Check URL for admin + shared links on mount
   useEffect(() => {
     const path = window.location.pathname;
