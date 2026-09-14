@@ -22,7 +22,6 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
     loadMorePosts,
     removePost,
     updatePost,
-    healDiversity,
   } = usePosts();
 
   // Progressive skeleton: how many placeholder cards to render while loading
@@ -67,13 +66,6 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
 
   // Enable native pull-to-refresh ONLY on Home
   usePullToRefresh(true);
-
-  // Self-heal: run diversity on loaded posts once
-  useEffect(() => {
-    if (healDiversity && posts.length > 2) {
-      healDiversity();
-    }
-  }, [posts.length > 0]);
 
   // Initial fetch (once)
   useEffect(() => {

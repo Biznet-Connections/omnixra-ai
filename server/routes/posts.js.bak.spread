@@ -29,7 +29,7 @@ router.post("/debug/log-batch", (req, res) => {
 function diversifyPosts(posts) {
   if (!Array.isArray(posts) || posts.length < 2) return posts;
 
-  // Group posts by author (chronological within each group)
+  // Group posts by author, preserving chronological order within groups
   const byAuthor = new Map();
   for (const p of posts) {
     const a = (p.author && p.author._id) ? String(p.author._id) : (p.author ? String(p.author) : "__anon__");
@@ -37,32 +37,20 @@ function diversifyPosts(posts) {
     byAuthor.get(a).push(p);
   }
 
-  // Greedy max-spread: at each step, pick the author with the MOST
-  // remaining posts, but skip if they match the last emitted author.
-  // If forced to repeat, we take the next-best author.
+  // Round-robin: cycle authors, pull one post each per round
+  const authorKeys = [...byAuthor.keys()];
   const result = [];
-  let lastAuthor = null;
-
-  while (true) {
-    // Build a list of candidates sorted by remaining count desc
-    const candidates = [];
-    for (const [author, list] of byAuthor.entries()) {
-      if (list.length > 0) candidates.push({ author, list, count: list.length });
+  let progress = true;
+  while (progress) {
+    progress = false;
+    for (const k of authorKeys) {
+      const list = byAuthor.get(k);
+      if (list.length > 0) {
+        result.push(list.shift());
+        progress = true;
+      }
     }
-    if (candidates.length === 0) break;
-
-    candidates.sort((a, b) => b.count - a.count);
-
-    // Prefer an author that differs from lastAuthor
-    let chosen = candidates.find(c => c.author !== lastAuthor);
-    // If none differs (all remaining are same author), take the top
-    if (!chosen) chosen = candidates[0];
-
-    const post = chosen.list.shift();
-    result.push(post);
-    lastAuthor = chosen.author;
   }
-
   return result;
 }
 

@@ -6,61 +6,30 @@ import { useAuth } from "./AuthContext";
 // Reorder a page so its first post's author differs from the previous page's last author.
 // Only touches the first 1-2 items if needed - rest stays as-is.
 function reorderBoundary(newPosts, prevPosts) {
-  if (!Array.isArray(newPosts) || newPosts.length === 0) return newPosts;
+  if (!Array.isArray(newPosts) || newPosts.length < 2) return newPosts;
   if (!Array.isArray(prevPosts) || prevPosts.length === 0) return newPosts;
 
-  // Collect the last 2 author IDs from previous page
-  const tailAuthors = [];
-  for (let i = prevPosts.length - 1; i >= 0 && tailAuthors.length < 2; i--) {
-    const p = prevPosts[i];
-    const a = p?.author?._id ? String(p.author._id) : null;
-    tailAuthors.push(a);
-  }
+  const lastPrev = prevPosts[prevPosts.length - 1];
+  const lastAuthor = lastPrev?.author?._id ? String(lastPrev.author._id) : null;
+  if (!lastAuthor) return newPosts;
 
-  // Work on a copy
-  const copy = [...newPosts];
+  const firstNew = newPosts[0];
+  const firstAuthor = firstNew?.author?._id ? String(firstNew.author._id) : null;
 
-  // For each of the first 2 positions, ensure its author does not equal
-  // the corresponding tail author from the previous page.
-  for (let pos = 0; pos < Math.min(2, copy.length); pos++) {
-    const conflict = tailAuthors[pos];
-    if (!conflict) continue;
-    const posAuthor = copy[pos]?.author?._id ? String(copy[pos].author._id) : null;
-    if (posAuthor === conflict) {
-      // Find the next post in the new page whose author differs AND
-      // doesn't equal any of the tail authors
-      const swapIdx = copy.findIndex((p, idx) => {
-        if (idx <= pos) return false;
-        const a = p?.author?._id ? String(p.author._id) : null;
-        return a && !tailAuthors.includes(a);
-      });
-      if (swapIdx !== -1) {
-        const [chosen] = copy.splice(swapIdx, 1);
-        copy.splice(pos, 0, chosen);
-      }
+  if (firstAuthor === lastAuthor) {
+    // Find first post in newPosts whose author differs
+    const idx = newPosts.findIndex(p => {
+      const a = p?.author?._id ? String(p.author._id) : null;
+      return a !== lastAuthor;
+    });
+    if (idx > 0) {
+      const copy = [...newPosts];
+      const [chosen] = copy.splice(idx, 1);
+      copy.unshift(chosen);
+      return copy;
     }
   }
-
-  // Final pass: ensure no two consecutive same-author in the first 6 items
-  for (let i = 1; i < Math.min(6, copy.length); i++) {
-    const prev = copy[i - 1]?.author?._id ? String(copy[i - 1].author._id) : null;
-    const curr = copy[i]?.author?._id ? String(copy[i].author._id) : null;
-    if (prev && curr && prev === curr) {
-      // Find a later post with a different author to swap in
-      const swapIdx = copy.findIndex((p, idx) => {
-        if (idx <= i) return false;
-        const a = p?.author?._id ? String(p.author._id) : null;
-        return a && a !== prev;
-      });
-      if (swapIdx !== -1) {
-        const tmp = copy[i];
-        copy[i] = copy[swapIdx];
-        copy[swapIdx] = tmp;
-      }
-    }
-  }
-
-  return copy;
+  return newPosts;
 }
 
 const PostsContext = createContext();
@@ -293,18 +262,6 @@ export const PostsProvider = ({ children }) => {
     setPosts(prev => [post, ...prev]);
   }, []);
 
-  // Self-heal: if the cache/fresh list has consecutive same-author posts,
-  // reorder the first 12 items with the boundary helper.
-  const healDiversity = useCallback(() => {
-    setPosts(prev => {
-      if (!Array.isArray(prev) || prev.length < 3) return prev;
-      const head = prev.slice(0, 12);
-      const tail = prev.slice(12);
-      const healed = reorderBoundary(head, tail.length > 0 ? tail : []);
-      return [...healed, ...tail];
-    });
-  }, []);
-
   const removePost = useCallback((postId) => {
     setPosts(prev => prev.filter(p => p._id !== postId && p._originalId !== postId));
   }, []);
@@ -330,7 +287,6 @@ export const PostsProvider = ({ children }) => {
     refreshPosts,
     loadMorePosts,
     addPost,
-    healDiversity,
     removePost,
     updatePost,
   };
