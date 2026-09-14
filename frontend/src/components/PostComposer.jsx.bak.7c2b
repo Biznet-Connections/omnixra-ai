@@ -17,50 +17,6 @@ function formatSec(s) {
   return m + ":" + String(sec).padStart(2, "0");
 }
 
-function TrimAwarePreview({ src, trimStart = 0, trimEnd = 0 }) {
-  const videoRef = React.useRef(null);
-  const hasTrim = trimEnd > trimStart;
-
-  React.useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (hasTrim && v.currentTime < trimStart) {
-      v.currentTime = trimStart;
-    }
-  }, [trimStart, trimEnd, hasTrim]);
-
-  const handleLoadedMetadata = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (hasTrim && trimStart > 0 && trimStart < v.duration) {
-      v.currentTime = trimStart;
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (hasTrim && v.currentTime >= trimEnd) {
-      v.currentTime = trimStart;
-      if (!v.paused) v.play().catch(() => {});
-    }
-  };
-
-  return (
-    <video
-      ref={videoRef}
-      src={src}
-      controls
-      playsInline
-      preload="metadata"
-      className="post-video"
-      loop={!hasTrim}
-      onLoadedMetadata={handleLoadedMetadata}
-      onTimeUpdate={handleTimeUpdate}
-    />
-  );
-}
-
 function PostComposer({ onClose, onPosted }) {
   const { user } = useAuth();
   const { addPost, updatePost, removePost } = usePosts();
@@ -283,7 +239,7 @@ function PostComposer({ onClose, onPosted }) {
 
               {videoPreview && !showTrim && (
                 <div className="post-video-container mt-3 relative">
-                  <TrimAwarePreview src={videoPreview} trimStart={trimStart} trimEnd={trimEnd} />
+                  <video src={videoPreview} controls className="post-video" />
                   <button onClick={() => setShowTrim(true)} className="absolute top-2 right-2 bg-black/60 rounded-full p-1.5"><Scissors size={16} /></button>
                   {trimEnd > trimStart && (
                     <div className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] px-2 py-1 rounded-full">
