@@ -2,7 +2,7 @@ import express from "express";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
 import { protect } from "../middleware/auth.js";
-import { cacheShort, invalidateFeedCache, invalidatePostCache } from "../middleware/cache.js";
+import { cacheShort } from "../middleware/cache.js";
 import { uploadToR2, isBase64Image, parseBase64Image, buildPublicUrl } from "../utils/r2.js";
 import { emitPostLiked, emitPostCommented } from "../socket.js";
 
