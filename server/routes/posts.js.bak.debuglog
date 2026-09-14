@@ -264,17 +264,6 @@ router.post("/", protect, async (req, res) => {
   try {
     const { text, image, video, thumbnailUrl, visibility } = req.body;
 
-    // 🔍 DEBUG — confirm what actually arrives from PostComposer
-    console.log("📝 [POST /posts] body received:", {
-      textLen: typeof text === "string" ? text.length : 0,
-      textPreview: typeof text === "string" ? text.slice(0, 60) : null,
-      hasImage: !!image,
-      imageIsBase64: typeof image === "string" && image.startsWith("data:"),
-      hasVideo: !!video,
-      hasThumbnail: !!thumbnailUrl,
-      visibility: visibility || "public",
-    });
-
     // Upload image to R2 if it's base64
     let imageUrl = image;
     if (image && isBase64Image(image)) {

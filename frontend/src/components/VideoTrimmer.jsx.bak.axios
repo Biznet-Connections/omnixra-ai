@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import ModalPortal from "./ModalPortal";
-import api from "../api/axios";
 
 export default function VideoTrimmer({ videoSrc, onTrim, onCancel }) {
   const videoRef = useRef(null);
@@ -121,15 +120,15 @@ export default function VideoTrimmer({ videoSrc, onTrim, onCancel }) {
       formData.append("start", String(start));
       formData.append("end", String(end));
 
-            const response = await api.post("/video/trim", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        timeout: 90000,
+      const response = await fetch("/api/video/trim", {
+        method: "POST",
+        body: formData
       });
-      const data = response.data;
-      if (!data || !data.success) {
-        throw new Error(data?.message || "Video trimming failed");
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Video trimming failed");
       }
-      console.log("✅ REAL TRIMMED VIDEO:", data);
+      console.log("REAL TRIMMED VIDEO:", data);
       onTrim(data);
     } catch (error) {
       console.error("Trim error:", error);
