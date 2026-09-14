@@ -70,6 +70,7 @@ function PostComposer({ onClose, onPosted }) {
   const [videoBlob, setVideoBlob] = useState(null);
   const [videoPreview, setVideoPreview] = useState(null);
   const [videoSize, setVideoSize] = useState(0);
+  const [localVideoUrl, setLocalVideoUrl] = useState(null);
   const [thumbnailUrl, setThumbnailUrl] = useState(null);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
@@ -110,19 +111,29 @@ function PostComposer({ onClose, onPosted }) {
     setVideoPreview(null);
 
     try {
+      // ── COPY INTO MEMORY IMMEDIATELY ──
+      // Android WebView invalidates file handles after a few seconds.
+      // Reading now into an ArrayBuffer gives us an in-RAM copy we own.
       console.log("VIDEO pick: reading file into memory...", file.size, "bytes");
       const arrayBuffer = await file.arrayBuffer();
       const blob = new Blob([arrayBuffer], { type: file.type || "video/mp4" });
+      // Attach name for presign (plain Blob doesn't have .name)
       try { blob.name = file.name || "video.mp4"; } catch (e) {}
 
       setVideoBlob(blob);
       setVideoSize(blob.size);
-      console.log("VIDEO in memory:", blob.size, "bytes");
 
+      // Create a local object URL for instant optimistic playback
+      const objUrl = URL.createObjectURL(blob);
+      setLocalVideoUrl(objUrl);
+      console.log("VIDEO in memory:", blob.size, "bytes; local URL:", objUrl);
+
+      // Generate poster from the in-memory Blob (background)
       generateVideoPoster(blob).then((poster) => {
         if (poster) setThumbnailUrl(poster);
       });
 
+      // Read as base64 for preview (works on Android WebView)
       const reader = new FileReader();
       reader.onloadend = () => {
         setVideoPreview(reader.result);
@@ -158,6 +169,7 @@ function PostComposer({ onClose, onPosted }) {
 
   const handleTrimCancel = () => {
     setShowTrim(false);
+    // If user hadn't confirmed a trim, clear the video
     if (trimStart === 0 && trimEnd === 0) {
       setVideoBlob(null);
       setVideoPreview(null);
@@ -204,16 +216,14 @@ function PostComposer({ onClose, onPosted }) {
     setPosting(true);
     setError("");
 
-    // ── Optimistic post: shows thumbnail + uploading state, NOT blob video ──
-    const tempId = "temp_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
     const optimisticPost = {
-      _id: tempId,
+      _id: "temp_" + Date.now(),
       author: { _id: user._id, name: user.name, profilePicture: user.profilePicture, headline: user.headline, accountType: user.accountType },
       authorType: user.accountType,
       text: text.trim(),
       image,
-      video: null,                       // ← thumbnail-first; video swaps in later
-      thumbnailUrl: thumbnailUrl || null,
+      video: localVideoUrl || null,
+      thumbnailUrl,
       trimStart,
       trimEnd,
       visibility,
@@ -221,9 +231,7 @@ function PostComposer({ onClose, onPosted }) {
       comments: [],
       shares: 0,
       createdAt: new Date(),
-      pending: true,
-      isUploading: !!videoBlob,          // ← feed will show "Uploading… X%" overlay
-      uploadProgress: 0,
+      pending: true
     };
 
     addPost(optimisticPost);
@@ -235,22 +243,16 @@ function PostComposer({ onClose, onPosted }) {
 
       if (videoBlob) {
         setUploadProgress(1);
-        updatePost(tempId, { uploadProgress: 1 });
         const contentType = videoBlob.type || "video/mp4";
         console.log("Uploading video to R2...", videoBlob.size, "bytes", contentType);
         const result = await uploadToR2(
           videoBlob,
           contentType,
-          (pct) => {
-            const p = Math.max(1, Math.min(99, pct));
-            setUploadProgress(p);
-            updatePost(tempId, { uploadProgress: p });
-          },
+          (pct) => setUploadProgress(Math.max(1, pct)),
           "videos"
         );
         videoKey = result.key;
         setUploadProgress(100);
-        updatePost(tempId, { uploadProgress: 100 });
         console.log("VIDEO uploaded to R2:", videoKey);
       }
 
@@ -264,18 +266,22 @@ function PostComposer({ onClose, onPosted }) {
         visibility
       });
 
-      removePost(tempId);
+      removePost(optimisticPost._id);
       addPost(res.data);
       setNewPost(res.data);
       setPosted(true);
     } catch (err) {
       console.error("Post failed:", err);
-      const failMsg = err?.response?.data?.message || err?.message || "Failed to post. Try again.";
-      updatePost(tempId, { pending: false, isUploading: false, failed: true, errorMessage: failMsg });
-      setError(failMsg);
+      updatePost(optimisticPost._id, { pending: false, failed: true });
+      setError(err?.response?.data?.message || err?.message || "Failed to post. Try again.");
     } finally {
       setUploadProgress(0);
       setPosting(false);
+      // Revoke the local URL now that the real post has arrived
+      if (localVideoUrl) {
+        URL.revokeObjectURL(localVideoUrl);
+        setLocalVideoUrl(null);
+      }
     }
   };
 
