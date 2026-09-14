@@ -8,7 +8,6 @@ import BoostModal from "./BoostModal";
 import ImageCropper from "./ImageCropper";
 import VideoTrimmer from "./VideoTrimmer";
 import { generateVideoPoster } from "../utils/videoPoster";
-import { uploadToR2, dataUrlToBlob, mimeFromDataUrl } from "../utils/r2Upload";
 
 function PostComposer({ onClose, onPosted }) {
   const { user } = useAuth();
@@ -28,7 +27,6 @@ function PostComposer({ onClose, onPosted }) {
   const [visibility, setVisibility] = useState("public");
   const [showBoost, setShowBoost] = useState(false);
   const [newPost, setNewPost] = useState(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -198,17 +196,7 @@ function PostComposer({ onClose, onPosted }) {
                 <label className="outline-button cursor-pointer"><ImageIcon size={16} /> Photo<input type="file" accept="image/*" onChange={handleImageChange} className="hidden" /></label>
                 <label className="outline-button cursor-pointer"><Video size={16} /> Video<input type="file" accept="video/*" onChange={handleVideoChange} className="hidden" /></label>
                 <button onClick={enhanceWithAI} disabled={enhancing} className="outline-button text-indigo-400"><Sparkles size={16} /> {enhancing ? "Enhancing..." : "AI Enhance"}</button>
-                {posting && uploadProgress > 0 && uploadProgress < 100 && (
-                  <div style={{ width: "100%", marginTop: 8 }}>
-                    <div style={{ height: 4, background: "#1e1e2e", borderRadius: 4, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: uploadProgress + "%", background: "linear-gradient(90deg, #6366f1, #a855f7)", transition: "width 0.2s" }} />
-                    </div>
-                    <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4, textAlign: "center" }}>
-                      Uploading… {uploadProgress}%
-                    </div>
-                  </div>
-                )}
-                <button onClick={handleSubmit} disabled={posting} className="primary-button ml-auto">{posting ? (uploadProgress > 0 && uploadProgress < 100 ? `Uploading ${uploadProgress}%` : "Posting...") : "Post"}<Send size={14} /></button>
+                <button onClick={handleSubmit} disabled={posting} className="primary-button ml-auto">{posting ? "Posting..." : "Post"}<Send size={14} /></button>
               </div>
             </>
           )}

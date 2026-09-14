@@ -5,7 +5,6 @@ import path from "path";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import ffmpegPath from "ffmpeg-static";
-import { getPresignedUploadUrl, generateKey, buildPublicUrl } from "../utils/r2.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,51 +76,6 @@ router.post("/trim", upload.single("video"), async (req, res) => {
     if (tempInput && fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
     if (tempOutput && fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
     res.status(500).json({ success: false, message: "Failed to trim video", error: error.message });
-  }
-});
-
-
-// ═══════════════════════════════════════════════════════════
-// PRESIGNED UPLOAD — browser uploads video DIRECTLY to R2
-// Body: { filename, contentType }
-// Returns: { uploadUrl, key, publicUrl, expiresIn }
-// ═══════════════════════════════════════════════════════════
-router.post("/presign", async (req, res) => {
-  try {
-    const { filename, contentType, folder } = req.body || {};
-    if (!filename || !contentType) {
-      return res.status(400).json({ message: "filename and contentType are required" });
-    }
-    // Validate content type
-    if (!contentType.startsWith("video/") && !contentType.startsWith("image/")) {
-      return res.status(400).json({ message: "Only video/* or image/* allowed" });
-    }
-    const targetFolder = folder === "images" ? "posts" : "videos";
-    const key = generateKey(targetFolder, filename);
-    const result = await getPresignedUploadUrl(key, contentType, 900);
-    console.log("🎫 [PRESIGN] Issued upload URL for", key);
-    res.json(result);
-  } catch (err) {
-    console.error("Presign error:", err);
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════
-// CONFIRM UPLOAD — client tells us upload succeeded
-// Body: { key, size?, duration? }
-// Returns: { publicUrl }
-// ═══════════════════════════════════════════════════════════
-router.post("/confirm", async (req, res) => {
-  try {
-    const { key } = req.body || {};
-    if (!key) return res.status(400).json({ message: "key required" });
-    const publicUrl = buildPublicUrl(key);
-    console.log("✅ [CONFIRM] Upload confirmed:", publicUrl);
-    res.json({ publicUrl, key });
-  } catch (err) {
-    console.error("Confirm error:", err);
-    res.status(500).json({ message: err.message });
   }
 });
 
