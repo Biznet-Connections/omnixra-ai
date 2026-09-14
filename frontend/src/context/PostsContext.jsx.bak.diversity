@@ -2,36 +2,6 @@ import React, { createContext, useContext, useState, useCallback, useRef, useEff
 import api from "../api/axios";
 import { useAuth } from "./AuthContext";
 
-
-// Reorder a page so its first post's author differs from the previous page's last author.
-// Only touches the first 1-2 items if needed - rest stays as-is.
-function reorderBoundary(newPosts, prevPosts) {
-  if (!Array.isArray(newPosts) || newPosts.length < 2) return newPosts;
-  if (!Array.isArray(prevPosts) || prevPosts.length === 0) return newPosts;
-
-  const lastPrev = prevPosts[prevPosts.length - 1];
-  const lastAuthor = lastPrev?.author?._id ? String(lastPrev.author._id) : null;
-  if (!lastAuthor) return newPosts;
-
-  const firstNew = newPosts[0];
-  const firstAuthor = firstNew?.author?._id ? String(firstNew.author._id) : null;
-
-  if (firstAuthor === lastAuthor) {
-    // Find first post in newPosts whose author differs
-    const idx = newPosts.findIndex(p => {
-      const a = p?.author?._id ? String(p.author._id) : null;
-      return a !== lastAuthor;
-    });
-    if (idx > 0) {
-      const copy = [...newPosts];
-      const [chosen] = copy.splice(idx, 1);
-      copy.unshift(chosen);
-      return copy;
-    }
-  }
-  return newPosts;
-}
-
 const PostsContext = createContext();
 
 // ── localStorage cache key (per-user so switching accounts doesn't leak) ──
@@ -195,7 +165,7 @@ export const PostsProvider = ({ children }) => {
     // FAST PATH: use prefetched posts if available
     const pf = prefetchRef.current;
     if (pf.posts && pf.posts.length > 0) {
-      setPosts(prev => [...prev, ...reorderBoundary(pf.posts, prev)]);
+      setPosts(prev => [...prev, ...pf.posts]);
       hasMoreRef.current = pf.hasMore;
       setHasMore(pf.hasMore);
       cursorRef.current = pf.cursor;
@@ -244,7 +214,7 @@ export const PostsProvider = ({ children }) => {
       const data = res.data;
       const newPosts = data.posts || [];
 
-      setPosts(prev => [...prev, ...reorderBoundary(newPosts, prev)]);
+      setPosts(prev => [...prev, ...newPosts]);
       hasMoreRef.current = data.hasMore;
       setHasMore(data.hasMore);
       cursorRef.current = data.nextCursor || null;

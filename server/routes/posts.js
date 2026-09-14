@@ -21,6 +21,33 @@ router.post("/debug/log-batch", (req, res) => {
   res.json({ ok: true, count: logs.length });
 });
 
+
+// ── Feed diversity: prevent same author appearing twice in a row ──
+// Keeps order mostly stable but spreads posts by the same author.
+// Uses a greedy pass: for each position, pick the first post whose
+// author differs from the previous one. If stuck, fall back to original.
+function diversifyPosts(posts) {
+  if (!Array.isArray(posts) || posts.length < 2) return posts;
+  const remaining = [...posts];
+  const result = [];
+  let lastAuthor = null;
+
+  while (remaining.length > 0) {
+    // Find first post whose author != lastAuthor
+    let idx = remaining.findIndex(p => {
+      const a = (p.author && p.author._id) ? String(p.author._id) : null;
+      return a !== lastAuthor;
+    });
+    // If none found (all remaining are same author), take first
+    if (idx === -1) idx = 0;
+
+    const chosen = remaining.splice(idx, 1)[0];
+    result.push(chosen);
+    lastAuthor = (chosen.author && chosen.author._id) ? String(chosen.author._id) : null;
+  }
+  return result;
+}
+
 // GET ALL POSTS — Cursor pagination (scales to millions)
 // Query: ?limit=10&cursor=<lastPostId>
 router.get("/", cacheShort(30, 60), async (req, res) => {
@@ -183,7 +210,8 @@ router.get("/random", async (req, res) => {
       };
     });
 
-    res.json({ posts: result, skip: randomSkip, total });
+    const diversified = diversifyPosts(result);
+    res.json({ posts: diversified, skip: randomSkip, total });
   } catch (error) {
     console.error("Random posts error:", error);
     res.status(500).json({ message: error.message });

@@ -8,7 +8,6 @@ function ModernVideoPlayer({ src, poster, text, authorName, trimStart = 0, trimE
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [liked, setLiked] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
-  const [videoReady, setVideoReady] = useState(false);
 
   const hasTrim = trimEnd > trimStart;
 
@@ -63,34 +62,11 @@ function ModernVideoPlayer({ src, poster, text, authorName, trimStart = 0, trimE
 
   return (
     <>
-      <div
-        ref={containerRef}
-        className="modern-video-container"
-        onClick={openFullScreen}
-        onDoubleClick={handleDoubleTap}
-        style={{ position: "relative", overflow: "hidden", background: "#000" }}
-      >
-        {poster && (
-          <img
-            src={poster}
-            alt="Video preview"
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              opacity: videoReady ? 0 : 1,
-              transition: "opacity 0.4s ease-out",
-              pointerEvents: "none",
-              zIndex: 1,
-            }}
-          />
-        )}
+      <div ref={containerRef} className="modern-video-container" onClick={openFullScreen} onDoubleClick={handleDoubleTap}>
         <video
           ref={videoRef}
           src={src}
+          poster={poster || undefined}
           muted={isMuted}
           loop={!hasTrim}
           playsInline
@@ -98,60 +74,12 @@ function ModernVideoPlayer({ src, poster, text, authorName, trimStart = 0, trimE
           className="modern-video"
           onLoadedMetadata={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
-          onCanPlay={() => setVideoReady(true)}
-          style={{
-            position: "relative",
-            zIndex: 2,
-            opacity: videoReady ? 1 : 0,
-            transition: "opacity 0.3s ease-in",
-          }}
         />
-        <button
-          onClick={(e) => { e.stopPropagation(); toggleMute(); }}
-          className="sound-toggle"
-          style={{ zIndex: 3 }}
-        >
+        <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} className="sound-toggle">
           {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
         </button>
-        {!videoReady && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 3,
-              pointerEvents: "none",
-            }}
-          >
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: "50%",
-                background: "rgba(0,0,0,0.55)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                border: "2px solid rgba(255,255,255,0.85)",
-              }}
-            >
-              <div
-                style={{
-                  width: 0,
-                  height: 0,
-                  borderLeft: "14px solid white",
-                  borderTop: "10px solid transparent",
-                  borderBottom: "10px solid transparent",
-                  marginLeft: 4,
-                }}
-              />
-            </div>
-          </div>
-        )}
         {showHeart && (
-          <div className="double-tap-heart" style={{ zIndex: 4 }}>
+          <div className="double-tap-heart">
             <Heart size={50} fill="white" />
           </div>
         )}
@@ -161,7 +89,7 @@ function ModernVideoPlayer({ src, poster, text, authorName, trimStart = 0, trimE
         <div className="fullscreen-video-backdrop" onClick={() => setIsFullScreen(false)}>
           <div className="fullscreen-video-content" onClick={e => e.stopPropagation()}>
             <button onClick={() => setIsFullScreen(false)} className="fullscreen-close"><X size={20} /></button>
-            <video src={src} controls autoPlay loop={!hasTrim} playsInline className="fullscreen-video" poster={poster || undefined} />
+            <video src={src} controls autoPlay loop={!hasTrim} playsInline className="fullscreen-video" />
             <div className="fullscreen-video-info">
               <div className="font-semibold text-sm">{authorName}</div>
               <p className="text-xs text-slate-400 mt-1">{text}</p>
