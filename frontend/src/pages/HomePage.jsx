@@ -180,7 +180,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
         <div className="feed-section mt-4">
           {loading && posts.length === 0 ? (
             <div className="space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => (
+              {[1, 2, 3].map((i) => (
                 <SkeletonPostCard key={i} />
               ))}
             </div>
