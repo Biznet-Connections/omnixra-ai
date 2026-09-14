@@ -293,7 +293,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
         )}
 
         {post.image ? <div className="post-image-container mt-4"><img src={post.image} alt="Post" className="post-image" loading="lazy" decoding="async" /></div> : post.hasImage ? <PostImage postId={realId} /> : null}
-        {post.video && <ModernVideoPlayer src={post.video} text={post.text} authorName={authorName} />}
+        {post.video && <ModernVideoPlayer src={post.video} poster={post.thumbnailUrl} text={post.text} authorName={authorName} />}
 
         {!isPending && !isEditing && (
           <>
