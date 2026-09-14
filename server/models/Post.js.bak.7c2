@@ -18,8 +18,6 @@ const postSchema = new mongoose.Schema(
     image: { type: String },
     video: { type: String },
     thumbnailUrl: { type: String },
-    trimStart: { type: Number, default: 0 },
-    trimEnd: { type: Number, default: 0 },
     mediaType: { type: String, enum: ["text", "image", "video"], default: "text" },
     visibility: { type: String, enum: ["public", "connections", "onlyme"], default: "public" },
     likes: { type: Number, default: 0 },
@@ -31,6 +29,7 @@ const postSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Indexes for fast feed queries
 postSchema.index({ deleted: 1, createdAt: -1 });
 postSchema.index({ author: 1, deleted: 1, createdAt: -1 });
 

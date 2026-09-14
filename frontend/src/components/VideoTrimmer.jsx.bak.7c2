@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+ import React, { useEffect, useRef, useState } from "react";
 import ModalPortal from "./ModalPortal";
+import { trimVideoClient } from "../utils/clientVideoTrimmer";
 
 function formatBytes(bytes) {
   if (!bytes || bytes < 1024) return (bytes || 0) + " B";
@@ -16,6 +17,8 @@ export default function VideoTrimmer({ videoSrc, videoFile, onTrim, onCancel }) 
   const [currentTime, setCurrentTime] = useState(0);
   const [dragging, setDragging] = useState(null);
   const dragStart = useRef(null);
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const MIN_DURATION = 1;
 
@@ -111,14 +114,35 @@ export default function VideoTrimmer({ videoSrc, videoFile, onTrim, onCancel }) 
     };
   }, [dragging, start, end, duration]);
 
-  const handleTrim = () => {
-    if (!videoFile) {
-      setError("Video file missing. Please re-pick the video.");
-      return;
+  const handleTrim = async () => {
+    try {
+      if (!videoFile) {
+        setError("Video file missing. Please re-pick the video.");
+        return;
+      }
+      setProcessing(true);
+      setProgress(0);
+      setError("");
+
+      // If range is full length, skip FFmpeg (no trim needed)
+      const isFullRange = start <= 0.05 && Math.abs(end - duration) <= 0.05;
+
+      let blob;
+      if (isFullRange) {
+        console.log("🎬 [TRIM] Full range — skipping FFmpeg");
+        blob = videoFile;
+        setProgress(100);
+      } else {
+        blob = await trimVideoClient(videoFile, start, end, setProgress);
+      }
+
+      onTrim({ blob, start, end, duration });
+    } catch (err) {
+      console.error("Trim error:", err);
+      setError(err?.message || "Could not trim video.");
+    } finally {
+      setProcessing(false);
     }
-    setError("");
-    console.log("TRIM range:", start.toFixed(2), "->", end.toFixed(2), "of", duration.toFixed(2));
-    onTrim({ trimStart: start, trimEnd: end, duration, file: videoFile });
   };
 
   const startPercent = duration > 0 ? (start / duration) * 100 : 0;
@@ -133,10 +157,10 @@ export default function VideoTrimmer({ videoSrc, videoFile, onTrim, onCancel }) 
             <button onClick={(e) => { e.stopPropagation(); onCancel(); }} className="text-sm text-white/70 hover:text-white">Cancel</button>
             <h2 className="font-semibold">
               Trim video
-              {fileSize > 0 && <span className="text-white/50 font-normal text-xs ml-2">{formatBytes(fileSize)}</span>}
+              {fileSize > 0 && <span className="text-white/50 font-normal text-xs ml-2">· {formatBytes(fileSize)}</span>}
             </h2>
-            <button onClick={(e) => { e.stopPropagation(); handleTrim(); }} className="text-sm font-semibold text-blue-400 hover:text-blue-300">
-              Done
+            <button disabled={processing} onClick={(e) => { e.stopPropagation(); handleTrim(); }} className="text-sm font-semibold text-blue-400 hover:text-blue-300 disabled:opacity-50">
+              {processing ? progress + "%" : "Done"}
             </button>
           </div>
 
@@ -165,10 +189,19 @@ export default function VideoTrimmer({ videoSrc, videoFile, onTrim, onCancel }) 
             </div>
           </div>
 
+          {processing && (
+            <div className="px-5 pb-3">
+              <div style={{ height: 4, background: "#1e1e2e", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: progress + "%", background: "linear-gradient(90deg, #6366f1, #a855f7)", transition: "width 0.15s" }} />
+              </div>
+              <div className="text-xs text-slate-400 mt-2 text-center">Trimming on device… {progress}%</div>
+            </div>
+          )}
+
           {error && <div className="px-5 pb-2 text-xs text-red-400">{error}</div>}
 
           <div className="flex justify-center px-5 pb-6">
-            <button onClick={(e) => { e.stopPropagation(); previewSelection(); }} className="rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-black active:scale-95">Preview</button>
+            <button onClick={(e) => { e.stopPropagation(); previewSelection(); }} className="rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-black active:scale-95">▶ Preview</button>
           </div>
         </div>
       </div>

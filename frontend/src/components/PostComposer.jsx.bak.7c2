@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+ import React, { useState } from "react";
 import { Image as ImageIcon, Video, X, Send, Sparkles, Globe, Users, Lock, Crop, Scissors } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -8,14 +8,7 @@ import BoostModal from "./BoostModal";
 import ImageCropper from "./ImageCropper";
 import VideoTrimmer from "./VideoTrimmer";
 import { generateVideoPoster } from "../utils/videoPoster";
-import { uploadToR2 } from "../utils/r2Upload";
-
-function formatSec(s) {
-  if (!Number.isFinite(s)) return "0:00";
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return m + ":" + String(sec).padStart(2, "0");
-}
+import { uploadToR2, dataUrlToBlob, mimeFromDataUrl } from "../utils/r2Upload";
 
 function PostComposer({ onClose, onPosted }) {
   const { user } = useAuth();
@@ -23,11 +16,10 @@ function PostComposer({ onClose, onPosted }) {
   const [text, setText] = useState("");
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [videoFile, setVideoFile] = useState(null);
-  const [videoPreview, setVideoPreview] = useState(null);
+  const [videoFile, setVideoFile] = useState(null);          // original File
+  const [videoBlob, setVideoBlob] = useState(null);           // trimmed Blob
+  const [videoPreview, setVideoPreview] = useState(null);     // object URL
   const [thumbnailUrl, setThumbnailUrl] = useState(null);
-  const [trimStart, setTrimStart] = useState(0);
-  const [trimEnd, setTrimEnd] = useState(0);
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
@@ -55,24 +47,23 @@ function PostComposer({ onClose, onPosted }) {
     if (!file) return;
     if (file.size > 50 * 1024 * 1024) { setError("Video too large. Max 50MB."); return; }
 
+    // Store the actual File (for trimmer)
     setVideoFile(file);
+    // Object URL for preview (fast, no base64 conversion)
+    const url = URL.createObjectURL(file);
+    setVideoPreview(url);
+    setVideoBlob(null);
     setThumbnailUrl(null);
-    setTrimStart(0);
-    setTrimEnd(0);
 
+    // Generate poster in background
     generateVideoPoster(file).then((poster) => {
-      if (poster) setThumbnailUrl(poster);
+      if (poster) {
+        setThumbnailUrl(poster);
+        console.log("🎨 [POSTER] Generated client-side");
+      }
     });
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setVideoPreview(reader.result);
-      setShowTrim(true);
-    };
-    reader.onerror = () => {
-      setError("Could not read video file. Try a different one.");
-    };
-    reader.readAsDataURL(file);
+    setShowTrim(true);
   };
 
   const handleCropDone = (croppedBlob) => {
@@ -86,17 +77,20 @@ function PostComposer({ onClose, onPosted }) {
   };
 
   const handleTrimDone = (result) => {
-    const { trimStart: ts, trimEnd: te } = result;
-    setTrimStart(ts || 0);
-    setTrimEnd(te || 0);
+    const { blob } = result;
+    setVideoBlob(blob);
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setVideoPreview(URL.createObjectURL(blob));
     setShowTrim(false);
-    console.log("TRIM DONE:", ts, "->", te);
+    console.log("✂️ [TRIM DONE] Blob size:", blob.size, "bytes");
   };
 
   const handleTrimCancel = () => {
     setShowTrim(false);
-    if (trimStart === 0 && trimEnd === 0) {
+    // If user cancels and had not yet trimmed, clear video
+    if (!videoBlob) {
       setVideoFile(null);
+      if (videoPreview) URL.revokeObjectURL(videoPreview);
       setVideoPreview(null);
     }
   };
@@ -131,7 +125,7 @@ function PostComposer({ onClose, onPosted }) {
   };
 
   const handleSubmit = async () => {
-    if (!text.trim() && !image && !videoFile) {
+    if (!text.trim() && !image && !videoBlob && !videoFile) {
       setError("Write something or add a photo/video.");
       return;
     }
@@ -146,14 +140,14 @@ function PostComposer({ onClose, onPosted }) {
       authorType: user.accountType,
       text: text.trim(),
       image,
-      video: null,
+      video: videoBlob ? videoPreview : null,
       thumbnailUrl,
       visibility,
       likes: 0,
       comments: [],
       shares: 0,
       createdAt: new Date(),
-      pending: true
+      pending: true,
     };
 
     addPost(optimisticPost);
@@ -163,28 +157,29 @@ function PostComposer({ onClose, onPosted }) {
     try {
       let videoKey = null;
 
-      if (videoFile) {
+      // Upload trimmed video to R2 directly
+      const videoToUpload = videoBlob || videoFile;
+      if (videoToUpload) {
         setUploadProgress(1);
-        const contentType = videoFile.type || "video/mp4";
+        const contentType = videoToUpload.type || "video/mp4";
         const result = await uploadToR2(
-          videoFile,
+          videoToUpload,
           contentType,
           (pct) => setUploadProgress(Math.max(1, pct)),
           "videos"
         );
         videoKey = result.key;
         setUploadProgress(100);
-        console.log("VIDEO uploaded to R2:", videoKey);
+        console.log("🎬 [POST] Video uploaded to R2:", videoKey);
       }
 
       const res = await api.post("/posts", {
         text: text.trim(),
         image,
+        video: videoKey ? null : null,     // never send video base64
         videoKey,
         thumbnailUrl,
-        trimStart,
-        trimEnd,
-        visibility
+        visibility,
       });
 
       removePost(optimisticPost._id);
@@ -241,11 +236,6 @@ function PostComposer({ onClose, onPosted }) {
                 <div className="post-video-container mt-3 relative">
                   <video src={videoPreview} controls className="post-video" />
                   <button onClick={() => setShowTrim(true)} className="absolute top-2 right-2 bg-black/60 rounded-full p-1.5"><Scissors size={16} /></button>
-                  {trimEnd > trimStart && (
-                    <div className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] px-2 py-1 rounded-full">
-                      Plays {formatSec(trimStart)} → {formatSec(trimEnd)}
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -276,7 +266,7 @@ function PostComposer({ onClose, onPosted }) {
                     <div style={{ height: "100%", width: uploadProgress + "%", background: "linear-gradient(90deg, #6366f1, #a855f7)", transition: "width 0.2s" }} />
                   </div>
                   <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4, textAlign: "center" }}>
-                    Uploading video... {uploadProgress}%
+                    Uploading video… {uploadProgress}%
                   </div>
                 </div>
               )}

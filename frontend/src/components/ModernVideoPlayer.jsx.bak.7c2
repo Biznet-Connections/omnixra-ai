@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Volume2, VolumeX, X, Heart } from "lucide-react";
 
-function ModernVideoPlayer({ src, poster, text, authorName, trimStart = 0, trimEnd = 0 }) {
+function ModernVideoPlayer({ src, poster, text, authorName }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const [isMuted, setIsMuted] = useState(true);
@@ -9,21 +9,14 @@ function ModernVideoPlayer({ src, poster, text, authorName, trimStart = 0, trimE
   const [liked, setLiked] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
 
-  const hasTrim = trimEnd > trimStart;
-
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach(entry => {
-          const v = videoRef.current;
-          if (!v) return;
           if (entry.isIntersecting) {
-            if (hasTrim && (v.currentTime < trimStart || v.currentTime >= trimEnd)) {
-              v.currentTime = trimStart;
-            }
-            v.play().catch(() => {});
+            videoRef.current?.play().catch(() => {});
           } else {
-            v.pause();
+            videoRef.current?.pause();
           }
         });
       },
@@ -31,24 +24,7 @@ function ModernVideoPlayer({ src, poster, text, authorName, trimStart = 0, trimE
     );
     if (containerRef.current) observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [trimStart, trimEnd, hasTrim]);
-
-  const handleLoadedMetadata = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (hasTrim && trimStart >= 0 && trimStart < v.duration) {
-      v.currentTime = trimStart;
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (hasTrim && v.currentTime >= trimEnd) {
-      v.currentTime = trimStart;
-      if (!v.paused) v.play().catch(() => {});
-    }
-  };
+  }, []);
 
   const toggleMute = () => setIsMuted(!isMuted);
 
@@ -66,14 +42,11 @@ function ModernVideoPlayer({ src, poster, text, authorName, trimStart = 0, trimE
         <video
           ref={videoRef}
           src={src}
-          poster={poster || undefined}
           muted={isMuted}
-          loop={!hasTrim}
+          loop
           playsInline
-          preload="metadata"
+          preload="none"
           className="modern-video"
-          onLoadedMetadata={handleLoadedMetadata}
-          onTimeUpdate={handleTimeUpdate}
         />
         <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} className="sound-toggle">
           {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
@@ -89,7 +62,7 @@ function ModernVideoPlayer({ src, poster, text, authorName, trimStart = 0, trimE
         <div className="fullscreen-video-backdrop" onClick={() => setIsFullScreen(false)}>
           <div className="fullscreen-video-content" onClick={e => e.stopPropagation()}>
             <button onClick={() => setIsFullScreen(false)} className="fullscreen-close"><X size={20} /></button>
-            <video src={src} controls autoPlay loop={!hasTrim} playsInline className="fullscreen-video" />
+            <video src={src} controls autoPlay loop className="fullscreen-video" />
             <div className="fullscreen-video-info">
               <div className="font-semibold text-sm">{authorName}</div>
               <p className="text-xs text-slate-400 mt-1">{text}</p>
