@@ -67,9 +67,8 @@ function PostComposer({ onClose, onPosted }) {
   const [text, setText] = useState("");
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [videoBlob, setVideoBlob] = useState(null);
+  const [videoFile, setVideoFile] = useState(null);
   const [videoPreview, setVideoPreview] = useState(null);
-  const [videoSize, setVideoSize] = useState(0);
   const [thumbnailUrl, setThumbnailUrl] = useState(null);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
@@ -95,53 +94,29 @@ function PostComposer({ onClose, onPosted }) {
     reader.readAsDataURL(file);
   };
 
-  const handleVideoChange = async (e) => {
+  const handleVideoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 50 * 1024 * 1024) {
-      setError("Video too large. Max 50MB.");
-      return;
-    }
+    if (file.size > 50 * 1024 * 1024) { setError("Video too large. Max 50MB."); return; }
 
-    setError("");
+    setVideoFile(file);
     setThumbnailUrl(null);
     setTrimStart(0);
     setTrimEnd(0);
-    setVideoPreview(null);
 
-    try {
-      // ── COPY INTO MEMORY IMMEDIATELY ──
-      // Android WebView invalidates file handles after a few seconds.
-      // Reading now into an ArrayBuffer gives us an in-RAM copy we own.
-      console.log("VIDEO pick: reading file into memory...", file.size, "bytes");
-      const arrayBuffer = await file.arrayBuffer();
-      const blob = new Blob([arrayBuffer], { type: file.type || "video/mp4" });
-      // Attach name for presign (plain Blob doesn't have .name)
-      try { blob.name = file.name || "video.mp4"; } catch (e) {}
+    generateVideoPoster(file).then((poster) => {
+      if (poster) setThumbnailUrl(poster);
+    });
 
-      setVideoBlob(blob);
-      setVideoSize(blob.size);
-      console.log("VIDEO in memory:", blob.size, "bytes");
-
-      // Generate poster from the in-memory Blob (background)
-      generateVideoPoster(blob).then((poster) => {
-        if (poster) setThumbnailUrl(poster);
-      });
-
-      // Read as base64 for preview (works on Android WebView)
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setVideoPreview(reader.result);
-        setShowTrim(true);
-      };
-      reader.onerror = () => {
-        setError("Could not read video file. Try a different one.");
-      };
-      reader.readAsDataURL(blob);
-    } catch (err) {
-      console.error("Read video error:", err);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setVideoPreview(reader.result);
+      setShowTrim(true);
+    };
+    reader.onerror = () => {
       setError("Could not read video file. Try a different one.");
-    }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleCropDone = (croppedBlob) => {
@@ -164,11 +139,9 @@ function PostComposer({ onClose, onPosted }) {
 
   const handleTrimCancel = () => {
     setShowTrim(false);
-    // If user hadn't confirmed a trim, clear the video
     if (trimStart === 0 && trimEnd === 0) {
-      setVideoBlob(null);
+      setVideoFile(null);
       setVideoPreview(null);
-      setVideoSize(0);
     }
   };
 
@@ -202,7 +175,7 @@ function PostComposer({ onClose, onPosted }) {
   };
 
   const handleSubmit = async () => {
-    if (!text.trim() && !image && !videoBlob) {
+    if (!text.trim() && !image && !videoFile) {
       setError("Write something or add a photo/video.");
       return;
     }
@@ -234,12 +207,11 @@ function PostComposer({ onClose, onPosted }) {
     try {
       let videoKey = null;
 
-      if (videoBlob) {
+      if (videoFile) {
         setUploadProgress(1);
-        const contentType = videoBlob.type || "video/mp4";
-        console.log("Uploading video to R2...", videoBlob.size, "bytes", contentType);
+        const contentType = videoFile.type || "video/mp4";
         const result = await uploadToR2(
-          videoBlob,
+          videoFile,
           contentType,
           (pct) => setUploadProgress(Math.max(1, pct)),
           "videos"
@@ -266,7 +238,7 @@ function PostComposer({ onClose, onPosted }) {
     } catch (err) {
       console.error("Post failed:", err);
       updatePost(optimisticPost._id, { pending: false, failed: true });
-      setError(err?.response?.data?.message || err?.message || "Failed to post. Try again.");
+      setError(err?.response?.data?.message || "Failed to post. Try again.");
     } finally {
       setUploadProgress(0);
       setPosting(false);
@@ -358,7 +330,7 @@ function PostComposer({ onClose, onPosted }) {
       </div>
 
       {showCrop && <ImageCropper image={imagePreview} onCrop={handleCropDone} onCancel={() => setShowCrop(false)} />}
-      {showTrim && <VideoTrimmer videoSrc={videoPreview} videoFile={videoBlob} onTrim={handleTrimDone} onCancel={handleTrimCancel} />}
+      {showTrim && <VideoTrimmer videoSrc={videoPreview} videoFile={videoFile} onTrim={handleTrimDone} onCancel={handleTrimCancel} />}
       {showBoost && <BoostModal post={newPost} onClose={() => { setShowBoost(false); setPosted(false); onPosted && onPosted(newPost); onClose(); }} />}
     </>
   );
