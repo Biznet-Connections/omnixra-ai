@@ -266,7 +266,7 @@ router.get("/:id", async (req, res) => {
 // CREATE POST
 router.post("/", protect, async (req, res) => {
   try {
-    const { text, image, video, videoKey, thumbnailUrl, trimStart, trimEnd, visibility } = req.body;
+    const { text, image, video, videoKey, thumbnailUrl, visibility } = req.body;
 
     // 🔍 DEBUG — confirm what actually arrives from PostComposer
     console.log("📝 [POST /posts] body received:", {
@@ -277,8 +277,6 @@ router.post("/", protect, async (req, res) => {
       hasVideo: !!video,
       hasVideoKey: !!videoKey,
       hasThumbnail: !!thumbnailUrl,
-      trimStart: trimStart || 0,
-      trimEnd: trimEnd || 0,
       visibility: visibility || "public",
     });
 
