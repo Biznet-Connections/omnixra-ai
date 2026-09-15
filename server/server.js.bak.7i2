@@ -26,7 +26,6 @@ import videoRoutes from "./routes/video.js";
 import shareRoutes from "./routes/share.js";
 import seoRoutes from "./routes/seo.js";
 import connectionRoutes from "./routes/connections.js";
-import notificationsRoutes from "./routes/notifications.js";
 import Post from "./models/Post.js";
 import User from "./models/User.js";
 import { askAI } from "./utils/aiService.js";
@@ -80,7 +79,6 @@ app.use("/api/scraped-jobs", scrapedJobRoutes);
 app.use("/api/remote-jobs", remoteJobRoutes);
 app.use("/api/video", videoRoutes);
 app.use("/api/connections", connectionRoutes);
-app.use("/api/notifications", notificationsRoutes);
 app.use("/share", shareRoutes);
 app.use("/", seoRoutes);
 
@@ -261,15 +259,7 @@ const server = http.createServer(app);
 const io = initSocket(server);
 
 connectDB().then(() => {
-  // ── Boot Firebase Admin eagerly ──
-import("./utils/fcm.js").then((m) => {
-  m.initFirebase().then((ready) => {
-    if (ready) console.log("🔔 Firebase Admin ready — push notifications enabled");
-    else console.warn("⚠️  Firebase Admin not ready — push notifications disabled");
-  }).catch((e) => console.warn("Firebase boot error:", e.message));
-});
-
-server.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     // Daily AI news — disable on secondary instances
     console.log("📅 [SCHEDULER] DISABLE_AUTO_NEWS =", process.env.DISABLE_AUTO_NEWS);

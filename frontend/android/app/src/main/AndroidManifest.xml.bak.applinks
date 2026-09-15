@@ -26,6 +26,19 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="omnixraapp" android:host="oauth" />
             </intent-filter>
+
+            <!-- Android App Links (auto-verify via /.well-known/assetlinks.json) -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="omnixra-ai.com" android:pathPrefix="/post/" />
+                <data android:scheme="https" android:host="omnixra-ai.com" android:pathPrefix="/shared-ai/" />
+                <data android:scheme="https" android:host="omnixra-ai.com" android:pathPrefix="/job/" />
+                <data android:scheme="https" android:host="www.omnixra-ai.com" android:pathPrefix="/post/" />
+                <data android:scheme="https" android:host="www.omnixra-ai.com" android:pathPrefix="/shared-ai/" />
+                <data android:scheme="https" android:host="www.omnixra-ai.com" android:pathPrefix="/job/" />
+            </intent-filter>
         </activity>
 
         <provider

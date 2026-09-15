@@ -44,7 +44,14 @@ const userSchema = new mongoose.Schema(
     connections: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "Company" }],
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    followingUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+    followingUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    fcmTokens: [
+      {
+        token: { type: String, required: true },
+        platform: { type: String, default: "android" },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

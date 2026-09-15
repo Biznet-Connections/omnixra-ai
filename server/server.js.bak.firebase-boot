@@ -261,15 +261,7 @@ const server = http.createServer(app);
 const io = initSocket(server);
 
 connectDB().then(() => {
-  // ── Boot Firebase Admin eagerly ──
-import("./utils/fcm.js").then((m) => {
-  m.initFirebase().then((ready) => {
-    if (ready) console.log("🔔 Firebase Admin ready — push notifications enabled");
-    else console.warn("⚠️  Firebase Admin not ready — push notifications disabled");
-  }).catch((e) => console.warn("Firebase boot error:", e.message));
-});
-
-server.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     // Daily AI news — disable on secondary instances
     console.log("📅 [SCHEDULER] DISABLE_AUTO_NEWS =", process.env.DISABLE_AUTO_NEWS);
