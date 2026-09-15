@@ -12,3 +12,8 @@ server/*test*.js
 server/fix-*.js
 server/update-*.js
 fix-and-run.sh
+*.keystore
+*.jks
+*.pepk
+frontend/android/keystore.properties
+keystore.properties

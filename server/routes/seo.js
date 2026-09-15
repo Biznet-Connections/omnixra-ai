@@ -157,10 +157,8 @@ router.get("/companies/:slug", async (req, res) => {
 // Tells Android which app handles omnixra-ai.com/post/* links
 // ═══════════════════════════════════════════════════════════
 router.get("/.well-known/assetlinks.json", (req, res) => {
-  const sha256 = process.env.ANDROID_APP_SHA256 || "";
-  if (!sha256) {
-    console.warn("⚠️  ANDROID_APP_SHA256 not set — assetlinks.json will not verify App Links");
-  }
+  const envSha = process.env.ANDROID_APP_SHA256 || "";
+  const sha256 = envSha || "2A:DF:67:C2:FD:52:70:FC:F4:CB:83:6C:31:9F:1E:70:8A:04:A0:74:2B:E1:D3:27:CB:94:33:89:48:D4:DB:A8";
   res.set("Content-Type", "application/json");
   res.set("Cache-Control", "public, max-age=3600");
   res.json([
@@ -169,7 +167,7 @@ router.get("/.well-known/assetlinks.json", (req, res) => {
       target: {
         namespace: "android_app",
         package_name: "com.omnixra.ai",
-        sha256_cert_fingerprints: sha256 ? [sha256] : [],
+        sha256_cert_fingerprints: [sha256],
       },
     },
   ]);
