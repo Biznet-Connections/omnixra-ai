@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
 import api from "../api/axios";
 import { useAuth } from "./AuthContext";
 
 const NotificationContext = createContext(null);
-
 const STORAGE_KEY = "omnixra_push_token";
 
 export function NotificationProvider({ children }) {
@@ -13,135 +13,114 @@ export function NotificationProvider({ children }) {
   const [deviceToken, setDeviceToken] = useState(() => localStorage.getItem(STORAGE_KEY) || null);
   const [enabled, setEnabled] = useState(false);
   const listenersAttachedRef = useRef(false);
-  const pluginRef = useRef(null);
+  const isNative = Capacitor.isNativePlatform();
 
-  // Load plugin only on native
-  async function loadPlugin() {
-    if (pluginRef.current) return pluginRef.current;
-    if (!Capacitor.isNativePlatform()) return null;
-    try {
-      const mod = await import("@capacitor/push-notifications");
-      pluginRef.current = mod.PushNotifications;
-      return pluginRef.current;
-    } catch (e) {
-      console.warn("Push plugin not available:", e.message);
-      return null;
-    }
-  }
-
-  // Check permission state on mount
   useEffect(() => {
-    (async () => {
-      const plugin = await loadPlugin();
-      if (!plugin) return;
+    if (!isNative) return;
+    if (listenersAttachedRef.current) return;
+    listenersAttachedRef.current = true;
+    console.log("[PUSH] Attaching listeners (native)");
+
+    PushNotifications.addListener("registration", async (tokenData) => {
+      console.log("[PUSH] FCM token received:", tokenData.value ? tokenData.value.slice(0, 30) + "..." : "none");
+      if (!tokenData.value) return;
+      setDeviceToken(tokenData.value);
+      localStorage.setItem(STORAGE_KEY, tokenData.value);
       try {
-        const { receive } = await plugin.checkPermissions();
-        setPermission(receive || "prompt");
-        setEnabled(receive === "granted");
+        await api.post("/notifications/register-token", {
+          token: tokenData.value,
+          platform: Capacitor.getPlatform(),
+        });
+        console.log("[PUSH] Token registered with backend");
       } catch (e) {
-        console.warn("checkPermissions failed:", e.message);
+        console.warn("[PUSH] Token register failed:", e.response?.data?.message || e.message);
       }
-    })();
-  }, []);
+    });
 
-  // When user is logged in and permission granted, register
-  useEffect(() => {
-    if (!user || !authToken) return;
-    (async () => {
-      const plugin = await loadPlugin();
-      if (!plugin) return;
+    PushNotifications.addListener("registrationError", (err) => {
+      console.warn("[PUSH] Registration error:", err);
+    });
 
-      // Attach listeners only once
-      if (!listenersAttachedRef.current) {
-        listenersAttachedRef.current = true;
+    PushNotifications.addListener("pushNotificationReceived", (notification) => {
+      console.log("[PUSH] Foreground notification:", notification);
+      window.dispatchEvent(new CustomEvent("push-foreground", { detail: notification }));
+    });
 
-        plugin.addListener("registration", async (tokenData) => {
-          console.log("📱 [PUSH] FCM token received:", tokenData.value?.slice(0, 20) + "...");
-          setDeviceToken(tokenData.value);
-          localStorage.setItem(STORAGE_KEY, tokenData.value);
-
-          // Register with backend
-          try {
-            await api.post("/notifications/register-token", {
-              token: tokenData.value,
-              platform: Capacitor.getPlatform(),
-            });
-            console.log("✅ [PUSH] Token registered with backend");
-          } catch (e) {
-            console.warn("Token register failed:", e.response?.data?.message || e.message);
-          }
-        });
-
-        plugin.addListener("registrationError", (err) => {
-          console.warn("📱 [PUSH] Registration error:", err);
-        });
-
-        plugin.addListener("pushNotificationReceived", (notification) => {
-          console.log("📱 [PUSH] Foreground notification:", notification);
-          // Show in-app banner (or just log for now)
-          window.dispatchEvent(new CustomEvent("push-foreground", { detail: notification }));
-        });
-
-        plugin.addListener("pushNotificationActionPerformed", (action) => {
-          console.log("📱 [PUSH] Tapped:", action.notification?.data);
-          const data = action.notification?.data || {};
-          // Route based on type
-          try {
-            if (data.postId) {
-              window.location.hash = "";
-              window.history.pushState({}, "", "/post/" + data.postId);
-              window.dispatchEvent(new CustomEvent("push-navigate", { detail: { page: "home", postId: data.postId } }));
-            } else if (data.chatId) {
-              window.dispatchEvent(new CustomEvent("push-navigate", { detail: { page: "inbox", chatId: data.chatId } }));
-            } else {
-              window.dispatchEvent(new CustomEvent("push-navigate", { detail: { page: "home" } }));
-            }
-          } catch (e) {
-            console.warn("Push navigation failed:", e.message);
-          }
-        });
-      }
-
-      // If permission already granted, register right now
-      if (permission === "granted") {
-        try {
-          await plugin.register();
-        } catch (e) {
-          console.warn("register() failed:", e.message);
+    PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+      console.log("[PUSH] Notification tapped:", action.notification?.data);
+      const data = action.notification?.data || {};
+      try {
+        if (data.postId) {
+          window.dispatchEvent(new CustomEvent("push-navigate", { detail: { page: "home", postId: data.postId } }));
+        } else if (data.chatId) {
+          window.dispatchEvent(new CustomEvent("push-navigate", { detail: { page: "inbox", chatId: data.chatId } }));
+        } else {
+          window.dispatchEvent(new CustomEvent("push-navigate", { detail: { page: "home" } }));
         }
+      } catch (e) {
+        console.warn("[PUSH] Navigation error:", e.message);
+      }
+    });
+  }, [isNative]);
+
+  useEffect(() => {
+    if (!isNative) return;
+    if (!user || !authToken) return;
+
+    (async () => {
+      try {
+        console.log("[PUSH] Checking permission state...");
+        const perm = await PushNotifications.checkPermissions();
+        console.log("[PUSH] checkPermissions result:", perm);
+
+        let granted = perm && perm.receive === "granted";
+        setPermission((perm && perm.receive) || "prompt");
+        setEnabled(granted);
+
+        if (!granted) {
+          console.log("[PUSH] Requesting permission...");
+          const req = await PushNotifications.requestPermissions();
+          console.log("[PUSH] requestPermissions result:", req);
+          granted = req && req.receive === "granted";
+          setPermission((req && req.receive) || "denied");
+          setEnabled(granted);
+        }
+
+        if (granted) {
+          console.log("[PUSH] Registering with FCM...");
+          await PushNotifications.register();
+        }
+      } catch (e) {
+        console.warn("[PUSH] Permission flow error:", e.message);
       }
     })();
-  }, [user, authToken, permission]);
+  }, [isNative, user, authToken]);
 
-  // Request permission (called after signup, or from Settings)
   async function requestPermission() {
-    const plugin = await loadPlugin();
-    if (!plugin) return { granted: false, reason: "not_native" };
-
+    if (!isNative) return { granted: false, reason: "not_native" };
     try {
-      const { receive } = await plugin.requestPermissions();
+      console.log("[PUSH] Manual requestPermission()");
+      const { receive } = await PushNotifications.requestPermissions();
       setPermission(receive || "denied");
       const granted = receive === "granted";
       setEnabled(granted);
-
       if (granted) {
-        await plugin.register();
+        await PushNotifications.register();
       }
       return { granted };
     } catch (e) {
-      console.warn("requestPermissions failed:", e.message);
+      console.warn("[PUSH] requestPermissions failed:", e.message);
       return { granted: false, reason: e.message };
     }
   }
 
-  // Unregister (on toggle off or logout)
   async function disableNotifications() {
     const t = localStorage.getItem(STORAGE_KEY);
     if (t) {
       try {
         await api.delete("/notifications/unregister-token", { data: { token: t } });
       } catch (e) {
-        console.warn("unregister failed:", e.message);
+        console.warn("[PUSH] unregister failed:", e.message);
       }
     }
     localStorage.removeItem(STORAGE_KEY);
@@ -149,14 +128,7 @@ export function NotificationProvider({ children }) {
     setEnabled(false);
   }
 
-  const value = {
-    permission,
-    enabled,
-    deviceToken,
-    requestPermission,
-    disableNotifications,
-  };
-
+  const value = { permission, enabled, deviceToken, requestPermission, disableNotifications };
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 }
 

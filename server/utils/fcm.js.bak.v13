@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { getMessaging } from "firebase-admin/messaging";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -118,8 +117,7 @@ export async function sendPushToTokens(tokens, payload) {
       },
     };
 
-    const messaging = getMessaging();
-    const res = await messaging.sendEachForMulticast(message);
+    const res = await admin.messaging().sendEachForMulticast(message);
     console.log("Push sent:", res.successCount, "ok /", res.failureCount, "failed");
 
     const invalidTokens = [];
