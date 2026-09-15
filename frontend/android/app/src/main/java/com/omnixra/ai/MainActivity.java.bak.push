@@ -1,9 +1,6 @@
 package com.omnixra.ai;
 
 import android.os.Bundle;
-import android.os.Build;
-import android.app.NotificationManager;
-import android.app.NotificationChannel;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
@@ -20,28 +17,6 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // ── Create notification channel (Android 8+) ──
-        // Without this, FCM notifications are silently dropped.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                NotificationChannel channel = new NotificationChannel(
-                    "omnixra-default",
-                    "Omnixra Notifications",
-                    NotificationManager.IMPORTANCE_HIGH
-                );
-                channel.setDescription("Likes, comments, messages, and follows");
-                channel.enableVibration(true);
-                channel.setShowBadge(true);
-
-                NotificationManager manager = getSystemService(NotificationManager.class);
-                if (manager != null) {
-                    manager.createNotificationChannel(channel);
-                }
-            } catch (Exception e) {
-                // ignore
-            }
-        }
 
         // Disable autofill on WebView (Samsung paste bug fix)
         try {

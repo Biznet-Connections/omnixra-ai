@@ -5,7 +5,6 @@ import api from "../api/axios";
 import ForgotPasswordFlow from "../pages/ForgotPasswordFlow";
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
-import { useNotifications } from "../context/NotificationContext";
 
 function AuthScreen() {
   const [mode, setMode] = useState("signin");
@@ -30,7 +29,6 @@ function AuthScreen() {
   const [searching, setSearching] = useState(false);
 
   const { signup, signin } = useAuth();
-  const { requestPermission } = useNotifications();
 
   // Native app → hide Google button (deep-link complexity)
   const isNativeApp =
@@ -116,13 +114,6 @@ function AuthScreen() {
           category: formData.category || "General",
           discoverable: formData.discoverable
         });
-        
-        // Request push notification permission (fire and forget)
-        try {
-          if (requestPermission) {
-            requestPermission().catch((e) => console.warn("Push permission skipped:", e.message));
-          }
-        } catch (e) { /* silent */ }
 
         // If backend asks for verification, AuthContext sets pendingVerification
         // App.jsx will render the VerifyEmailScreen automatically
