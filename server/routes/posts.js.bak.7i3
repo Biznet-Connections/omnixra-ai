@@ -5,7 +5,6 @@ import { protect } from "../middleware/auth.js";
 import { cacheShort, invalidateFeedCache, invalidatePostCache } from "../middleware/cache.js";
 import { uploadToR2, isBase64Image, parseBase64Image, buildPublicUrl } from "../utils/r2.js";
 import { emitPostLiked, emitPostCommented } from "../socket.js";
-import { notifyPostAuthor, notifyNewFollower } from "../utils/notify.js";
 
 const router = express.Router();
 
@@ -406,17 +405,6 @@ router.put("/:id/like", protect, async (req, res) => {
       emitPostLiked(post._id.toString(), likeCount);
     } catch (e) { console.warn("emitPostLiked failed:", e.message); }
 
-    // Push notification to post author (if liked, not unlike, and not self)
-    try {
-      const authorId = post.author?.toString();
-      const actorId = req.user._id?.toString();
-      if (action !== "unlike" && authorId && authorId !== actorId) {
-        notifyPostAuthor(authorId, req.user.name || "Someone", "like", {
-          postId: post._id.toString(),
-        }).catch(() => {});
-      }
-    } catch (e) {}
-
     res.json({
       ...populated,
       likes: typeof populated.likes === "number" ? populated.likes : 0,
@@ -450,18 +438,6 @@ router.post("/:id/comment", protect, async (req, res) => {
       emitPostCommented(post._id.toString(), populated.comments || [], post.comments.length);
     } catch (e) { console.warn("emitPostCommented failed:", e.message); }
 
-    // Push notification to post author
-    try {
-      const authorId = post.author?.toString();
-      const actorId = req.user._id?.toString();
-      if (authorId && authorId !== actorId) {
-        notifyPostAuthor(authorId, req.user.name || "Someone", "comment", {
-          postId: post._id.toString(),
-          preview: (req.body.text || "").slice(0, 80),
-        }).catch(() => {});
-      }
-    } catch (e) {}
-
     res.json({ comments: populated.comments || [], totalComments: post.comments.length });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -477,18 +453,6 @@ router.post("/:id/comment/:commentId/reply", protect, async (req, res) => {
     if (!comment) return res.status(404).json({ message: "Comment not found" });
     comment.replies.push({ user: req.user._id, text: req.body.text });
     await post.save();
-
-    // Push notification to original commenter
-    try {
-      const originalCommenterId = comment.user?.toString();
-      const actorId = req.user._id?.toString();
-      if (originalCommenterId && originalCommenterId !== actorId) {
-        notifyPostAuthor(originalCommenterId, req.user.name || "Someone", "reply", {
-          postId: post._id.toString(),
-          preview: (req.body.text || "").slice(0, 80),
-        }).catch(() => {});
-      }
-    } catch (e) {}
 
     const populated = await Post.findById(post._id)
       .populate("comments.user", "name profilePicture profilePicLocked")
@@ -596,14 +560,6 @@ router.put("/follow-user/:userId", protect, async (req, res) => {
       }
       await targetUser.save();
     }
-
-    // Push notification on new follow
-    try {
-      if (isFollowing) {
-        notifyNewFollower(targetId, req.user.name || "Someone").catch(() => {});
-      }
-    } catch (e) {}
-
     res.json({ following: currentUser.followingUsers, isFollowing });
   } catch (error) {
     res.status(500).json({ message: error.message });

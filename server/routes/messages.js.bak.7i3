@@ -4,7 +4,6 @@ import Conversation from "../models/Conversation.js";
 import User from "../models/User.js";
 import { protect } from "../middleware/auth.js";
 import { emitNewMessage, getIO } from "../socket.js";
-import { notifyNewMessage } from "../utils/notify.js";
 
 const router = express.Router();
 
@@ -182,14 +181,6 @@ router.post("/:id/message", protect, async (req, res) => {
     conversation.lastMessage = text;
     conversation.lastMessageAt = new Date();
     await conversation.save();
-
-    // ── Push notification to the other participant ──
-    try {
-      const recipient = conversation.participants.find(p => String(p) !== String(req.user._id));
-      if (recipient) {
-        notifyNewMessage(recipient, req.user.name || "New message", (req.body.text || "").slice(0, 80), conversation._id).catch(() => {});
-      }
-    } catch (e) { /* silent */ }
 
     const populated = await Conversation.findById(conversation._id)
       .populate("participants", "name profilePicture profilePicLocked")

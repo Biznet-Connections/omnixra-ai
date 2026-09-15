@@ -406,17 +406,6 @@ router.put("/:id/like", protect, async (req, res) => {
       emitPostLiked(post._id.toString(), likeCount);
     } catch (e) { console.warn("emitPostLiked failed:", e.message); }
 
-    // Push notification to post author (if liked, not unlike, and not self)
-    try {
-      const authorId = post.author?.toString();
-      const actorId = req.user._id?.toString();
-      if (action !== "unlike" && authorId && authorId !== actorId) {
-        notifyPostAuthor(authorId, req.user.name || "Someone", "like", {
-          postId: post._id.toString(),
-        }).catch(() => {});
-      }
-    } catch (e) {}
-
     res.json({
       ...populated,
       likes: typeof populated.likes === "number" ? populated.likes : 0,
