@@ -36,9 +36,7 @@ function ChatPage() {
         setMessages(prev => [...prev, { role: "assistant", text: res.data.text, chatId: res.data.chatId }]);
       }
     } catch (err) {
-      const errMsg = !navigator.onLine
-        ? "You are offline. Check your internet connection and try again."
-        : (err.response?.data?.message || "I'm having trouble. Please try again.");
+      const errMsg = err.response?.data?.message || "I'm having trouble. Please try again.";
       setMessages(prev => [...prev, { role: "assistant", text: errMsg }]);
     }
     finally { setTyping(false); }
