@@ -197,37 +197,21 @@ async function generateDailyNewsIfNeeded() {
     const now = new Date();
     const currentDate = now.toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" });
     const currentYear = now.getFullYear();
-    // Get today focus + recent topics to avoid
-    const todayFocus = getTodayFocus();
-    const recentTopics = await getRecentNewsTopics(7);
-    console.log("[NEWS] Focus:", todayFocus, "| Avoiding", recentTopics.length, "recent topics");
+    const systemPrompt = `You are Omnixra AI, an employment intelligence assistant. Today's date is ${currentDate}.
 
-    const avoidList = recentTopics.length > 0
-      ? "\n\nDO NOT REPEAT OR RE-HASH THESE RECENT HEADLINES:\n" + recentTopics.slice(0, 15).map(function(t, i) { return (i + 1) + ". " + t; }).join("\n")
-      : "";
+Generate a comprehensive daily career news update for Zimbabwe and Africa with these sections:
+- Industry Trends
+- Skills in Demand
+- Career Tip
+- Industry News
+- Employment Advice
 
-    const systemPrompt = `You are Omnixra AI, an employment intelligence assistant writing for Zimbabwe and Africa. Today is ${currentDate}.
-
-Write a FRESH daily career news update. Today focus is: ${todayFocus}
-
-Structure with these markdown headings:
-## Industry Trends
-## Skills in Demand
-## Career Tip of the Day
-## Industry News
-## Employment Advice
-
-RULES:
-1. Focus primarily on "${todayFocus}" - not the usual general topics.
-2. Give SPECIFIC examples (companies, roles, salary ranges, real skills).
-3. Reference the current year ${currentYear} - never old dates.
-4. NEVER repeat the same angle, companies, or headlines two days in a row. Be creative.
-    5. Keep it under 500 words.${avoidList}`;
+IMPORTANT: Always write as if it's ${currentYear}. Do NOT mention old dates. Use the current year ${currentYear}. Use markdown headings.`;
 
 console.log(`📅 News prompt uses date: ${currentDate}`);
     const aiResponse = await askAI([
       { role: "system", content: systemPrompt },
-      { role: "user", content: "Create today fresh news update focused on: " + todayFocus },
+      { role: "user", content: "Create the daily news update." }
     ]);
     console.log("   🤖 AI response length:", aiResponse?.length || 0);
 

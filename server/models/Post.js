@@ -34,7 +34,8 @@ const postSchema = new mongoose.Schema(
     comments: [commentSchema],
     shares: { type: Number, default: 0 },
     mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    deleted: { type: Boolean, default: false }
+    deleted: { type: Boolean, default: false },
+    newsHash: { type: String, default: null },
   },
   { timestamps: true }
 );

@@ -208,26 +208,26 @@ async function generateDailyNewsIfNeeded() {
 
     const systemPrompt = `You are Omnixra AI, an employment intelligence assistant writing for Zimbabwe and Africa. Today is ${currentDate}.
 
-Write a FRESH daily career news update. Today focus is: ${todayFocus}
+    Write a FRESH daily career news update. Today focus is: ${todayFocus}
 
-Structure with these markdown headings:
-## Industry Trends
-## Skills in Demand
-## Career Tip of the Day
-## Industry News
-## Employment Advice
+    Structure with these markdown headings:
+    ## Industry Trends
+    ## Skills in Demand
+    ## Career Tip of the Day
+    ## Industry News
+    ## Employment Advice
 
-RULES:
-1. Focus primarily on "${todayFocus}" - not the usual general topics.
-2. Give SPECIFIC examples (companies, roles, salary ranges, real skills).
-3. Reference the current year ${currentYear} - never old dates.
-4. NEVER repeat the same angle, companies, or headlines two days in a row. Be creative.
+    RULES:
+    1. Focus primarily on "${todayFocus}" - not the usual general topics.
+    2. Give SPECIFIC examples (companies, roles, salary ranges, real skills).
+    3. Reference the current year ${currentYear} - never old dates.
+    4. NEVER repeat the same angle, companies, or headlines two days in a row. Be creative.
     5. Keep it under 500 words.${avoidList}`;
 
 console.log(`📅 News prompt uses date: ${currentDate}`);
     const aiResponse = await askAI([
       { role: "system", content: systemPrompt },
-      { role: "user", content: "Create today fresh news update focused on: " + todayFocus },
+      content: "Create today fresh news update focused on: " + todayFocus
     ]);
     console.log("   🤖 AI response length:", aiResponse?.length || 0);
 
