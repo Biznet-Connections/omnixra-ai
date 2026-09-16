@@ -41,7 +41,6 @@ import PostComposer from "./components/PostComposer";
 import { useAuth } from "./context/AuthContext";
 import { PostsProvider } from "./context/PostsContext";
 import { SocketProvider } from "./context/SocketContext";
-import InAppNotificationBanner from "./components/InAppNotificationBanner";
 
 function AppContent() {
   // ── ALL HOOKS AT THE TOP ──
@@ -273,8 +272,6 @@ const isAdminPage = page === "admin" || page === "admin-login" || page.startsWit
 
   return (
     <div className="app-root">
-      
-      <InAppNotificationBanner />
       {!isAdminPage && <DesktopSidebar page={page} setPage={handleNavClick} />}
       <main className="app-main">
         <ErrorBoundary key={page}>{renderPage()}</ErrorBoundary>

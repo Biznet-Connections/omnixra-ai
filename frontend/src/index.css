@@ -5373,3 +5373,85 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
 .new-posts-pill:hover {
   transform: translateY(-2px);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   IN-APP NOTIFICATION BANNER (foreground push)
+   ═══════════════════════════════════════════════════════════ */
+.in-app-notification-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  max-width: 92%;
+  width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.96), rgba(168, 85, 247, 0.96));
+  color: white;
+  box-shadow: 0 12px 40px rgba(99, 102, 241, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  animation: inAppNotifSlide 0.4s cubic-bezier(0.2, 0.9, 0.3, 1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+@keyframes inAppNotifSlide {
+  from { opacity: 0; transform: translateX(-50%) translateY(-24px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.in-app-notification-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.in-app-notification-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.in-app-notification-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.in-app-notification-text {
+  font-size: 11px;
+  opacity: 0.9;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.in-app-notification-close {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.in-app-notification-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}

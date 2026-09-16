@@ -116,33 +116,6 @@ export function NotificationProvider({ children }) {
     })();
   }, [isNative, user, authToken]);
 
-  // ── AUTO-REGISTER-ON-LOGIN ──
-  // Whenever user logs in (or JWT changes), if we already have a stored FCM token,
-  // re-register it with the backend. Handles the case where the FCM token
-  // arrived BEFORE the JWT was loaded.
-  useEffect(() => {
-    if (!isNative) return;
-    if (!user || !authToken) return;
-
-    const storedToken = localStorage.getItem(STORAGE_KEY);
-    if (!storedToken) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        await api.post("/notifications/register-token", {
-          token: storedToken,
-          platform: Capacitor.getPlatform(),
-        });
-        if (!cancelled) console.log("[PUSH] Token re-registered after login");
-      } catch (e) {
-        if (!cancelled) console.warn("[PUSH] Re-register failed:", e.response?.data?.message || e.message);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [isNative, user?._id, authToken]);
-
   async function requestPermission() {
     if (!isNative) return { granted: false, reason: "not_native" };
     try {
