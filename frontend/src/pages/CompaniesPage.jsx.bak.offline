@@ -2,15 +2,12 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import CompanyCard from "../components/CompanyCard";
 import api from "../api/axios";
 import LoadingDots from "../components/LoadingDots";
-import { useNetworkStatus } from "../hooks/useNetworkStatus";
-import EmptyState from "../components/EmptyState";
 
 let cachedCompanies = null;
 let cachedCursor = null;
 let cachedHasMore = true;
 
 function CompaniesPage() {
-  const { online } = useNetworkStatus();
   const [companies, setCompanies] = useState(cachedCompanies || []);
   const [loading, setLoading] = useState(!cachedCompanies);
   const [loadingMore, setLoadingMore] = useState(false);

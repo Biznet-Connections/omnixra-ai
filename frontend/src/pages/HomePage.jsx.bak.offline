@@ -8,8 +8,6 @@ import { usePosts } from "../context/PostsContext";
 import { setNativeRefreshHandler } from "../utils/nativeRefresh";
 import { usePullToRefresh } from "../utils/usePullToRefresh";
 import { useNetworkRefresh } from "../utils/useNetworkRefresh";
-import { useNetworkStatus } from "../hooks/useNetworkStatus";
-import EmptyState from "../components/EmptyState";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 
@@ -44,10 +42,6 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
 
   // Enable native pull-to-refresh ONLY while Home is mounted
   usePullToRefresh(true);
-
-  // Network status for offline UX
-  const { online, lastOnline } = useNetworkStatus();
-  const hasCachedPosts = posts.length > 0;
 
   // Auto-refresh feed when network comes back
   useNetworkRefresh(() => {
@@ -198,9 +192,6 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
   return (
     <div className="page-scroll">
       <div className="page-container">
-        {!online && hasCachedPosts && (
-          <EmptyState variant="offline-cached" />
-        )}
         <div className="quick-actions-row">
           {quickActions.map((qa, i) => {
             const Icon = qa.icon;
@@ -228,21 +219,15 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
               ))}
             </div>
           ) : posts.length === 0 ? (
-            !online ? (
-              <EmptyState variant="offline" type="post" onRetry={() => { if (fetchPosts) fetchPosts(true); }} />
-            ) : (
-              <EmptyState
-                variant="empty"
-                type="post"
-                title="No posts yet"
-                subtitle="Be the first to share something!"
-                action={
-                  <button onClick={() => setShowPostComposer && setShowPostComposer(true)} className="primary-button mt-4">
-                    Create post
-                  </button>
-                }
-              />
-            )
+            <div className="empty-state">
+              <div className="empty-icon">
+                <FileText size={24} />
+              </div>
+              <h2 className="text-sm font-semibold mt-4">No posts yet</h2>
+              <p className="text-xs text-slate-700 mt-2">
+                Be the first to share something!
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
               {posts.map((post) => (
