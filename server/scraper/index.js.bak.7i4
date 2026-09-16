@@ -4,7 +4,6 @@ import { scrapeZimboJobs } from "./sources/zimboJobs.js";
 import { normalizeJob, dedupeJobs } from "./normalizer.js";
 import ScrapedJob from "../models/ScrapedJob.js";
 import { slugify } from "../utils/slugify.js";
-import { matchJobsToUsers } from "../utils/notifyBatcher.js";
 
 export async function runScraper() {
   const startTime = Date.now();

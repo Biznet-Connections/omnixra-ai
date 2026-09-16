@@ -1,12 +1,69 @@
-import React, { useState } from "react";
-import { Bell, BriefcaseBusiness, Globe2, Mail, Lock, Trash2, ChevronRight } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bell, BriefcaseBusiness, Globe2, Mail, Lock, Trash2, ChevronRight, Newspaper } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import api from "../api/axios";
 
 function SettingsPage() {
-  const [notifications, setNotifications] = useState(true);
-  const [jobAlerts, setJobAlerts] = useState(true);
+  const { logout, user, setUser } = useAuth();
+  const [prefs, setPrefs] = useState({
+    jobAlerts: true,
+    news: true,
+    social: true,
+  });
   const [profilePublic, setProfilePublic] = useState(true);
-  const { logout } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Load preferences on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get("/notifications/preferences");
+        if (!cancelled) {
+          setPrefs({
+            jobAlerts: res.data.jobAlerts !== false,
+            news: res.data.news !== false,
+            social: res.data.social !== false,
+          });
+        }
+      } catch (e) {
+        console.warn("[SETTINGS] preferences load failed:", e.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function updatePref(key, value) {
+    const prev = prefs;
+    const next = { ...prefs, [key]: value };
+    setPrefs(next);
+    setSaving(true);
+    try {
+      await api.put("/notifications/preferences", { [key]: value });
+      console.log("[SETTINGS] preference saved:", key, value);
+    } catch (e) {
+      console.warn("[SETTINGS] save failed:", e.message);
+      setPrefs(prev);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function Toggle({ value, onChange, disabled }) {
+    return (
+      <button
+        onClick={() => !disabled && onChange(!value)}
+        className={"toggle " + (value ? "toggle-on" : "")}
+        disabled={disabled}
+        style={disabled ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+      >
+        <span />
+      </button>
+    );
+  }
 
   return (
     <div className="page-scroll">
@@ -15,22 +72,45 @@ function SettingsPage() {
         <p className="page-subtitle">Manage your account and preferences.</p>
 
         <div className="settings-card mt-7">
+          <div className="settings-section-title">Notifications</div>
+
           <div className="settings-row">
             <div className="settings-row-icon"><Bell size={16} /></div>
             <div className="flex-1">
-              <div className="text-sm font-medium">Notifications</div>
-              <div className="text-xs text-slate-700 mt-1">Receive updates about applications.</div>
+              <div className="text-sm font-medium">Social activity</div>
+              <div className="text-xs text-slate-700 mt-1">Likes, comments, follows, and messages.</div>
             </div>
-            <button onClick={() => setNotifications(!notifications)} className={`toggle ${notifications ? "toggle-on" : ""}`}><span /></button>
+            <Toggle
+              value={prefs.social}
+              onChange={(v) => updatePref("social", v)}
+              disabled={loading || saving}
+            />
           </div>
 
           <div className="settings-row">
             <div className="settings-row-icon"><BriefcaseBusiness size={16} /></div>
             <div className="flex-1">
               <div className="text-sm font-medium">Job alerts</div>
-              <div className="text-xs text-slate-700 mt-1">Notify me when new opportunities match.</div>
+              <div className="text-xs text-slate-700 mt-1">Get notified when jobs match your profile.</div>
             </div>
-            <button onClick={() => setJobAlerts(!jobAlerts)} className={`toggle ${jobAlerts ? "toggle-on" : ""}`}><span /></button>
+            <Toggle
+              value={prefs.jobAlerts}
+              onChange={(v) => updatePref("jobAlerts", v)}
+              disabled={loading || saving}
+            />
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-row-icon"><Newspaper size={16} /></div>
+            <div className="flex-1">
+              <div className="text-sm font-medium">Daily news</div>
+              <div className="text-xs text-slate-700 mt-1">One daily digest of career news.</div>
+            </div>
+            <Toggle
+              value={prefs.news}
+              onChange={(v) => updatePref("news", v)}
+              disabled={loading || saving}
+            />
           </div>
 
           <div className="settings-row">
@@ -39,7 +119,7 @@ function SettingsPage() {
               <div className="text-sm font-medium">Public profile</div>
               <div className="text-xs text-slate-700 mt-1">Allow companies to discover you.</div>
             </div>
-            <button onClick={() => setProfilePublic(!profilePublic)} className={`toggle ${profilePublic ? "toggle-on" : ""}`}><span /></button>
+            <button onClick={() => setProfilePublic(!profilePublic)} className={"toggle " + (profilePublic ? "toggle-on" : "")}><span /></button>
           </div>
         </div>
 

@@ -35,7 +35,6 @@ import { runScraper } from "./scraper/index.js";
 let newsLock = false; // prevents parallel news generation
 import { generateDailyAIJobs } from "./scraper/generateAIJobs.js";
 import { enrichJobs } from "./scraper/enrichJobs.js";
-import { flushJobBatches, matchJobsToUsers } from "./utils/notifyBatcher.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -101,49 +100,6 @@ async function ensureAIUser() {
     console.log("Created AI user:", aiUser._id);
   }
   return aiUser._id;
-}
-
-
-// Send push to all users with news preference enabled (once per day)
-async function notifyNewsToAllUsers(newsPost) {
-  try {
-    if (!newsPost || !newsPost.text) return;
-    const User = (await import("./models/User.js")).default;
-    const { notifyUser } = await import("./utils/notify.js");
-
-    // Only users with news pref on AND not sent in last 20h
-    const cutoff = new Date(Date.now() - 20 * 60 * 60 * 1000);
-    const users = await User.find({
-      "notificationPrefs.news": { $ne: false },
-      $or: [
-        { "notificationLog.news": { $exists: false } },
-        { "notificationLog.news": { $lt: cutoff } },
-      ],
-      fcmTokens: { $exists: true, $not: { $size: 0 } },
-    }).select("_id");
-
-    if (users.length === 0) return;
-
-    const preview = String(newsPost.text).replace(/[#*]/g, "").slice(0, 100);
-
-    let sent = 0;
-    for (const u of users) {
-      try {
-        const res = await notifyUser(u._id, {
-          title: "📰 Omnixra Daily News",
-          body: preview,
-          data: { type: "news", postId: String(newsPost._id || "") },
-        });
-        if (res && res.success) {
-          await User.findByIdAndUpdate(u._id, { "notificationLog.news": new Date() });
-          sent++;
-        }
-      } catch (e) { /* skip individual failures */ }
-    }
-    console.log(`[NEWS PUSH] Sent to ${sent}/${users.length} users`);
-  } catch (e) {
-    console.warn("[NEWS PUSH] error:", e.message);
-  }
 }
 
 async function generateDailyNewsIfNeeded() {
@@ -330,18 +286,7 @@ server.listen(PORT, () => {
     }
 
     // 🕐 Job scraper runs 3 times per day: 8am, 12pm, 4pm
-    console.log("📅 Scheduling scraper: 3x daily (8am, 12pm, 4pm)
-  // ── Job notification batch sender (every 6h) ──
-  setInterval(() => {
-    flushJobBatches().catch((e) => console.warn("[JOB BATCH interval] error:", e.message));
-  }, 6 * 60 * 60 * 1000);
-  console.log("📅 Scheduling job-notification flush: every 6 hours");
-
-  // ── First-run warmup at +3min (in case startup missed a batch) ──
-  setTimeout(() => {
-    flushJobBatches().catch((e) => console.warn("[JOB BATCH warmup] error:", e.message));
-  }, 3 * 60 * 1000);
-");
+    console.log("📅 Scheduling scraper: 3x daily (8am, 12pm, 4pm)");
     runScraper().catch(err => console.error("Scraper error:", err.message));
     setInterval(() => {
       const hour = new Date().getHours();

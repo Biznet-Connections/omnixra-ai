@@ -1,7 +1,6 @@
 import Job from "../models/Job.js";
 import Company from "../models/Company.js";
 import { generateJobSlug } from "../utils/slugify.js";
-import { matchJobsToUsers } from "../utils/notifyBatcher.js";
 
 // Generate fresh AI jobs daily from company database
 const JOB_TITLES_BY_CATEGORY = {

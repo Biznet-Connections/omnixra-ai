@@ -52,23 +52,6 @@ const userSchema = new mongoose.Schema(
         createdAt: { type: Date, default: Date.now },
       },
     ],
-
-    notificationPrefs: {
-      jobAlerts: { type: Boolean, default: true },
-      news: { type: Boolean, default: true },
-      social: { type: Boolean, default: true },
-    },
-    notificationLog: {
-      news: { type: Date },
-      jobs: { type: Date },
-      jobsFirstSentAt: { type: Date },
-    },
-    notificationQueue: [
-      {
-        jobId: { type: mongoose.Schema.Types.ObjectId, ref: "Job" },
-        matchedAt: { type: Date, default: Date.now },
-      },
-    ],
   },
   { timestamps: true }
 );
