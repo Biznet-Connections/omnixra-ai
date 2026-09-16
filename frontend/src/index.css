@@ -5455,3 +5455,58 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
 .in-app-notification-close:hover {
   background: rgba(255, 255, 255, 0.3);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   PASSWORD RESET FLOW
+   ═══════════════════════════════════════════════════════════ */
+
+.code-input-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.code-input-box {
+  width: 48px;
+  height: 56px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: white;
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+  outline: none;
+  padding: 0;
+}
+
+.code-input-box:focus {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.code-input-box:not(:placeholder-shown) {
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.success-orb {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 12px 40px rgba(99, 102, 241, 0.5);
+  animation: successPop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+@keyframes successPop {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}

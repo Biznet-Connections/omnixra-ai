@@ -210,7 +210,7 @@ function AuthScreen() {
             </div>
           )}
 
-          {false && (
+          {!isNativeApp && (
             <>
               {/* Google Sign-In button */}
               <button
@@ -407,7 +407,7 @@ function AuthScreen() {
           {mode === "signin" && (
             <div className="text-center mt-4">
               <button
-                onClick={() => setForgotPassword(true)}
+                onClick={() => alert("Password reset is temporarily unavailable. Please contact support or create a new account.")}
                 className="text-xs text-slate-600 hover:text-slate-500"
               >
                 Forgot Password?
