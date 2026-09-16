@@ -213,9 +213,9 @@ function JobsPage({ focusJobSlug }) {
           </div>
         ) : currentJobs.length === 0 ? (
           <div className="empty-state mt-7">
-            <div className="empty-icon">💼</div>
-            <h2 className="text-sm font-semibold mt-4">No jobs available</h2>
-            <p className="text-xs text-slate-700 mt-2">Check back soon.</p>
+            <div className="empty-icon">{navigator.onLine ? "💼" : "📡"}</div>
+            <h2 className="text-sm font-semibold mt-4">{navigator.onLine ? "No jobs available" : "You are offline"}</h2>
+            <p className="text-xs text-slate-700 mt-2">{navigator.onLine ? "Check back soon." : "Check your internet connection and try again."}</p>
           </div>
         ) : (
           <>
