@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { UserCheck, Newspaper, Briefcase, User, FileText, MessageCircle , Search } from "lucide-react";
+import { UserCheck, Newspaper, Briefcase, User, FileText, MessageCircle } from "lucide-react";
 import PostCard from "../components/PostCard";
 import ProfileMenu from "../components/ProfileMenu";
 import LoadingDots from "../components/LoadingDots";
@@ -180,8 +180,8 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
     }
   };
 
-  const quickActions = [{ icon: User, label: "Profile", action: () => setShowProfileMenu(true) },
-    { icon: Search, label: "Discover", action: () => setPage("discover") },
+  const quickActions = [
+    { icon: User, label: "Profile", action: () => setShowProfileMenu(true) },
     { icon: UserCheck, label: "Following", action: () => setPage("following") },
     { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
     { icon: Newspaper, label: "News", action: () => setPage("news") },

@@ -42,7 +42,6 @@ import { useAuth } from "./context/AuthContext";
 import { PostsProvider } from "./context/PostsContext";
 import { SocketProvider } from "./context/SocketContext";
 import InAppNotificationBanner from "./components/InAppNotificationBanner";
-import DiscoverPage from "./pages/DiscoverPage";
 
 function AppContent() {
   // ── ALL HOOKS AT THE TOP ──
@@ -229,7 +228,6 @@ function AppContent() {
   const renderPage = () => {
     switch (page) {
       case "home": return <HomePage setPage={navigate} setSelectedUserId={setSelectedUserId} focusPostId={focusPostId} />;
-      case "discover": return <DiscoverPage setPage={navigate} setSelectedUserId={setSelectedUserId} />;
       case "auth-callback": return <AuthCallback setPage={navigate} />;
       case "myai": return <ChatPage />;
       case "jobs": return <JobsPage focusJobSlug={focusJobSlug} />;

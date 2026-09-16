@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Sparkles, Mail, Lock, MapPin, Building2, User, ArrowRight, ArrowLeft, Search, Check } from "lucide-react";
+import { Sparkles, Mail, Lock, MapPin, Building2, User, ArrowRight, Search, Check } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import ForgotPasswordFlow from "../pages/ForgotPasswordFlow";
-import { Browser } from "@capacitor/browser";
-import { Capacitor } from "@capacitor/core";
 import { useNotifications } from "../context/NotificationContext";
 
 function AuthScreen() {
-  const [mode, setMode] = useState("signin");
+  const [mode, setMode] = useState("signup"); // ✅ SIGNUP-FIRST
   const [forgotPassword, setForgotPassword] = useState(false);
   const [accountType, setAccountType] = useState("jobseeker");
   const [showPassword, setShowPassword] = useState(false);
@@ -18,128 +16,55 @@ function AuthScreen() {
     email: "",
     password: "",
     companyName: "",
-    location: "",
-    category: "",
-    discoverable: true
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [industries, setIndustries] = useState([]);
-  const [searching, setSearching] = useState(false);
 
   const { signup, signin } = useAuth();
   const { requestPermission } = useNotifications();
-
-  // Native app → hide Google button (deep-link complexity)
-  const isNativeApp =
-    typeof window !== "undefined" &&
-    (window.Capacitor?.isNativePlatform?.() ||
-      window.location.protocol === "capacitor:" ||
-      window.location.protocol === "file:");
-
-  const popularIndustries = [
-    { name: "Information Technology", emoji: "💻" },
-    { name: "Finance & Accounting", emoji: "💰" },
-    { name: "Healthcare", emoji: "🩺" },
-    { name: "Education", emoji: "📚" },
-    { name: "Construction", emoji: "🏗️" },
-    { name: "Driving", emoji: "🚗" }
-  ];
-
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setIndustries([]);
-      setShowSuggestions(false);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await api.post("/ai/industries", { query: searchQuery });
-        setIndustries(res.data.industries || []);
-        setShowSuggestions(true);
-      } catch (err) {
-        console.error("Industry search error:", err);
-      } finally {
-        setSearching(false);
-      }
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const selectIndustry = (industry) => {
-    setFormData({ ...formData, category: industry });
-    setSearchQuery(industry);
-    setShowSuggestions(false);
-  };
-
-  const handleGoogleSignIn = async () => {
-    const isNative = Capacitor.isNativePlatform();
-    console.log("🔵 Google sign-in. isNative:", isNative);
-
-    const params = new URLSearchParams();
-    if (isNative) params.set("platform", "native");
-    if (mode === "signup" && accountType) params.set("type", accountType);
-
-    const url = `https://omnixra-ai.com/api/oauth/google${params.toString() ? "?" + params.toString() : ""}`;
-
-    if (isNative) {
-      await Browser.open({ url, windowName: "_system" });
-    } else {
-      window.location.href = url;
-    }
+  const switchMode = (newMode) => {
+    setMode(newMode);
+    setError("");
   };
 
   const handleSubmit = async () => {
     setError("");
     setLoading(true);
-
     try {
       if (mode === "signup") {
         const name = accountType === "company"
           ? formData.companyName
           : (formData.firstName + " " + formData.lastName).trim();
 
-        const result = await signup({
+        if (!name) {
+          setError(accountType === "company" ? "Enter your company name" : "Enter your name");
+          setLoading(false);
+          return;
+        }
+
+        await signup({
           name,
           email: formData.email,
           password: formData.password,
           accountType,
           companyName: accountType === "company" ? formData.companyName : undefined,
-          location: formData.location,
-          category: formData.category || "General",
-          discoverable: formData.discoverable
         });
-        
-        // Request push notification permission (fire and forget)
+
         try {
           if (requestPermission) {
             requestPermission().catch((e) => console.warn("Push permission skipped:", e.message));
           }
         } catch (e) { /* silent */ }
-
-        // If backend asks for verification, AuthContext sets pendingVerification
-        // App.jsx will render the VerifyEmailScreen automatically
-        if (result?.requiresVerification) {
-          // Nothing more to do here — App.jsx handles routing
-          return;
-        }
       } else {
-        const result = await signin({
+        await signin({
           email: formData.email,
-          password: formData.password
+          password: formData.password,
         });
-
-        // If signin returns 403 verification required, App.jsx picks it up
-        if (result?.requiresVerification) {
-          return;
-        }
       }
     } catch (err) {
       const msg = err.response?.data?.message || err.message || "Something went wrong";
@@ -149,7 +74,6 @@ function AuthScreen() {
     }
   };
 
-  // ── Forgot Password flow (full 3-step) ──
   if (forgotPassword) {
     return <ForgotPasswordFlow onClose={() => setForgotPassword(false)} />;
   }
@@ -179,8 +103,29 @@ function AuthScreen() {
             <Sparkles size={12} />
             AI-powered employment network
           </div>
+        </div>
 
-          <div>
+        <div className="auth-card">
+          {/* ── Two-tab header ── */}
+          <div className="auth-tabs">
+            <button
+              type="button"
+              onClick={() => switchMode("signup")}
+              className={"auth-tab " + (mode === "signup" ? "auth-tab-active" : "")}
+            >
+              Sign up
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode("signin")}
+              className={"auth-tab " + (mode === "signin" ? "auth-tab-active" : "")}
+            >
+              Sign in
+            </button>
+          </div>
+
+          {/* ── Header copy ── */}
+          <div className="auth-tab-content">
             <h1 className="auth-title">
               {mode === "signup" ? "Welcome to Omnixra" : "Welcome back"}
             </h1>
@@ -190,10 +135,8 @@ function AuthScreen() {
                 : "Your career intelligence is waiting."}
             </p>
           </div>
-        </div>
 
-        <div className="auth-card">
-          {/* Account type picker — only on signup */}
+          {/* ── Account type picker (signup only) ── */}
           {mode === "signup" && (
             <div className="mb-5">
               <div className="text-[11px] text-slate-500 mb-2">I am joining as</div>
@@ -210,30 +153,7 @@ function AuthScreen() {
             </div>
           )}
 
-          {false && (
-            <>
-              {/* Google Sign-In button */}
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                className="google-signin-btn"
-              >
-                <svg width="18" height="18" viewBox="0 0 48 48" style={{marginRight: 10}}>
-                  <path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                  <path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                  <path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-                </svg>
-                Continue with Google
-              </button>
-
-              <div className="auth-divider">
-                <span>or</span>
-              </div>
-            </>
-          )}
-
-          {/* Signup name fields */}
+          {/* ── Signup name fields ── */}
           {mode === "signup" && accountType === "jobseeker" && (
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -257,7 +177,7 @@ function AuthScreen() {
             </div>
           )}
 
-          {/* Email */}
+          {/* ── Email ── */}
           <div className="mt-4">
             <label className="form-label">Email address</label>
             <div className="form-field">
@@ -277,6 +197,7 @@ function AuthScreen() {
             </div>
           </div>
 
+          {/* ── Password ── */}
           <div className="mt-4">
             <label className="form-label">Password</label>
             <div className="form-field">
@@ -290,6 +211,7 @@ function AuthScreen() {
                 spellCheck="false"
                 value={formData.password}
                 onChange={handleChange}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                 className="form-input has-icon has-right"
               />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="password-toggle">
@@ -297,90 +219,6 @@ function AuthScreen() {
               </button>
             </div>
           </div>
-
-          {/* Industry (signup only) */}
-          {mode === "signup" && (
-            <div className="mt-4 relative">
-              <label className="form-label">Your Industry</label>
-              <div className="form-field">
-                <Search size={16} className="input-icon" />
-                <input
-                  name="category"
-                  autoComplete="off"
-                  autoCapitalize="words"
-                  value={formData.category || searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setFormData({ ...formData, category: "" }); }}
-                  onFocus={() => searchQuery && setShowSuggestions(true)}
-                  className="form-input has-icon"
-                  placeholder="Search your industry..."
-                />
-                {formData.category && <Check size={16} className="text-emerald-400 absolute right-3" />}
-              </div>
-
-              {showSuggestions && (
-                <div className="industry-suggestions">
-                  {searching ? (
-                    <div className="text-xs text-slate-500 p-3">Searching...</div>
-                  ) : industries.length > 0 ? (
-                    <>
-                      <div className="industry-suggestions-header">💡 Did you mean:</div>
-                      {industries.map((ind, i) => (
-                        <button key={i} onClick={() => selectIndustry(ind.name)} className="industry-suggestion-item">
-                          <span>{ind.emoji}</span>
-                          <span>{ind.name}</span>
-                        </button>
-                      ))}
-                      <div className="industry-suggestions-divider" />
-                      <button onClick={() => selectIndustry(searchQuery)} className="industry-suggestion-item">
-                        <span>➕</span>
-                        <span>Use "{searchQuery}" as my industry</span>
-                      </button>
-                    </>
-                  ) : searchQuery.trim().length >= 2 ? (
-                    <button onClick={() => selectIndustry(searchQuery)} className="industry-suggestion-item">
-                      <span>➕</span>
-                      <span>Use "{searchQuery}" as my industry</span>
-                    </button>
-                  ) : (
-                    <div className="text-xs text-slate-500 p-3">Type at least 2 characters...</div>
-                  )}
-                </div>
-              )}
-
-              {!searchQuery && !formData.category && (
-                <div className="mt-2">
-                  <div className="text-[9px] text-slate-600 mb-2">Popular industries:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {popularIndustries.map((ind, i) => (
-                      <button key={i} onClick={() => selectIndustry(ind.name)} className="industry-chip">
-                        {ind.emoji} {ind.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Location (signup only) */}
-          {mode === "signup" && (
-            <div className="mt-4">
-              <label className="form-label">Location</label>
-              <div className="form-field">
-                <MapPin size={16} className="input-icon" />
-                <input name="location" autoComplete="address-level2" autoCapitalize="words" value={formData.location} onChange={handleChange} className="form-input has-icon" />
-              </div>
-            </div>
-          )}
-
-          {mode === "signup" && accountType === "jobseeker" && (
-            <div className="mt-4 flex items-center gap-2">
-              <input type="checkbox" id="discoverable" checked={formData.discoverable} onChange={(e) => setFormData({ ...formData, discoverable: e.target.checked })} className="w-4 h-4 accent-indigo-500" />
-              <label htmlFor="discoverable" className="text-xs text-slate-400">
-                I agree to be discovered by companies
-              </label>
-            </div>
-          )}
 
           {error && (
             <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">
@@ -414,13 +252,6 @@ function AuthScreen() {
               </button>
             </div>
           )}
-
-          <div className="text-center text-xs text-slate-600 mt-5">
-            {mode === "signup" ? "Already have an account?" : "Don't have an account?"}
-            <button onClick={() => setMode(mode === "signup" ? "signin" : "signup")} className="ml-1 text-indigo-400 hover:text-indigo-300">
-              {mode === "signup" ? "Sign in" : "Create one"}
-            </button>
-          </div>
         </div>
       </div>
     </div>

@@ -36,7 +36,6 @@ let newsLock = false; // prevents parallel news generation
 import { generateDailyAIJobs } from "./scraper/generateAIJobs.js";
 import { enrichJobs } from "./scraper/enrichJobs.js";
 import { flushJobBatches, matchJobsToUsers } from "./utils/notifyBatcher.js";
-import searchRoutes from "./routes/search.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -83,7 +82,6 @@ app.use("/api/remote-jobs", remoteJobRoutes);
 app.use("/api/video", videoRoutes);
 app.use("/api/connections", connectionRoutes);
 app.use("/api/notifications", notificationsRoutes);
-app.use("/api/search", searchRoutes);
 app.use("/share", shareRoutes);
 app.use("/", seoRoutes);
 

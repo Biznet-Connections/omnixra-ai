@@ -5510,3 +5510,137 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
   50% { transform: scale(1.05); }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH TWO-TAB LAYOUT
+   ═══════════════════════════════════════════════════════════ */
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+.auth-tab {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.auth-tab:hover {
+  color: #cbd5e1;
+}
+.auth-tab-active {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: white;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+.auth-tab-content {
+  text-align: center;
+  margin-bottom: 22px;
+}
+.auth-tab-content .auth-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.auth-tab-content .auth-subtitle {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DISCOVER PAGE
+   ═══════════════════════════════════════════════════════════ */
+.discover-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.discover-search-icon {
+  position: absolute;
+  left: 14px;
+  color: #64748b;
+  pointer-events: none;
+}
+.discover-search-input {
+  width: 100%;
+  padding: 12px 40px 12px 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: white;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.discover-search-input:focus {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.06);
+}
+.discover-search-clear {
+  position: absolute;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.discover-search-clear:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.discover-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+.discover-tabs::-webkit-scrollbar {
+  display: none;
+}
+.discover-tab {
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.discover-tab:hover {
+  color: #e2e8f0;
+  border-color: rgba(139, 92, 246, 0.4);
+}
+.discover-tab-active {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+.discover-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 10px;
+}
