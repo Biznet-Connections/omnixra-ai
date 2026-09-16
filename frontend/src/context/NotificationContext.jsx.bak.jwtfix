@@ -8,16 +8,7 @@ const NotificationContext = createContext(null);
 const STORAGE_KEY = "omnixra_push_token";
 
 export function NotificationProvider({ children }) {
-  const { user } = useAuth();
-  const [authToken, setAuthToken] = useState(() => localStorage.getItem("omnixra_token"));
-
-  // Keep authToken in sync with localStorage
-  useEffect(() => {
-    const update = () => setAuthToken(localStorage.getItem("omnixra_token"));
-    window.addEventListener("storage", update);
-    const t = setInterval(update, 2000);
-    return () => { window.removeEventListener("storage", update); clearInterval(t); };
-  }, []);
+  const { user, token: authToken } = useAuth();
   const [permission, setPermission] = useState("prompt");
   const [deviceToken, setDeviceToken] = useState(() => localStorage.getItem(STORAGE_KEY) || null);
   const [enabled, setEnabled] = useState(false);
