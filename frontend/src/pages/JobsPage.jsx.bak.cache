@@ -7,31 +7,6 @@ import LoadingDots from "../components/LoadingDots";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import EmptyState from "../components/EmptyState";
 
-
-// ── Jobs cache (offline-first) ──
-const JOBS_CACHE_KEY = "omnixra_jobs_cache_v1";
-const JOBS_CACHE_TTL = 24 * 60 * 60 * 1000;
-
-function readJobsCache() {
-  try {
-    const raw = localStorage.getItem(JOBS_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.t) return null;
-    if (Date.now() - parsed.t > JOBS_CACHE_TTL) return null;
-    return parsed;
-  } catch (e) { return null; }
-}
-
-function writeJobsCache(payload) {
-  try {
-    localStorage.setItem(JOBS_CACHE_KEY, JSON.stringify({
-      ...payload,
-      t: Date.now(),
-    }));
-  } catch (e) {}
-}
-
 function JobsPage({ focusJobSlug }) {
   const { user } = useAuth();
   const { online } = useNetworkStatus();

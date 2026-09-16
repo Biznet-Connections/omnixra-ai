@@ -9,36 +9,9 @@ let cachedCompanies = null;
 let cachedCursor = null;
 let cachedHasMore = true;
 
-
-// ── Companies cache (offline-first) ──
-const COMPANIES_CACHE_KEY = "omnixra_companies_cache_v1";
-const COMPANIES_CACHE_TTL = 24 * 60 * 60 * 1000;
-
-function readCompaniesCache() {
-  try {
-    const raw = localStorage.getItem(COMPANIES_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.t) return null;
-    if (Date.now() - parsed.t > COMPANIES_CACHE_TTL) return null;
-    return parsed;
-  } catch (e) { return null; }
-}
-
-function writeCompaniesCache(payload) {
-  try {
-    localStorage.setItem(COMPANIES_CACHE_KEY, JSON.stringify({
-      ...payload,
-      t: Date.now(),
-    }));
-  } catch (e) {}
-}
-
 function CompaniesPage() {
   const { online } = useNetworkStatus();
-  const cached = typeof window !== "undefined" ? readCompaniesCache() : null;
-  const [companies, setCompanies] = useState(cached?.companies || cachedCompanies || []);
-  const [cachedHadData, setCachedHadData] = useState(!!(cached?.companies?.length || cachedCompanies?.length));
+  const [companies, setCompanies] = useState(cachedCompanies || []);
   const [loading, setLoading] = useState(!cachedCompanies);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(cachedHasMore);
