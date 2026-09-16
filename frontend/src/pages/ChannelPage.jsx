@@ -250,6 +250,7 @@ function ChannelPage({ slug, setPage }) {
           onClose={() => setShowComposer(false)}
           onPosted={() => { setShowComposer(false); loadChannel(); }}
           channelId={channel._id}
+          channelName={channel.name}
         />
       )}
     </div>

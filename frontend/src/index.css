@@ -5983,3 +5983,38 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
   color: #64748b;
   margin-left: auto;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   OFFLINE UX
+   ═══════════════════════════════════════════════════════════ */
+.offline-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  margin: 8px 0 0;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Channel post banner inside composer */
+.channel-post-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12));
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #c4b5fd;
+  font-size: 12px;
+}
+.channel-post-banner strong {
+  color: #e9d5ff;
+  font-weight: 700;
+}
