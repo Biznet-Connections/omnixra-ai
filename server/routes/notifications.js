@@ -104,4 +104,26 @@ router.put('/preferences', protect, async (req, res) => {
   }
 });
 
+router.post('/test-flush', protect, async (req, res) => {
+  try {
+    const { flushJobBatches } = await import('../utils/notifyBatcher.js');
+    const result = await flushJobBatches({ force: true });
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.post('/test-news', protect, async (req, res) => {
+  try {
+    const Post = (await import('../models/Post.js')).default;
+    const newsPost = await Post.findOne({ authorType: 'ai' }).sort({ createdAt: -1 }).lean();
+    if (!newsPost) return res.status(404).json({ message: 'No AI news post found' });
+    const { default: serverModule } = await import('../server.js').catch(() => ({ default: null }));
+    res.json({ ok: true, message: 'News push helper is inside server.js; trigger manually by restarting the server', postId: newsPost._id });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 export default router;
