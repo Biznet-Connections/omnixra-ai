@@ -3,7 +3,6 @@ import User from "../models/User.js";
 import Post from "../models/Post.js";
 import Job from "../models/Job.js";
 import { protect } from "../middleware/auth.js";
-import Channel from "../models/Channel.js";
 
 const router = express.Router();
 
@@ -62,9 +61,8 @@ router.get("/", protect, async (req, res) => {
     const wantsJobs = type === "all" || type === "jobs";
     const wantsCompanies = type === "all" || type === "companies";
     const wantsPosts = type === "all" || type === "posts";
-    const wantsChannels = type === "all" || type === "channels";
 
-    const [people, companies, jobs, posts, channels] = await Promise.all([
+    const [people, companies, jobs, posts] = await Promise.all([
       wantsPeople
         ? User.find({
             accountType: "jobseeker",
@@ -123,21 +121,6 @@ router.get("/", protect, async (req, res) => {
             .sort({ createdAt: -1 })
             .limit(limit * 2)
             .populate("author", "name profilePicture profilePicLocked headline category accountType")
-            .lean()
-        : Promise.resolve([]),
-
-      wantsChannels
-        ? Channel.find({
-            deleted: false,
-            visibility: "public",
-            $or: [
-              { name: wordRx },
-              { description: wordRx },
-              { category: wordRx },
-            ],
-          })
-            .sort({ followerCount: -1 })
-            .limit(limit * 2)
             .lean()
         : Promise.resolve([]),
     ]);
@@ -208,24 +191,12 @@ router.get("/", protect, async (req, res) => {
       .sort((a, b) => b._score - a._score)
       .slice(0, limit);
 
-        const rankedChannels = channels
-      .map((c) => {
-        const s = Math.max(
-          scoreField(c.name, q),
-          scoreField(c.category, q) * 0.6,
-          scoreField(c.description, q) * 0.4
-        );
-        return { ...c, _score: s };
-      })
-      .sort((a, b) => b._score - a._score)
-      .slice(0, limit);
-
     res.json({
       people: rankedPeople,
       companies: rankedCompanies,
       jobs: rankedJobs,
       posts: rankedPosts,
-      channels: rankedChannels,
+      channels: [],
     });
   } catch (err) {
     console.error("[SEARCH] error:", err.message);

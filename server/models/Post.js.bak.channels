@@ -22,14 +22,6 @@ const postSchema = new mongoose.Schema(
     trimEnd: { type: Number, default: 0 },
     mediaType: { type: String, enum: ["text", "image", "video"], default: "text" },
     visibility: { type: String, enum: ["public", "connections", "onlyme"], default: "public" },
-    channelId: { type: mongoose.Schema.Types.ObjectId, ref: "Channel", default: null },
-    reactions: [
-      {
-        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-        emoji: { type: String },
-        createdAt: { type: Date, default: Date.now },
-      },
-    ],
     likes: { type: Number, default: 0 },
     comments: [commentSchema],
     shares: { type: Number, default: 0 },
@@ -42,6 +34,5 @@ const postSchema = new mongoose.Schema(
 postSchema.index({ deleted: 1, createdAt: -1 });
 postSchema.index({ author: 1, deleted: 1, createdAt: -1 });
 
-postSchema.index({ channelId: 1, deleted: 1, createdAt: -1 });
 const Post = mongoose.model("Post", postSchema);
 export default Post;

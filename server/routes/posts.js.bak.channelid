@@ -6,7 +6,6 @@ import { cacheShort, invalidateFeedCache, invalidatePostCache } from "../middlew
 import { uploadToR2, isBase64Image, parseBase64Image, buildPublicUrl } from "../utils/r2.js";
 import { emitPostLiked, emitPostCommented } from "../socket.js";
 import { notifyPostAuthor, notifyNewFollower } from "../utils/notify.js";
-import Channel from "../models/Channel.js";
 
 const router = express.Router();
 
@@ -77,7 +76,7 @@ router.get("/", cacheShort(30, 60), async (req, res) => {
 
     // Compound cursor (createdAt + _id) so ordering is stable even when
     // many docs share the same createdAt millisecond.
-    const query = { deleted: false, channelId: null };
+    const query = { deleted: false };
     if (cursor) {
       // Look up the cursor's createdAt so we can do a stable (createdAt, _id) pagination
       const last = await Post.findById(cursor).select("createdAt _id").lean();
@@ -175,7 +174,7 @@ router.get("/random", async (req, res) => {
     const maxSkip = Math.max(0, total - limit);
     const randomSkip = Math.floor(Math.random() * (maxSkip + 1));
 
-    const posts = await Post.find({ deleted: false, channelId: null })
+    const posts = await Post.find({ deleted: false })
       .sort({ createdAt: -1 })
       .skip(randomSkip)
       .limit(limit)
@@ -314,7 +313,7 @@ router.get("/:id", async (req, res) => {
 // CREATE POST
 router.post("/", protect, async (req, res) => {
   try {
-    const { text, image, video, videoKey, thumbnailUrl, trimStart, trimEnd, visibility, channelId } = req.body;
+    const { text, image, video, videoKey, thumbnailUrl, trimStart, trimEnd, visibility } = req.body;
 
     // 🔍 DEBUG — confirm what actually arrives from PostComposer
     console.log("📝 [POST /posts] body received:", {
@@ -351,22 +350,10 @@ router.post("/", protect, async (req, res) => {
       console.log("[POST] videoKey resolved to:", videoUrl);
     }
 
-    // If posting to a channel, verify user is admin
-    let targetChannel = null;
-    if (channelId) {
-      targetChannel = await Channel.findById(channelId);
-      if (!targetChannel || targetChannel.deleted) {
-        return res.status(404).json({ message: "Channel not found" });
-      }
-      if (!targetChannel.isAdmin(req.user._id)) {
-        return res.status(403).json({ message: "Only channel admins can post" });
-      }
-    }
-
     const post = await Post.create({
       author: req.user._id,
       authorType: req.user.accountType,
-      text, image: imageUrl, video: videoUrl, thumbnailUrl: thumbnailUrl || null, channelId: channelId || null,
+      text, image: imageUrl, video: videoUrl, thumbnailUrl: thumbnailUrl || null,
       trimStart: Number(trimStart) || 0,
       trimEnd: Number(trimEnd) || 0,
       visibility: visibility || "public",
@@ -623,50 +610,4 @@ router.put("/follow-user/:userId", protect, async (req, res) => {
   }
 });
 
-
-// ═══════════════════════════════════════════════════════════
-// REACT to a post (channel posts primarily)
-// Body: { emoji }   Toggle: same emoji removes, different replaces
-// ═══════════════════════════════════════════════════════════
-router.put("/:id/react", protect, async (req, res) => {
-  try {
-    const { emoji } = req.body || {};
-    const allowed = ["❤️", "🔥", "👍", "😮"];
-    if (!allowed.includes(emoji)) {
-      return res.status(400).json({ message: "Invalid emoji" });
-    }
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
-
-    const userId = String(req.user._id);
-    const existing = (post.reactions || []).find((r) => String(r.user) === userId);
-
-    if (existing && existing.emoji === emoji) {
-      // Remove reaction
-      post.reactions = post.reactions.filter((r) => String(r.user) !== userId);
-    } else if (existing) {
-      // Change emoji
-      post.reactions = post.reactions.map((r) =>
-        String(r.user) === userId ? { ...r.toObject(), emoji } : r
-      );
-    } else {
-      // Add new reaction
-      post.reactions.push({ user: req.user._id, emoji });
-    }
-
-    await post.save();
-
-    // Aggregate counts
-    const counts = {};
-    for (const r of post.reactions) {
-      counts[r.emoji] = (counts[r.emoji] || 0) + 1;
-    }
-    const myReaction = post.reactions.find((r) => String(r.user) === userId)?.emoji || null;
-
-    res.json({ reactionCounts: counts, myReaction });
-  } catch (err) {
-    console.error("[REACT] error:", err.message);
-    res.status(500).json({ message: err.message });
-  }
-});
 export default router;

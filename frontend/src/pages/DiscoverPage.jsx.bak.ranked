@@ -5,15 +5,13 @@ import { useAuth } from "../context/AuthContext";
 import LoadingDots from "../components/LoadingDots";
 import JobCard from "../components/JobCard";
 import CompanyCard from "../components/CompanyCard";
-import ChannelCard from "../components/ChannelCard";
-import CreateChannelModal from "../components/CreateChannelModal";
 import PostCard from "../components/PostCard";
 
 const TABS = [
   { id: "all", label: "All" },
   { id: "people", label: "People" },
+  { id: "jobs", label: "Jobs" },
   { id: "companies", label: "Companies" },
-  { id: "channels", label: "Channels" },
   { id: "posts", label: "Posts" },
 ];
 
@@ -21,9 +19,8 @@ function DiscoverPage({ setPage, setSelectedUserId }) {
   const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
-  const [results, setResults] = useState({ people: [], jobs: [], companies: [], posts: [], channels: [] });
-  const [suggested, setSuggested] = useState({ people: [], jobs: [], channels: [] });
-  const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [results, setResults] = useState({ people: [], jobs: [], companies: [], posts: [] });
+  const [suggested, setSuggested] = useState({ people: [], jobs: [] });
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
@@ -34,16 +31,14 @@ function DiscoverPage({ setPage, setSelectedUserId }) {
     let cancelled = false;
     (async () => {
       try {
-        const [peopleRes, jobsRes, channelsRes] = await Promise.all([
+        const [peopleRes, jobsRes] = await Promise.all([
           api.get("/profile/suggested-connections?limit=6").catch(() => ({ data: [] })),
           api.post("/ai/jobs?page=1&limit=6", { query: user?.category || "General" }).catch(() => ({ data: { jobs: [] } })),
-          api.get("/channels?limit=6").catch(() => ({ data: { channels: [] } })),
         ]);
         if (cancelled) return;
         setSuggested({
           people: peopleRes.data || [],
           jobs: jobsRes.data?.jobs || [],
-          channels: channelsRes.data?.channels || [],
         });
       } catch (e) {
         console.warn("[DISCOVER] suggested load failed:", e.message);
@@ -70,7 +65,6 @@ function DiscoverPage({ setPage, setSelectedUserId }) {
           jobs: res.data.jobs || [],
           companies: res.data.companies || [],
           posts: res.data.posts || [],
-          channels: res.data.channels || [],
         });
         setError("");
       } catch (e) {
@@ -163,12 +157,6 @@ function DiscoverPage({ setPage, setSelectedUserId }) {
           ))}
         </div>
 
-        {activeTab === "channels" && (
-          <button onClick={() => setShowCreateChannel(true)} className="channel-create-cta mt-4">
-            + Create your own channel
-          </button>
-        )}
-
         {/* ── Content ── */}
         {searching ? (
           <div className="flex justify-center mt-10">
@@ -209,21 +197,6 @@ function DiscoverPage({ setPage, setSelectedUserId }) {
                     </div>
                   </div>
                 )}
-                {results.channels && results.channels.length > 0 && (
-                  <div className="mt-7">
-                    <div className="discover-section-title">Channels</div>
-                    <div className="space-y-3">
-                      {results.channels.slice(0, 3).map((c) => (
-                        <ChannelCard
-                          key={c._id}
-                          channel={c}
-                          onOpen={(ch) => setPage("channel:" + ch.slug)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {results.jobs.length > 0 && (
                   <div className="mt-7">
                     <div className="discover-section-title">Jobs</div>
@@ -271,58 +244,15 @@ function DiscoverPage({ setPage, setSelectedUserId }) {
             )}
 
             {/* POSTS tab */}
-            {activeTab === "channels" && (
-              <div className="space-y-3 mt-7">
-                {results.channels && results.channels.length > 0 ? (
-                  results.channels.map((c) => (
-                    <ChannelCard
-                      key={c._id}
-                      channel={c}
-                      onOpen={(ch) => setPage("channel:" + ch.slug)}
-                    />
-                  ))
-                ) : (
-                  <div className="empty-state">
-                    <div className="empty-icon"><Radio size={24} /></div>
-                    <h2 className="text-sm font-semibold mt-4">No channels found</h2>
-                    <p className="text-xs text-slate-700 mt-2">Try different keywords or create a new one.</p>
-                  </div>
-                )}
-              </div>
-            )}
-
             {activeTab === "posts" && (
               <div className="space-y-3 mt-7">
                 {results.posts.map((p) => (
-                  <div key={p._id} className="discover-post-wrap">
-                    {p._snippet && (
-                      <div className="discover-snippet">
-                        <span className="discover-snippet-label">Match:</span> {p._snippet}
-                      </div>
-                    )}
-                    <PostCard
-                      post={p}
-                      onViewProfile={(author) => { if (author?._id) { setSelectedUserId(author._id); setPage("user-profile"); } }}
-                    />
-                  </div>
+                  <PostCard
+                    key={p._id}
+                    post={p}
+                    onViewProfile={(author) => { if (author?._id) { setSelectedUserId(author._id); setPage("user-profile"); } }}
+                  />
                 ))}
-              </div>
-            )}
-          </>
-        ) : (suggested.channels && suggested.channels.length > 0) ? (
-          <>
-            {suggested.channels.length > 0 && (
-              <div className="mt-7">
-                <div className="discover-section-title">Suggested channels</div>
-                <div className="space-y-3">
-                  {suggested.channels.map((c) => (
-                    <ChannelCard
-                      key={c._id}
-                      channel={c}
-                      onOpen={(ch) => setPage("channel:" + ch.slug)}
-                    />
-                  ))}
-                </div>
               </div>
             )}
           </>
@@ -355,23 +285,7 @@ function DiscoverPage({ setPage, setSelectedUserId }) {
             </p>
           </div>
         )}
-            {showCreateChannel && (
-
-              <CreateChannelModal
-
-                onClose={() => setShowCreateChannel(false)}
-
-                onCreated={(ch) => {
-
-                  setShowCreateChannel(false);
-
-                  setPage("channel:" + ch.slug);
-
-                }}
-
-              />
-
-            )}</div>
+      </div>
     </div>
   );
 }

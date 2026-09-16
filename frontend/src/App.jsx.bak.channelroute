@@ -43,7 +43,6 @@ import { PostsProvider } from "./context/PostsContext";
 import { SocketProvider } from "./context/SocketContext";
 import InAppNotificationBanner from "./components/InAppNotificationBanner";
 import DiscoverPage from "./pages/DiscoverPage";
-import ChannelPage from "./pages/ChannelPage";
 
 function AppContent() {
   // ── ALL HOOKS AT THE TOP ──
@@ -63,20 +62,11 @@ function AppContent() {
   const [sharedChatId, setSharedChatId] = useState(null);
   const [focusPostId, setFocusPostId] = useState(null);
   const [focusJobSlug, setFocusJobSlug] = useState(null);
-  const [channelSlug, setChannelSlug] = useState(null);
   const [history, setHistory] = useState([]);
   const { user, loading: authLoading, pendingVerification } = useAuth();
 
   // ── Helper functions ──
   const navigate = (to) => {
-    // Handle "channel:slug" navigation pattern
-    if (typeof to === "string" && to.startsWith("channel:")) {
-      const slug = to.split("channel:")[1];
-      setChannelSlug(slug);
-      setHistory(prev => [...prev, page]);
-      setPage("channel");
-      return;
-    }
     setHistory(prev => [...prev, page]);
     setPage(to);
   };
@@ -156,10 +146,6 @@ function AppContent() {
       const slug = path.split("/job/")[1];
       setFocusJobSlug(slug);
       setPage("jobs");
-    } else if (path.startsWith("/c/")) {
-      const slug = path.split("/c/")[1];
-      setChannelSlug(slug);
-      setPage("channel");
     }
   }, []);
 
@@ -244,7 +230,6 @@ function AppContent() {
     switch (page) {
       case "home": return <HomePage setPage={navigate} setSelectedUserId={setSelectedUserId} focusPostId={focusPostId} />;
       case "discover": return <DiscoverPage setPage={navigate} setSelectedUserId={setSelectedUserId} />;
-      case "channel": return <ChannelPage slug={channelSlug} setPage={navigate} />;
       case "auth-callback": return <AuthCallback setPage={navigate} />;
       case "myai": return <ChatPage />;
       case "jobs": return <JobsPage focusJobSlug={focusJobSlug} />;
