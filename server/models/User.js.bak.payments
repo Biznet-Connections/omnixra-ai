@@ -1,4 +1,4 @@
-﻿import mongoose from "mongoose";
+import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema(
@@ -15,15 +15,11 @@ const userSchema = new mongoose.Schema(
     category: { type: String, default: "General" },
     openToWork: { type: Boolean, default: true },
     discoverable: { type: Boolean, default: true },
-
     isPremium: { type: Boolean, default: false },
     premiumVoucher: { type: String },
-    premiumPlan: { type: String, enum: ["none", "monthly", "yearly"], default: "none" },
     premiumExpiresAt: { type: Date },
-    pushCredits: { type: Number, default: 0 },
-    boostCredits: { type: Number, default: 0 },
-    lastPaymentId: { type: mongoose.Schema.Types.ObjectId, ref: "Payment" },
 
+    // ── Auth ──
     signupMethod: { type: String, enum: ["email", "google"], default: "email" },
     googleId: { type: String, sparse: true },
     emailVerified: { type: Boolean, default: false },
@@ -39,17 +35,10 @@ const userSchema = new mongoose.Schema(
     lastSeen: { type: Date, default: Date.now },
     blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     profileViews: [
-      {
-        viewer: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-        viewerType: { type: String },
-        viewedAt: { type: Date, default: Date.now },
-      },
+      { viewer: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, viewerType: { type: String }, viewedAt: { type: Date, default: Date.now } }
     ],
     companyViews: [
-      {
-        company: { type: mongoose.Schema.Types.ObjectId, ref: "Company" },
-        viewedAt: { type: Date, default: Date.now },
-      },
+      { company: { type: mongoose.Schema.Types.ObjectId, ref: "Company" }, viewedAt: { type: Date, default: Date.now } }
     ],
     savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],
     connections: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

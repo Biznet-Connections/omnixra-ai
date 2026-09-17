@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import LoadingScreen from "./components/LoadingScreen";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AuthScreen from "./components/AuthScreen";
@@ -44,11 +44,9 @@ import { SocketProvider } from "./context/SocketContext";
 import InAppNotificationBanner from "./components/InAppNotificationBanner";
 import DiscoverPage from "./pages/DiscoverPage";
 import ChannelPage from "./pages/ChannelPage";
-import PremiumPage from "./pages/PremiumPage";
-import PaymentCompletePage from "./pages/PaymentCompletePage";
 
 function AppContent() {
-  // â”€â”€ ALL HOOKS AT THE TOP â”€â”€
+  // ── ALL HOOKS AT THE TOP ──
   const [splashDone, setSplashDone] = useState(false);
   const [page, setPage] = useState(() => {
     if (typeof window === "undefined") return "home";
@@ -58,8 +56,6 @@ function AppContent() {
     if (path.startsWith("/admin")) return "admin";
     if (path.startsWith("/shared-ai/")) return "shared-ai";
     if (path.startsWith("/job/")) return "jobs";
-    if (path.startsWith("/premium")) return "premium";
-    if (path.startsWith("/payment-complete")) return "payment-complete";
     return "home";
   });
   const [showPostComposer, setShowPostComposer] = useState(false);
@@ -71,7 +67,7 @@ function AppContent() {
   const [history, setHistory] = useState([]);
   const { user, loading: authLoading, pendingVerification } = useAuth();
 
-  // â”€â”€ Helper functions â”€â”€
+  // ── Helper functions ──
   const navigate = (to) => {
     // Handle "channel:slug" navigation pattern
     if (typeof to === "string" && to.startsWith("channel:")) {
@@ -95,8 +91,8 @@ function AppContent() {
     return false;
   };
 
-  // â”€â”€ ALL useEffects (in order) â”€â”€
-  // â”€â”€ Listen for native OAuth deep-link token (from main.jsx) â”€â”€
+  // ── ALL useEffects (in order) ──
+  // ── Listen for native OAuth deep-link token (from main.jsx) ──
   useEffect(() => {
     const handleOauthToken = async (event) => {
       const token = event.detail?.token;
@@ -124,7 +120,7 @@ function AppContent() {
   }, [history]);
 
 
-  // â”€â”€ Deep link: /post/{id} â†’ set focusPostId â”€â”€
+  // ── Deep link: /post/{id} → set focusPostId ──
   useEffect(() => {
     const path = window.location.pathname;
     if (path.startsWith("/post/")) {
@@ -187,7 +183,7 @@ function AppContent() {
 
 
 
-  // â”€â”€ EARLY RETURNS (all hooks above this line) â”€â”€
+  // ── EARLY RETURNS (all hooks above this line) ──
   // Trigger native Android notification permission ONCE after sign-in
   useEffect(() => {
     return; // TEMP: disabled for debug
@@ -201,8 +197,8 @@ function AppContent() {
         const { Capacitor } = await import("@capacitor/core");
         if (Capacitor.isNativePlatform()) {
           const result = await PushNotifications.requestPermissions();
-          console.log("ðŸ”” Permission result:", result.receive);
-          // register() waits for FCM setup â€” safe to enable later
+          console.log("🔔 Permission result:", result.receive);
+          // register() waits for FCM setup — safe to enable later
         } else if ("Notification" in window) {
           await Notification.requestPermission();
         }
@@ -225,7 +221,7 @@ function AppContent() {
   }
   if (!user) return <AuthScreen />;
 
-  // â”€â”€ Pending email verification â†’ show VerifyEmailScreen â”€â”€
+  // ── Pending email verification → show VerifyEmailScreen ──
   if (pendingVerification && !user) {
     return (
       <VerifyEmailScreen
@@ -235,7 +231,7 @@ function AppContent() {
     );
   }
 
-  // â”€â”€ Company user without company name â†’ setup screen â”€â”€
+  // ── Company user without company name → setup screen ──
   const needsCompanySetup =
     user &&
     user.accountType === "company" &&
@@ -243,14 +239,12 @@ function AppContent() {
   if (needsCompanySetup) {
     return <CompanySetupScreen setPage={setPage} />;
   }
-  // â”€â”€ Main render helpers â”€â”€
+  // ── Main render helpers ──
   const renderPage = () => {
     switch (page) {
       case "home": return <HomePage setPage={navigate} setSelectedUserId={setSelectedUserId} focusPostId={focusPostId} />;
       case "discover": return <DiscoverPage setPage={navigate} setSelectedUserId={setSelectedUserId} />;
       case "channel": return <ChannelPage slug={channelSlug} setPage={navigate} />;
-      case "premium": return <PremiumPage setPage={navigate} />;
-      case "payment-complete": return <PaymentCompletePage setPage={navigate} />;
       case "auth-callback": return <AuthCallback setPage={navigate} />;
       case "myai": return <ChatPage />;
       case "jobs": return <JobsPage focusJobSlug={focusJobSlug} />;
@@ -317,4 +311,3 @@ export default function App() {
     </PostsProvider>
   );
 }
-
