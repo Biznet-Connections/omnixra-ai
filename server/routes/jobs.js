@@ -1,4 +1,7 @@
-import express from "express";
+﻿import express from "express";
+import { sendEmail, applicationEmailHtml } from "../utils/mailer.js";
+import { resolveCompanyTarget } from "../utils/companyResolver.js";
+import { requireTier } from "../middleware/tier.js";
 import Job from "../models/Job.js";
 import Application from "../models/Application.js";
 import { protect } from "../middleware/auth.js";
@@ -69,7 +72,7 @@ router.get("/slug/:slug", cacheShort(300, 600), async (req, res) => {
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 
-// GET single job — handle generated jobs
+// GET single job â€” handle generated jobs
 router.get("/:id", async (req, res) => {
   try {
     // If ID starts with "generated-", return a generated job object
@@ -91,7 +94,7 @@ router.get("/:id", async (req, res) => {
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 
-// APPLY TO JOB — handle both real and generated jobs
+// APPLY TO JOB â€” handle both real and generated jobs
 router.post("/:id/apply", protect, async (req, res) => {
   console.log(`=== APPLY TO JOB ${req.params.id} ===`);
   try {
@@ -138,8 +141,137 @@ router.post("/:id/apply", protect, async (req, res) => {
   }
 });
 
-// APPLY FOR ME (premium)
-router.post("/:id/apply-for-me", protect, async (req, res) => {
+// ── APPLY VIA OMNIXRA (Starter+) ──
+router.post("/:id/apply-omnixra", protect, requireTier("starter"), async (req, res) => {
+  try {
+    const { message, cvAttachment, cvName } = req.body;
+    if (!message?.trim()) return res.status(400).json({ message: "Message required" });
+
+    let job;
+    if (req.params.id.startsWith("generated-")) {
+      job = { _id: req.params.id, title: "Generated Job", company: "Company", companyId: null };
+    } else {
+      job = await Job.findById(req.params.id);
+      if (!job) return res.status(404).json({ message: "Job not found" });
+    }
+
+    const existing = await Application.findOne({ jobId: req.params.id, userId: req.user._id });
+    if (existing) return res.status(400).json({ message: "You already applied to this job." });
+
+    const target = await resolveCompanyTarget({
+      companyId: job.companyId,
+      companyName: job.company,
+    });
+
+    const application = await Application.create({
+      jobId: req.params.id,
+      userId: req.user._id,
+      companyId: job.companyId || null,
+      companyName: job.company,
+      message,
+      status: "applied",
+      matchPercentage: 50,
+      method: "omnixra",
+      cvAttachment: cvAttachment || null,
+      cvName: cvName || null,
+    });
+
+    // Route: registered company → DM; else → email
+    if (target.type === "user") {
+      let conversation = await Conversation.findOne({
+        participants: { $all: [req.user._id, target.userId], $size: 2 },
+      });
+      if (!conversation) {
+        conversation = await Conversation.create({
+          participants: [req.user._id, target.userId],
+          messages: [],
+        });
+      }
+      conversation.messages.push({
+        sender: req.user._id,
+        text: `Application for ${job.title}\n\n${message}`,
+      });
+      conversation.lastMessage = `Application for ${job.title}`;
+      conversation.lastMessageAt = new Date();
+      await conversation.save();
+
+      application.companyUserId = target.userId;
+      application.conversationId = conversation._id;
+      application.deliveredTo = "omnixra-inbox";
+      application.deliveredAt = new Date();
+      await application.save();
+
+      return res.status(201).json({ message: "Sent to company Omnixra inbox", application, method: "dm" });
+    }
+
+    if (target.type === "email") {
+      const html = applicationEmailHtml({
+        applicantName: req.user.name,
+        applicantEmail: req.user.email,
+        applicantPhone: req.user.phone || "",
+        jobTitle: job.title,
+        companyName: job.company,
+        coverLetter: message,
+        cvUrl: null,
+      });
+      const result = await sendEmail({
+        to: target.email,
+        subject: `Application: ${job.title} — ${req.user.name}`,
+        html,
+        replyTo: req.user.email,
+      });
+
+      application.deliveredTo = target.email;
+      application.deliveredAt = result.success ? new Date() : null;
+      await application.save();
+
+      return res.status(201).json({
+        message: result.success ? "Application sent by email" : "Application saved (email failed)",
+        application,
+        method: "email",
+      });
+    }
+
+    return res.status(201).json({ message: "Application saved", application, method: "saved" });
+  } catch (error) {
+    console.error("Apply-omnixra error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ── LOG GMAIL APPLICATION (free) ──
+router.post("/:id/apply-gmail-log", protect, async (req, res) => {
+  try {
+    const { message } = req.body;
+    let job;
+    if (req.params.id.startsWith("generated-")) {
+      job = { _id: req.params.id, title: "Generated Job", company: "Company", companyId: null };
+    } else {
+      job = await Job.findById(req.params.id);
+    }
+
+    const existing = await Application.findOne({ jobId: req.params.id, userId: req.user._id });
+    if (existing) return res.json({ message: "Already logged", application: existing });
+
+    const application = await Application.create({
+      jobId: req.params.id,
+      userId: req.user._id,
+      companyId: job?.companyId || null,
+      companyName: job?.company,
+      message: message || "Applied via Gmail",
+      method: "gmail",
+      matchPercentage: 50,
+    });
+
+    res.status(201).json({ message: "Logged", application });
+  } catch (error) {
+    console.error("Gmail log error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ── APPLY FOR ME (Starter+ — auto-send) ──
+router.post("/:id/apply-for-me", protect, requireTier("starter"), async (req, res) => {
   console.log(`=== APPLY FOR ME - Job ${req.params.id} ===`);
   try {
     if (!req.user.isPremium) {

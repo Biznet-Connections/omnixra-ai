@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import { protect } from "../middleware/auth.js";
 import { askAI } from "../utils/aiService.js";
 import Job from "../models/Job.js";
@@ -275,42 +275,42 @@ router.post("/industries", async (req, res) => {
     
     // Local industry list with emojis
     const localIndustries = [
-      { name: "Information Technology", emoji: "💻" },
-      { name: "Software Development", emoji: "📱" },
-      { name: "Networking", emoji: "🌐" },
-      { name: "Cybersecurity", emoji: "🔒" },
-      { name: "Finance & Accounting", emoji: "💰" },
-      { name: "Banking", emoji: "🏦" },
-      { name: "Insurance", emoji: "🛡️" },
-      { name: "Marketing & Sales", emoji: "📈" },
-      { name: "Digital Marketing", emoji: "📣" },
-      { name: "Healthcare", emoji: "🏥" },
-      { name: "Nursing", emoji: "👩‍⚕️" },
-      { name: "Pharmacy", emoji: "💊" },
-      { name: "Education", emoji: "📚" },
-      { name: "Teaching", emoji: "👨‍🏫" },
-      { name: "Engineering", emoji: "⚙️" },
-      { name: "Construction", emoji: "🏗️" },
-      { name: "Plumbing", emoji: "🔧" },
-      { name: "Electrical", emoji: "⚡" },
-      { name: "Welding & Fabrication", emoji: "🔥" },
-      { name: "Mechanics", emoji: "🔩" },
-      { name: "Carpentry", emoji: "🪚" },
-      { name: "Housekeeping", emoji: "🧹" },
-      { name: "Gardening", emoji: "🌱" },
-      { name: "Nanny / Childcare", emoji: "👶" },
-      { name: "Driving", emoji: "🚗" },
-      { name: "Logistics", emoji: "🚚" },
-      { name: "Security", emoji: "🛡️" },
-      { name: "Farm Work", emoji: "🌾" },
-      { name: "Agriculture", emoji: "🚜" },
-      { name: "Retail", emoji: "🛍️" },
-      { name: "Hospitality", emoji: "🏨" },
-      { name: "Tourism", emoji: "✈️" },
-      { name: "Media & Communications", emoji: "📰" },
-      { name: "Legal", emoji: "⚖️" },
-      { name: "Human Resources", emoji: "👥" },
-      { name: "General", emoji: "💼" }
+      { name: "Information Technology", emoji: "ðŸ’»" },
+      { name: "Software Development", emoji: "ðŸ“±" },
+      { name: "Networking", emoji: "ðŸŒ" },
+      { name: "Cybersecurity", emoji: "ðŸ”’" },
+      { name: "Finance & Accounting", emoji: "ðŸ’°" },
+      { name: "Banking", emoji: "ðŸ¦" },
+      { name: "Insurance", emoji: "ðŸ›¡ï¸" },
+      { name: "Marketing & Sales", emoji: "ðŸ“ˆ" },
+      { name: "Digital Marketing", emoji: "ðŸ“£" },
+      { name: "Healthcare", emoji: "ðŸ¥" },
+      { name: "Nursing", emoji: "ðŸ‘©â€âš•ï¸" },
+      { name: "Pharmacy", emoji: "ðŸ’Š" },
+      { name: "Education", emoji: "ðŸ“š" },
+      { name: "Teaching", emoji: "ðŸ‘¨â€ðŸ«" },
+      { name: "Engineering", emoji: "âš™ï¸" },
+      { name: "Construction", emoji: "ðŸ—ï¸" },
+      { name: "Plumbing", emoji: "ðŸ”§" },
+      { name: "Electrical", emoji: "âš¡" },
+      { name: "Welding & Fabrication", emoji: "ðŸ”¥" },
+      { name: "Mechanics", emoji: "ðŸ”©" },
+      { name: "Carpentry", emoji: "ðŸªš" },
+      { name: "Housekeeping", emoji: "ðŸ§¹" },
+      { name: "Gardening", emoji: "ðŸŒ±" },
+      { name: "Nanny / Childcare", emoji: "ðŸ‘¶" },
+      { name: "Driving", emoji: "ðŸš—" },
+      { name: "Logistics", emoji: "ðŸšš" },
+      { name: "Security", emoji: "ðŸ›¡ï¸" },
+      { name: "Farm Work", emoji: "ðŸŒ¾" },
+      { name: "Agriculture", emoji: "ðŸšœ" },
+      { name: "Retail", emoji: "ðŸ›ï¸" },
+      { name: "Hospitality", emoji: "ðŸ¨" },
+      { name: "Tourism", emoji: "âœˆï¸" },
+      { name: "Media & Communications", emoji: "ðŸ“°" },
+      { name: "Legal", emoji: "âš–ï¸" },
+      { name: "Human Resources", emoji: "ðŸ‘¥" },
+      { name: "General", emoji: "ðŸ’¼" }
     ];
     
     // Filter local list
@@ -412,7 +412,7 @@ router.post("/industries", async (req, res) => {
         if (q.includes(keyword)) {
           matches = suggestions.map((name, i) => ({ 
             name, 
-            emoji: ["🚜", "🌾", "💼", "🔧", "🏗️", "💻"][i % 6] 
+            emoji: ["ðŸšœ", "ðŸŒ¾", "ðŸ’¼", "ðŸ”§", "ðŸ—ï¸", "ðŸ’»"][i % 6] 
           }));
           console.log(`Keyword match for "${keyword}":`, matches);
           break;
@@ -453,7 +453,7 @@ router.post("/industries", async (req, res) => {
         }
         
         if (Array.isArray(parsed) && parsed.length > 0) {
-          matches = parsed.slice(0, 6).map(name => ({ name: String(name).trim(), emoji: "💼" }));
+          matches = parsed.slice(0, 6).map(name => ({ name: String(name).trim(), emoji: "ðŸ’¼" }));
         }
       } catch (aiError) {
         console.error("AI industry suggestion failed:", aiError.message);
@@ -463,32 +463,32 @@ router.post("/industries", async (req, res) => {
     // If STILL no matches, suggest based on keywords
     if (matches.length === 0 && q.length >= 2) {
       const keywordMap = {
-        "farm": [{ name: "Agriculture", emoji: "🚜" }, { name: "Farm Work", emoji: "🌾" }],
-        "agric": [{ name: "Agriculture", emoji: "🚜" }, { name: "Farm Work", emoji: "🌾" }],
-        "potato": [{ name: "Agriculture", emoji: "🚜" }, { name: "Farm Work", emoji: "🌾" }],
-        "crop": [{ name: "Agriculture", emoji: "🚜" }, { name: "Farm Work", emoji: "🌾" }],
-        "cook": [{ name: "Hospitality", emoji: "🏨" }, { name: "Food Service", emoji: "🍳" }],
-        "food": [{ name: "Hospitality", emoji: "🏨" }, { name: "Food Service", emoji: "🍳" }],
-        "tech": [{ name: "Information Technology", emoji: "💻" }, { name: "Software Development", emoji: "📱" }],
-        "soft": [{ name: "Software Development", emoji: "📱" }, { name: "Information Technology", emoji: "💻" }],
-        "build": [{ name: "Construction", emoji: "🏗️" }, { name: "Engineering", emoji: "⚙️" }],
-        "drive": [{ name: "Driving", emoji: "🚗" }, { name: "Logistics", emoji: "🚚" }],
-        "teach": [{ name: "Education", emoji: "📚" }, { name: "Teaching", emoji: "👨‍🏫" }],
-        "health": [{ name: "Healthcare", emoji: "🏥" }, { name: "Nursing", emoji: "👩‍⚕️" }],
-        "nurse": [{ name: "Nursing", emoji: "👩‍⚕️" }, { name: "Healthcare", emoji: "🏥" }],
-        "sell": [{ name: "Marketing & Sales", emoji: "📈" }, { name: "Retail", emoji: "🛍️" }],
-        "market": [{ name: "Marketing & Sales", emoji: "📈" }, { name: "Digital Marketing", emoji: "📣" }],
-        "clean": [{ name: "Housekeeping", emoji: "🧹" }, { name: "Cleaning Services", emoji: "🧽" }],
-        "garden": [{ name: "Gardening", emoji: "🌱" }, { name: "Agriculture", emoji: "🚜" }],
-        "electric": [{ name: "Electrical", emoji: "⚡" }, { name: "Engineering", emoji: "⚙️" }],
-        "plumb": [{ name: "Plumbing", emoji: "🔧" }, { name: "Construction", emoji: "🏗️" }],
-        "weld": [{ name: "Welding & Fabrication", emoji: "🔥" }, { name: "Construction", emoji: "🏗️" }],
-        "mechanic": [{ name: "Mechanics", emoji: "🔩" }, { name: "Automotive", emoji: "🚗" }],
-        "carpent": [{ name: "Carpentry", emoji: "🪚" }, { name: "Construction", emoji: "🏗️" }],
-        "security": [{ name: "Security", emoji: "🛡️" }, { name: "Safety", emoji: "🔒" }],
-        "account": [{ name: "Finance & Accounting", emoji: "💰" }, { name: "Accounting", emoji: "📊" }],
-        "finance": [{ name: "Finance & Accounting", emoji: "💰" }, { name: "Banking", emoji: "🏦" }],
-        "bank": [{ name: "Banking", emoji: "🏦" }, { name: "Finance & Accounting", emoji: "💰" }]
+        "farm": [{ name: "Agriculture", emoji: "ðŸšœ" }, { name: "Farm Work", emoji: "ðŸŒ¾" }],
+        "agric": [{ name: "Agriculture", emoji: "ðŸšœ" }, { name: "Farm Work", emoji: "ðŸŒ¾" }],
+        "potato": [{ name: "Agriculture", emoji: "ðŸšœ" }, { name: "Farm Work", emoji: "ðŸŒ¾" }],
+        "crop": [{ name: "Agriculture", emoji: "ðŸšœ" }, { name: "Farm Work", emoji: "ðŸŒ¾" }],
+        "cook": [{ name: "Hospitality", emoji: "ðŸ¨" }, { name: "Food Service", emoji: "ðŸ³" }],
+        "food": [{ name: "Hospitality", emoji: "ðŸ¨" }, { name: "Food Service", emoji: "ðŸ³" }],
+        "tech": [{ name: "Information Technology", emoji: "ðŸ’»" }, { name: "Software Development", emoji: "ðŸ“±" }],
+        "soft": [{ name: "Software Development", emoji: "ðŸ“±" }, { name: "Information Technology", emoji: "ðŸ’»" }],
+        "build": [{ name: "Construction", emoji: "ðŸ—ï¸" }, { name: "Engineering", emoji: "âš™ï¸" }],
+        "drive": [{ name: "Driving", emoji: "ðŸš—" }, { name: "Logistics", emoji: "ðŸšš" }],
+        "teach": [{ name: "Education", emoji: "ðŸ“š" }, { name: "Teaching", emoji: "ðŸ‘¨â€ðŸ«" }],
+        "health": [{ name: "Healthcare", emoji: "ðŸ¥" }, { name: "Nursing", emoji: "ðŸ‘©â€âš•ï¸" }],
+        "nurse": [{ name: "Nursing", emoji: "ðŸ‘©â€âš•ï¸" }, { name: "Healthcare", emoji: "ðŸ¥" }],
+        "sell": [{ name: "Marketing & Sales", emoji: "ðŸ“ˆ" }, { name: "Retail", emoji: "ðŸ›ï¸" }],
+        "market": [{ name: "Marketing & Sales", emoji: "ðŸ“ˆ" }, { name: "Digital Marketing", emoji: "ðŸ“£" }],
+        "clean": [{ name: "Housekeeping", emoji: "ðŸ§¹" }, { name: "Cleaning Services", emoji: "ðŸ§½" }],
+        "garden": [{ name: "Gardening", emoji: "ðŸŒ±" }, { name: "Agriculture", emoji: "ðŸšœ" }],
+        "electric": [{ name: "Electrical", emoji: "âš¡" }, { name: "Engineering", emoji: "âš™ï¸" }],
+        "plumb": [{ name: "Plumbing", emoji: "ðŸ”§" }, { name: "Construction", emoji: "ðŸ—ï¸" }],
+        "weld": [{ name: "Welding & Fabrication", emoji: "ðŸ”¥" }, { name: "Construction", emoji: "ðŸ—ï¸" }],
+        "mechanic": [{ name: "Mechanics", emoji: "ðŸ”©" }, { name: "Automotive", emoji: "ðŸš—" }],
+        "carpent": [{ name: "Carpentry", emoji: "ðŸªš" }, { name: "Construction", emoji: "ðŸ—ï¸" }],
+        "security": [{ name: "Security", emoji: "ðŸ›¡ï¸" }, { name: "Safety", emoji: "ðŸ”’" }],
+        "account": [{ name: "Finance & Accounting", emoji: "ðŸ’°" }, { name: "Accounting", emoji: "ðŸ“Š" }],
+        "finance": [{ name: "Finance & Accounting", emoji: "ðŸ’°" }, { name: "Banking", emoji: "ðŸ¦" }],
+        "bank": [{ name: "Banking", emoji: "ðŸ¦" }, { name: "Finance & Accounting", emoji: "ðŸ’°" }]
       };
       
       for (const [keyword, suggestions] of Object.entries(keywordMap)) {
@@ -506,3 +506,51 @@ router.post("/industries", async (req, res) => {
 });
 
 export default router;
+
+// ── Generate cover letter for a job application ──
+
+
+
+router.post("/apply-cover-letter", protect, async (req, res) => {
+  try {
+    const { jobId } = req.body;
+    if (!jobId) return res.status(400).json({ message: "jobId required" });
+
+    let job = null;
+    if (!jobId.startsWith("generated-")) {
+      job = await Job.findById(jobId).lean();
+    }
+    const jobTitle = job?.title || "the advertised role";
+    const company = job?.company || "your company";
+    const category = job?.category || req.user.category || "General";
+
+    const { askAI } = await import("../utils/aiService.js");
+    const prompt = `Write a professional cover letter for a job application.
+Applicant: ${req.user.name}
+Location: ${req.user.location || "Zimbabwe"}
+Category: ${req.user.category || "General"}
+Skills: ${(req.user.skills || []).join(", ") || "General"}
+Headline: ${req.user.headline || "Job seeker"}
+Position: ${jobTitle}
+Company: ${company}
+
+Rules:
+- Keep it under 200 words
+- Start with "Dear Hiring Manager,"
+- End with "Yours faithfully,\n${req.user.name}"
+- Be confident but not arrogant
+- Reference the position and company
+- No emojis
+- Plain text only`;
+
+    const message = await askAI([
+      { role: "system", content: "You are a professional cover letter writer." },
+      { role: "user", content: prompt },
+    ]);
+
+    res.json({ message: message || "" });
+  } catch (e) {
+    console.error("[ai/cover-letter] error:", e.message);
+    res.status(500).json({ message: e.message });
+  }
+});

@@ -1,11 +1,19 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { ShieldCheck, MapPin, Briefcase, Mail, Rocket, Sparkles, UserCheck, FileText, Building2 } from "lucide-react";
+import api from "../api/axios";
 import PremiumModal from "./PremiumModal";
+import LockedFeatureModal from "./LockedFeatureModal";
+import PaymentModal from "./PaymentModal";
+import { hasTier } from "../utils/tierHelpers";
 import { useAuth } from "../context/AuthContext";
 
 function CompanyCard({ company }) {
   const { user } = useAuth();
   const [showPremium, setShowPremium] = useState(false);
+  const [showLocked, setShowLocked] = useState(false);
+  const [lockedFeature, setLockedFeature] = useState("");
+  const [activePlan, setActivePlan] = useState(null);
+  const [contacting, setContacting] = useState(false);
   const [followed, setFollowed] = useState(false);
 
   const handlePremiumAction = () => {
@@ -51,7 +59,7 @@ function CompanyCard({ company }) {
             <div className="text-[9px] text-slate-700">positions</div>
           </div>
           <div className="stat-mini">
-            <div className="text-sm font-semibold">{company.jobs || "—"}</div>
+            <div className="text-sm font-semibold">{company.jobs || "â€”"}</div>
             <div className="text-[9px] text-slate-700">jobs</div>
           </div>
         </div>
@@ -77,6 +85,22 @@ function CompanyCard({ company }) {
       </div>
 
       {showPremium && <PremiumModal onClose={() => setShowPremium(false)} />}
+      {showLocked && (
+        <LockedFeatureModal
+          featureName={lockedFeature}
+          description="Upgrade to contact companies directly."
+          onClose={() => setShowLocked(false)}
+          onChoosePlan={(planKey) => { setShowLocked(false); setActivePlan(planKey); }}
+          onSeePricing={() => { setShowLocked(false); setShowPremium(true); }}
+        />
+      )}
+      {activePlan && (
+        <PaymentModal
+          planKey={activePlan}
+          onClose={() => setActivePlan(null)}
+          onSuccess={() => setActivePlan(null)}
+        />
+      )}
     </>
   );
 }
