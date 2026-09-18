@@ -104,8 +104,25 @@ router.post("/:id/contact", protect, requireTier("starter"), async (req, res) =>
   try {
     const { mode = "inbox", message = "" } = req.body; // mode: "inbox" | "push_profile"
     const Company = (await import("../models/Company.js")).default;
-    const company = await Company.findById(req.params.id);
-    if (!company) return res.status(404).json({ message: "Company not found" });
+    const User = (await import("../models/User.js")).default;
+
+    let company = await Company.findById(req.params.id).lean();
+
+    // Fallback: registered company might be a User with accountType=company
+    if (!company) {
+      const companyUser = await User.findOne({ _id: req.params.id, accountType: "company" }).lean();
+      if (companyUser) {
+        company = {
+          _id: companyUser._id,
+          name: companyUser.companyName || companyUser.name,
+          email: companyUser.email,
+        };
+      }
+    }
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
 
     const target = await resolveCompanyTarget({ companyId: company._id, companyName: company.name });
 
