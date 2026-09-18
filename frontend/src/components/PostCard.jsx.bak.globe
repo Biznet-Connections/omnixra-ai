@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from "react";
-import { Heart, MessageCircle, Share2, Bookmark, Ellipsis, Check, Trash2, UserPlus, Building2, Lock, Pencil, Rocket , Globe } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, Ellipsis, Check, Trash2, UserPlus, Building2, Lock, Pencil, Rocket } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import CommentsBottomSheet from "./CommentsBottomSheet";
