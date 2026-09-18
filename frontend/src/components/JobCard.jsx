@@ -107,8 +107,7 @@ function JobCard({ job, tab = "omnixra" }) {
       setShowLocked(true);
       return;
     }
-    setActivePlan("boost_20k"); // placeholder — push CV uses subscription, no charge
-    setShowPremium(true);
+    setShowComposer(true);
   };
 
   return (
@@ -145,13 +144,7 @@ function JobCard({ job, tab = "omnixra" }) {
         <div className="card-actions">
           <button onClick={() => setShowDetail(true)} className="outline-button"><ExternalLink size={13} />View</button>
           <button
-            onClick={() => {
-              if (tab === "scraped" && job.applicationUrl) {
-                window.open(job.applicationUrl, "_blank");
-              } else {
-                setShowApply(true);
-              }
-            }}
+            onClick={handleApplyClick}
             className={`apply-button ${applied ? "applied" : ""}`}
           >
             {applied ? <Check size={13} /> : <Send size={13} />} {applied ? "Applied" : "Apply"}
@@ -162,7 +155,7 @@ function JobCard({ job, tab = "omnixra" }) {
           <button onClick={handleShare} className="outline-button"><Share2 size={13} />Share</button>
           <button onClick={handleApplyForMe} className="outline-button text-indigo-400"><Sparkles size={13} />Apply for me</button>
           {tab === "omnixra" && (
-            <button onClick={() => setShowPremium(true)} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
+            <button onClick={handlePushCV} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
           )}
         </div>
       </div>
@@ -219,7 +212,7 @@ function JobCard({ job, tab = "omnixra" }) {
             <p className="text-sm text-slate-300 leading-7">{job.description}</p>
             {job.source && job.source !== "omnixra" && <p className="text-xs text-slate-500 mt-3">Source: {job.source}</p>}
             <div className="flex gap-2 mt-5">
-              <button onClick={() => { setShowDetail(false); setShowApply(true); }} className="apply-button flex-1">Apply Now</button>
+              <button onClick={() => { setShowDetail(false); handleApplyClick(); }} className="apply-button flex-1">Apply Now</button>
               <button onClick={handleShare} className="outline-button">Share</button>
             </div>
           </div>
