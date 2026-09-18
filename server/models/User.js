@@ -27,6 +27,8 @@ const userSchema = new mongoose.Schema(
       default: "none",
     },
     subscriptionExpiresAt: { type: Date },
+    expiryWarningSent: { type: Boolean, default: false },
+    expiredNotificationSent: { type: Boolean, default: false },
     pushCredits: { type: Number, default: 0 },
     lastPaymentId: { type: mongoose.Schema.Types.ObjectId, ref: "Payment" },
     pushCredits: { type: Number, default: 0 },

@@ -1,4 +1,5 @@
-import express from "express";
+﻿import express from "express";
+import { getWarningThreshold } from "./utils/subscriptionDurations.js";
 import cors from "cors";
 import compression from "compression";
 import dotenv from "dotenv";
@@ -152,30 +153,30 @@ async function notifyNewsToAllUsers(newsPost) {
 }
 
 async function generateDailyNewsIfNeeded() {
-  console.log("═══════════════════════════════════════════");
-  console.log("📰 NEWS CHECK STARTED at", new Date().toISOString());
+  console.log("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+  console.log("ðŸ“° NEWS CHECK STARTED at", new Date().toISOString());
   console.log("   newsLock:", newsLock);
   console.log("   DISABLE_AUTO_NEWS:", process.env.DISABLE_AUTO_NEWS);
   
   // Module-level lock
   if (newsLock) {
-    console.log("   ❌ SKIPPING: newsLock is true (another call in progress)");
-    console.log("═══════════════════════════════════════════");
+    console.log("   âŒ SKIPPING: newsLock is true (another call in progress)");
+    console.log("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
     return;
   }
   newsLock = true;
-  console.log("   🔒 newsLock acquired");
+  console.log("   ðŸ”’ newsLock acquired");
 
   try {
     const today = new Date();
     const dayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-    console.log("   📅 Day key:", dayKey);
+    console.log("   ðŸ“… Day key:", dayKey);
 
     const todayStart = new Date(today);
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(today);
     todayEnd.setHours(23, 59, 59, 999);
-    console.log("   🕐 Range:", todayStart.toISOString(), "→", todayEnd.toISOString());
+    console.log("   ðŸ• Range:", todayStart.toISOString(), "â†’", todayEnd.toISOString());
 
     // Count today's AI posts
     const todayCount = await Post.countDocuments({
@@ -183,18 +184,18 @@ async function generateDailyNewsIfNeeded() {
       newsHash: global.__lastNewsHash || null,
       createdAt: { $gte: todayStart, $lte: todayEnd }
     });
-    console.log("   📊 AI posts created today:", todayCount);
+    console.log("   ðŸ“Š AI posts created today:", todayCount);
 
     if (todayCount > 0) {
-      console.log("   ✅ SKIPPING: news already exists for today");
-      console.log("═══════════════════════════════════════════");
+      console.log("   âœ… SKIPPING: news already exists for today");
+      console.log("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
       return;
     }
 
-    console.log("   ⚙️  Generating AI news...");
+    console.log("   âš™ï¸  Generating AI news...");
 
     const aiUserId = await ensureAIUser();
-    console.log("   👤 AI user ID:", aiUserId);
+    console.log("   ðŸ‘¤ AI user ID:", aiUserId);
 
     const now = new Date();
     const currentDate = now.toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" });
@@ -226,12 +227,12 @@ RULES:
 4. NEVER repeat the same angle, companies, or headlines two days in a row. Be creative.
     5. Keep it under 500 words.${avoidList}`;
 
-console.log(`📅 News prompt uses date: ${currentDate}`);
+console.log(`ðŸ“… News prompt uses date: ${currentDate}`);
     const aiResponse = await askAI([
       { role: "system", content: systemPrompt },
       { role: "user", content: "Create today fresh news update focused on: " + todayFocus },
     ]);
-    console.log("   🤖 AI response length:", aiResponse?.length || 0);
+    console.log("   ðŸ¤– AI response length:", aiResponse?.length || 0);
 
     // Duplicate check
     let newsHash = null;
@@ -247,8 +248,8 @@ console.log(`📅 News prompt uses date: ${currentDate}`);
     }
 
     if (!aiResponse || typeof aiResponse !== "string" || aiResponse.trim().length < 50) {
-      console.log("   ❌ SKIPPING: AI response too short");
-      console.log("═══════════════════════════════════════════");
+      console.log("   âŒ SKIPPING: AI response too short");
+      console.log("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
       return;
     }
 
@@ -257,11 +258,11 @@ console.log(`📅 News prompt uses date: ${currentDate}`);
       authorType: "ai",
       createdAt: { $gte: todayStart, $lte: todayEnd }
     });
-    console.log("   🔍 Recheck before insert:", recheck, "posts");
+    console.log("   ðŸ” Recheck before insert:", recheck, "posts");
 
     if (recheck > 0) {
-      console.log("   ❌ SKIPPING: another instance created news");
-      console.log("═══════════════════════════════════════════");
+      console.log("   âŒ SKIPPING: another instance created news");
+      console.log("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
       return;
     }
 
@@ -271,14 +272,14 @@ console.log(`📅 News prompt uses date: ${currentDate}`);
       text: aiResponse,
       visibility: "public"
     });
-    console.log("   ✅✅✅ NEWS CREATED:", created._id);
-    console.log("═══════════════════════════════════════════");
+    console.log("   âœ…âœ…âœ… NEWS CREATED:", created._id);
+    console.log("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
   } catch (error) {
-    console.error("   ❌ ERROR:", error.message);
-    console.log("═══════════════════════════════════════════");
+    console.error("   âŒ ERROR:", error.message);
+    console.log("â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
   } finally {
     newsLock = false;
-    console.log("   🔓 newsLock released");
+    console.log("   ðŸ”“ newsLock released");
   }
 }
 
@@ -290,7 +291,7 @@ app.get("/jobs/:slug", async (req, res, next) => {
     const job = await Job.findOne({ slug });
     if (job) {
       const title = `${job.title} at ${job.company}`;
-      const description = `${job.location}${job.salary ? " · " + job.salary : ""} · Apply now on Omnixra`;
+      const description = `${job.location}${job.salary ? " Â· " + job.salary : ""} Â· Apply now on Omnixra`;
       const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -340,35 +341,111 @@ const server = http.createServer(app);
 const io = initSocket(server);
 
 connectDB().then(() => {
-  // ── Boot Firebase Admin eagerly ──
+  // â”€â”€ Boot Firebase Admin eagerly â”€â”€
 import("./utils/fcm.js").then((m) => {
   m.initFirebase().then((ready) => {
-    if (ready) console.log("🔔 Firebase Admin ready — push notifications enabled");
-    else console.warn("⚠️  Firebase Admin not ready — push notifications disabled");
+    if (ready) console.log("ðŸ”” Firebase Admin ready â€” push notifications enabled");
+    else console.warn("âš ï¸  Firebase Admin not ready â€” push notifications disabled");
   }).catch((e) => console.warn("Firebase boot error:", e.message));
 });
 
+// ── Subscription expiry cron (runs every 60 seconds) ──
+
+async function expiryChecker() {
+  try {
+    const now = new Date();
+    const User = (await import("./models/User.js")).default;
+    const { notifyUser } = await import("./utils/notify.js");
+    const threshold = getWarningThreshold();
+
+    // 1. Send warning at 50% elapsed
+    const warningCutoff = new Date(now.getTime() + 60 * 1000); // next minute
+    const warningUsers = await User.find({
+      isPremium: true,
+      subscriptionExpiresAt: { $gt: now, $lt: warningCutoff },
+      expiryWarningSent: { $ne: true },
+    }).select("_id email subscriptionTier subscriptionExpiresAt").lean();
+
+    for (const u of warningUsers) {
+      try {
+        const secs = Math.max(0, Math.round((new Date(u.subscriptionExpiresAt) - now) / 1000));
+        await notifyUser(u._id, {
+          title: "Subscription expiring soon",
+          body: `Your ${u.subscriptionTier} plan expires in ${secs}s. Renew now to keep access.`,
+          data: { type: "subscription", action: "warning" },
+        });
+        await User.findByIdAndUpdate(u._id, { expiryWarningSent: true });
+        console.log(`[expiry] warned user ${u.email}`);
+      } catch (e) { console.warn("[expiry] warn failed:", e.message); }
+    }
+
+    // 2. Downgrade expired
+    const expired = await User.find({
+      isPremium: true,
+      subscriptionExpiresAt: { $lt: now },
+    }).select("_id email subscriptionTier").lean();
+
+    for (const u of expired) {
+      await User.findByIdAndUpdate(u._id, {
+        isPremium: false,
+        subscriptionTier: "none",
+        expiredNotificationSent: true,
+      });
+      try {
+        await notifyUser(u._id, {
+          title: "Subscription expired",
+          body: `Your ${u.subscriptionTier} plan has expired. Renew to continue.`,
+          data: { type: "subscription", action: "expired" },
+        });
+      } catch (e) { console.warn("[expiry] expired notify failed:", e.message); }
+      console.log(`[expiry] downgraded user ${u.email}`);
+    }
+  } catch (e) {
+    console.error("[expiryChecker] error:", e.message);
+  }
+}
+
+setInterval(expiryChecker, 60 * 1000); // every 60s
+
+// ── Pending payment cleanup (runs every 10 min) ──
+async function pendingPaymentCleaner() {
+  try {
+    const Payment = (await import("./models/Payment.js")).default;
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000); // 30 min old
+    const result = await Payment.updateMany(
+      { status: "pending", createdAt: { $lt: cutoff } },
+      { status: "cancelled", cancelledAt: new Date(), failureReason: "Auto-cancelled (timeout)" }
+    );
+    if (result.modifiedCount > 0) {
+      console.log(`[cleanup] cancelled ${result.modifiedCount} stale pending payments`);
+    }
+  } catch (e) {
+    console.error("[pendingPaymentCleaner] error:", e.message);
+  }
+}
+
+setInterval(pendingPaymentCleaner, 10 * 60 * 1000); // every 10 min
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    // Daily AI news — disable on secondary instances
-    console.log("📅 [SCHEDULER] DISABLE_AUTO_NEWS =", process.env.DISABLE_AUTO_NEWS);
+    // Daily AI news â€” disable on secondary instances
+    console.log("ðŸ“… [SCHEDULER] DISABLE_AUTO_NEWS =", process.env.DISABLE_AUTO_NEWS);
     if (process.env.DISABLE_AUTO_NEWS !== "true") {
-      console.log("📅 [SCHEDULER] Calling generateDailyNewsIfNeeded() on startup...");
+      console.log("ðŸ“… [SCHEDULER] Calling generateDailyNewsIfNeeded() on startup...");
       generateDailyNewsIfNeeded();
-      console.log("📅 [SCHEDULER] Setting up 24h interval for news");
+      console.log("ðŸ“… [SCHEDULER] Setting up 24h interval for news");
       setInterval(() => {
-        console.log("📅 [SCHEDULER] 24h interval fired");
+        console.log("ðŸ“… [SCHEDULER] 24h interval fired");
         generateDailyNewsIfNeeded();
       }, 24 * 60 * 60 * 1000);
     } else {
-      console.log("ℹ️  Auto news generation disabled (DISABLE_AUTO_NEWS=true)");
+      console.log("â„¹ï¸  Auto news generation disabled (DISABLE_AUTO_NEWS=true)");
     }
 
-    // 🕐 Job scraper runs 3 times per day: 8am, 12pm, 4pm
-    console.log("📅 Scheduling scraper: 3x daily (8am, 12pm, 4pm)");
+    // ðŸ• Job scraper runs 3 times per day: 8am, 12pm, 4pm
+    console.log("ðŸ“… Scheduling scraper: 3x daily (8am, 12pm, 4pm)");
     runScraper().catch(err => console.error("Scraper error:", err.message));
 
-    // ── Job notification flush (every 6h) ──
+    // â”€â”€ Job notification flush (every 6h) â”€â”€
     setInterval(function () {
       flushJobBatches().catch(function (e) { console.warn("[JOB BATCH interval]", e.message); });
     }, 6 * 60 * 60 * 1000);
@@ -381,23 +458,23 @@ server.listen(PORT, () => {
     setInterval(() => {
       const hour = new Date().getHours();
       if (hour === 8 || hour === 12 || hour === 16) {
-        console.log(`⏰ Scheduled scrape at ${hour}:00`);
+        console.log(`â° Scheduled scrape at ${hour}:00`);
         runScraper().catch(err => console.error("Scraper error:", err.message));
       }
     }, 60 * 60 * 1000);
 
-    // 🔍 Enrich job details every 6 hours
-    console.log("📅 Scheduling job enrichment: every 6 hours");
+    // ðŸ” Enrich job details every 6 hours
+    console.log("ðŸ“… Scheduling job enrichment: every 6 hours");
     setTimeout(() => {
       enrichJobs({ onlyMissing: true, limit_count: 30 }).catch(err => console.error("Enrich error:", err.message));
     }, 10000);
     setInterval(() => {
-      console.log("⏰ Scheduled enrichment");
+      console.log("â° Scheduled enrichment");
       enrichJobs({ onlyMissing: true, limit_count: 30 }).catch(err => console.error("Enrich error:", err.message));
     }, 6 * 60 * 60 * 1000); // check every hour
 
-    // ✨ AI job generation runs daily at 6am
-    console.log("📅 Scheduling AI job generation: daily at 6am");
+    // âœ¨ AI job generation runs daily at 6am
+    console.log("ðŸ“… Scheduling AI job generation: daily at 6am");
     setTimeout(() => {
       generateDailyAIJobs().catch(err => console.error("AI jobs error:", err.message));
     }, 5000); // Run once 5s after startup
@@ -405,7 +482,7 @@ server.listen(PORT, () => {
     setInterval(() => {
       const hour = new Date().getHours();
       if (hour === 6) {
-        console.log(`⏰ Daily AI job generation at ${hour}:00`);
+        console.log(`â° Daily AI job generation at ${hour}:00`);
         generateDailyAIJobs().catch(err => console.error("AI jobs error:", err.message));
       }
     }, 60 * 60 * 1000);
