@@ -19,12 +19,21 @@ function CompanyCard({ company }) {
   const [showProfilePush, setShowProfilePush] = useState(false);
   const [followed, setFollowed] = useState(false);
 
-  const handlePremiumAction = () => {
-    if (!user?.isPremium) {
-      setShowPremium(true);
-    } else {
-      // In real app, would navigate to inbox HR or push profile
-      alert("Premium action executed!");
+  const handleContact = async (mode) => {
+    if (!hasTier(user, "starter")) {
+      setLockedFeature(mode === "push_profile" ? "Push My Profile" : "Inbox HR");
+      setShowLocked(true);
+      return;
+    }
+    try {
+      setContacting(true);
+      const res = await api.post(`/companies/${company._id}/contact`, { mode });
+      const msg = res.data.message || "Sent!";
+      alert(msg + (res.data.method === "dm" ? "\n\nCheck your Inbox for their reply." : ""));
+    } catch (e) {
+      alert(e?.response?.data?.message || e.message || "Failed to send");
+    } finally {
+      setContacting(false);
     }
   };
 
@@ -62,17 +71,17 @@ function CompanyCard({ company }) {
             <div className="text-[9px] text-slate-700">positions</div>
           </div>
           <div className="stat-mini">
-            <div className="text-sm font-semibold">{company.jobs || "â€”"}</div>
+            <div className="text-sm font-semibold">{company.jobs || "—"}</div>
             <div className="text-[9px] text-slate-700">jobs</div>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2 mt-4">
-          <button onClick={handlePremiumAction} className="outline-button">
+          <button onClick={() => handleContact("inbox")} disabled={contacting} className="outline-button">
             <Mail size={13} />
             Inbox HR
           </button>
-          <button onClick={handlePremiumAction} className="outline-button">
+          <button onClick={() => handleContact("push_profile")} disabled={contacting} className="outline-button">
             <Rocket size={13} />
             Push My Profile
           </button>

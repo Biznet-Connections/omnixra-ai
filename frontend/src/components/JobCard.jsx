@@ -137,8 +137,7 @@ function JobCard({ job, tab = "omnixra" }) {
       setShowLocked(true);
       return;
     }
-    setActivePlan("boost_20k");
-    setShowPremium(true);
+    setShowComposer(true);
   };
 
   return (
@@ -175,13 +174,7 @@ function JobCard({ job, tab = "omnixra" }) {
         <div className="card-actions">
           <button onClick={() => setShowDetail(true)} className="outline-button"><ExternalLink size={13} />View</button>
           <button
-            onClick={() => {
-              if (tab === "scraped" && job.applicationUrl) {
-                window.open(job.applicationUrl, "_blank");
-              } else {
-                setShowApply(true);
-              }
-            }}
+            onClick={handleApplyClick}
             className={`apply-button ${applied ? "applied" : ""}`}
           >
             {applied ? <Check size={13} /> : <Send size={13} />} {applied ? "Applied" : "Apply"}
@@ -194,7 +187,7 @@ function JobCard({ job, tab = "omnixra" }) {
             <Sparkles size={13} />{applying ? "Applying..." : "Apply for me"}
           </button>
           {tab === "omnixra" && (
-            <button onClick={() => setShowPremium(true)} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
+            <button onClick={handlePushCV} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
           )}
         </div>
       </div>
@@ -252,13 +245,13 @@ function JobCard({ job, tab = "omnixra" }) {
             <div className="text-sm text-slate-500 mb-3">{job.company} · {job.location}</div>
             <div className="flex flex-wrap gap-3 mb-4 text-xs text-slate-400">
               {job.salary && <span>💰 {job.salary}</span>}
-              {job.type && <span>🕐 {job.type}</span>}
-              {job.deadline && <span>📅 {new Date(job.deadline).toLocaleDateString()}</span>}
+              {job.type && <span>&#128336; {job.type}</span>}
+              {job.deadline && <span>&#128197; {new Date(job.deadline).toLocaleDateString()}</span>}
             </div>
             <p className="text-sm text-slate-300 leading-7">{job.description}</p>
             {job.source && job.source !== "omnixra" && <p className="text-xs text-slate-500 mt-3">Source: {job.source}</p>}
             <div className="flex gap-2 mt-5">
-              <button onClick={() => { setShowDetail(false); setShowApply(true); }} className="apply-button flex-1">Apply Now</button>
+              <button onClick={() => { setShowDetail(false); handleApplyClick(); }} className="apply-button flex-1">Apply Now</button>
               <button onClick={handleShare} className="outline-button">Share</button>
             </div>
           </div>

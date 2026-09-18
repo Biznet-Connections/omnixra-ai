@@ -74,7 +74,8 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   const [following, setFollowing] = useState(() => {
     const followingList = JSON.parse(localStorage.getItem("omnixra_following") || "[]");
     return followingList.includes(post.author?._id);
-  });
+  });
+
   const [showBoost, setShowBoost] = useState(false);
 
   useEffect(() => {
@@ -355,7 +356,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
             )}
             {post.failed && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-white px-4">
-                <div style={{ fontSize: 13, marginBottom: 6, fontWeight: 600 }}>âš ï¸ Video upload failed</div>
+                <div style={{ fontSize: 13, marginBottom: 6, fontWeight: 600 }}>⚠️ ï¸ Video upload failed</div>
                 <div style={{ fontSize: 11, opacity: 0.8, textAlign: "center" }}>{post.errorMessage || "Please try again."}</div>
               </div>
             )}
