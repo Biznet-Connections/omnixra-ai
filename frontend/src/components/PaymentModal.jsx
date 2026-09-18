@@ -58,6 +58,11 @@ export default function PaymentModal({ planKey, metadata = {}, onClose, onSucces
       setCheckoutUrl(res.data.checkoutUrl);
 
       // Open Linkwa checkout in new tab
+      if (!res.data.checkoutUrl) {
+        setMessage("Could not create checkout. Please try again.");
+        setStep("failed");
+        return;
+      }
       window.open(res.data.checkoutUrl, "_blank");
 
       setStep("checking");
