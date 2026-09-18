@@ -4,41 +4,28 @@ const paymentSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     reference: { type: String, required: true, unique: true, index: true },
+    contipayReference: { type: String, index: true, sparse: true },
+    contipayTransactionIndex: { type: Number, index: true, sparse: true },
     type: {
       type: String,
       required: true,
-      enum: [
-        "starter_biweekly",
-        "plus_biweekly",
-        "pro_monthly",
-        "boost_20k",
-        "boost_80k",
-      ],
+      enum: ["boost", "push_cv", "premium_monthly", "premium_yearly"],
     },
     plan: { type: String, default: null },
     amount: { type: Number, required: true },
     currency: { type: String, default: "USD" },
+    method: { type: String, enum: ["ecocash", "innbucks", "onemoney", "card"], required: true },
+    phone: { type: String },
     status: {
       type: String,
       enum: ["pending", "paid", "cancelled", "failed"],
       default: "pending",
       index: true,
     },
-    phone: { type: String },
-    email: { type: String },
-    // Linkwa fields
-    linkwaCheckoutUrl: { type: String },
-    linkwaExternalLinkId: { type: String, index: true, sparse: true },
-    linkwaShortUrl: { type: String, index: true, sparse: true },
-    linkwaPaymentReference: { type: String, index: true, sparse: true },
-    linkwaReceiptId: { type: String },
-    // Metadata (postId for boosts, etc.)
+    statusCode: { type: Number, default: null },
     metadata: { type: Object, default: {} },
-    // Raw payloads
     webhookPayload: { type: Object, default: null },
     webhookReceivedAt: { type: Date, default: null },
-    statusResponse: { type: Object, default: null },
-    // Lifecycle
     paidAt: { type: Date, default: null },
     cancelledAt: { type: Date, default: null },
     failureReason: { type: String, default: null },

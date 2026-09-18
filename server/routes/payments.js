@@ -1,179 +1,247 @@
 ﻿import express from "express";
-import crypto from "crypto";
 import Payment from "../models/Payment.js";
 import User from "../models/User.js";
 import Boost from "../models/Boost.js";
 import { protect } from "../middleware/auth.js";
-import { initiatePayment, mapStatusCode } from "../utils/contipay.js";
+import {
+  createPaymentLink,
+  getPaymentStatus,
+  verifySignature,
+} from "../utils/linkwa.js";
 
 const router = express.Router();
 
+// Server-side product catalog (never trust client)
 const CATALOG = {
-  boost_20k:       { type: "boost",           amount: 2,  reach: 20000 },
-  boost_80k:       { type: "boost",           amount: 5,  reach: 80000 },
-  push_cv:         { type: "push_cv",         amount: 5 },
-  premium_monthly: { type: "premium_monthly", amount: 5 },
-  premium_yearly:  { type: "premium_yearly",  amount: 45 },
+  starter_biweekly: {
+    type: "starter_biweekly",
+    amount: 5,
+    label: "Starter Plan",
+    description: "Inbox HR + Push My Profile - 14 days",
+  },
+  plus_biweekly: {
+    type: "plus_biweekly",
+    amount: 10,
+    label: "Plus Plan",
+    description: "Everything in Starter + visibility + AI - 14 days",
+  },
+  pro_monthly: {
+    type: "pro_monthly",
+    amount: 25,
+    label: "Pro Plan",
+    description: "Everything in Plus + notifications + badge - monthly",
+  },
+  boost_20k: {
+    type: "boost_20k",
+    amount: 2,
+    label: "Boost Post - 20,000 reach",
+    description: "20K reach on one post",
+    reach: 20000,
+  },
+  boost_80k: {
+    type: "boost_80k",
+    amount: 5,
+    label: "Boost Post - 80,000 reach",
+    description: "80K reach on one post",
+    reach: 80000,
+  },
 };
 
+/**
+ * POST /api/payments/initiate
+ * Body: { planKey, metadata? }
+ */
 router.post("/initiate", protect, async (req, res) => {
   try {
-    const { planKey, phone, method, metadata = {} } = req.body;
-
-    if (!planKey || !CATALOG[planKey]) {
-      return res.status(400).json({ message: "Invalid plan" });
-    }
-    if (!phone || !/^07\d{8}$/.test(String(phone).trim())) {
-      return res.status(400).json({ message: "Phone must be like 0771234567" });
-    }
-    if (!["ecocash", "innbucks", "onemoney"].includes(method)) {
-      return res.status(400).json({ message: "Unsupported payment method" });
-    }
-
+    const { planKey, metadata = {} } = req.body;
     const plan = CATALOG[planKey];
-    const reference = "OMX-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+    if (!plan) return res.status(400).json({ message: "Invalid plan" });
+
+    const user = await User.findById(req.user._id);
+    const reference =
+      "OMX-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+
+    const returnUrl =
+      (process.env.LINKWA_RETURN_URL || "https://omnixra-ai.com/payment-complete") +
+      "?reference=" +
+      reference;
+
+    const linkResult = await createPaymentLink({
+      amount: plan.amount,
+      name: "Omnixra - " + plan.label,
+      description: plan.description,
+      returnUrl,
+      phone: user.phone || undefined,
+      email: user.email || undefined,
+      fullName: user.name || undefined,
+    });
+
+    if (!linkResult.success) {
+      return res
+        .status(400)
+        .json({ message: linkResult.message || "Could not create checkout" });
+    }
 
     const payment = await Payment.create({
-      user: req.user._id,
+      user: user._id,
       reference,
       type: plan.type,
       plan: planKey,
       amount: plan.amount,
-      method,
-      phone: String(phone).trim(),
       status: "pending",
+      phone: user.phone || null,
+      email: user.email || null,
+      linkwaCheckoutUrl: linkResult.checkoutUrl,
+      linkwaExternalLinkId: linkResult.externalPaymentLinkId,
       metadata: { ...metadata, planKey, reach: plan.reach || null },
     });
 
-    const result = await initiatePayment({
-      amount: plan.amount,
-      phone: String(phone).trim(),
-      provider: method,
-      reference,
-      description: "Omnixra " + planKey,
-    });
-
-    if (!result.success) {
-      payment.status = "failed";
-      payment.failureReason = result.message || "ContiPay rejected";
-      await payment.save();
-      return res.status(400).json({ message: result.message || "Payment initiation failed" });
-    }
-
-    payment.contipayReference = result.contipayReference;
-    payment.contipayTransactionIndex = result.transactionIndex;
-    payment.statusCode = result.statusCode;
-    await payment.save();
-
     return res.json({
-      reference,
-      status: mapStatusCode(result.statusCode),
-      instructions: "Check your phone - approve the USSD prompt to complete the payment.",
-      provider: method,
+      reference: payment.reference,
+      checkoutUrl: linkResult.checkoutUrl,
+      status: "pending",
     });
   } catch (error) {
     console.error("[payments/initiate] error:", error);
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 });
 
-router.post("/contipay/webhook", async (req, res) => {
-  const expectedToken = process.env.CONTIPAY_WEBHOOK_TOKEN;
-  if (expectedToken) {
-    const header = req.headers.authorization || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-    const a = Buffer.from(token);
-    const b = Buffer.from(expectedToken);
-    const ok = a.length === b.length && crypto.timingSafeEqual(a, b);
-    if (!ok) {
-      console.warn("[webhook] Bad auth token");
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-  }
-
-  res.status(200).json({ received: true });
-
+/**
+ * GET /api/payments/status/:reference
+ * Polls Linkwa if we don't have a final status yet.
+ */
+router.get("/status/:reference", protect, async (req, res) => {
   try {
-    const body = req.body || {};
-    const merchantRef = body.merchantRef;
-    const contiPayRef = body.contiPayRef ? String(body.contiPayRef) : null;
-    const statusCode = body.statusCode;
+    const payment = await Payment.findOne({ reference: req.params.reference });
+    if (!payment) return res.status(404).json({ message: "Payment not found" });
 
-    console.log("[webhook] received:", { merchantRef, contiPayRef, statusCode, status: body.status });
-
-    if (!merchantRef) {
-      console.warn("[webhook] missing merchantRef");
-      return;
+    if (
+      String(payment.user) !== String(req.user._id) &&
+      req.user.accountType !== "admin"
+    ) {
+      return res.status(403).json({ message: "Not yours" });
     }
 
-    const payment = await Payment.findOne({ reference: merchantRef });
-    if (!payment) {
-      console.warn("[webhook] payment not found for ref:", merchantRef);
-      return;
+    // If already final, return
+    if (payment.status === "paid" || payment.status === "failed") {
+      return res.json(buildStatusResponse(payment));
     }
 
-    if (payment.status === "paid" || payment.status === "failed" || payment.status === "cancelled") {
-      console.log("[webhook] already final, skipping:", payment.status);
-      return;
-    }
+    // Need Linkwa short_url + payment_reference to poll.
+    // These are set when the user returns from checkout, or via webhook.
+    const shortUrl = req.query.short_url || payment.linkwaShortUrl;
+    const paymentRef =
+      req.query.payment_reference || payment.linkwaPaymentReference;
 
-    payment.webhookPayload = body;
-    payment.webhookReceivedAt = new Date();
-    payment.statusCode = statusCode;
-    if (contiPayRef && !payment.contipayReference) payment.contipayReference = contiPayRef;
+    if (shortUrl && paymentRef) {
+      const result = await getPaymentStatus(shortUrl, paymentRef);
+      payment.statusResponse = result;
 
-    const newStatus = mapStatusCode(statusCode);
-
-    if (newStatus === "paid") {
-      const expected = Number(payment.amount);
-      const received = Number(body.amount);
-      const currency = String(body.currencyCode || "USD").toUpperCase();
-      if (currency !== "USD" || (received && Math.abs(received - expected) > 0.01)) {
-        console.warn("[webhook] amount/currency mismatch:", { expected, received, currency });
+      if (result.success && result.status === "PAID") {
+        // Idempotency: only activate once
+        if (payment.status !== "paid") {
+          payment.status = "paid";
+          payment.paidAt = new Date();
+          payment.linkwaShortUrl = shortUrl;
+          payment.linkwaPaymentReference = paymentRef;
+          payment.linkwaReceiptId = result.receipt_id || null;
+          await payment.save();
+          await activateFeature(payment);
+        }
+      } else if (
+        result.success &&
+        (result.status === "FAILED" || result.status === "CANCELLED")
+      ) {
         payment.status = "failed";
-        payment.failureReason = "Amount/currency mismatch: expected " + expected + " USD, got " + received + " " + currency;
+        payment.failureReason = result.status;
+        await payment.save();
+      } else {
+        await payment.save();
+      }
+    }
+
+    return res.json(buildStatusResponse(payment));
+  } catch (e) {
+    console.error("[payments/status] error:", e);
+    return res.status(500).json({ message: e.message });
+  }
+});
+
+/**
+ * POST /api/payments/linkwa/webhook
+ * Raw body verification required (set express.raw in server.js for this route)
+ */
+router.post(
+  "/linkwa/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    try {
+      const raw = req.body instanceof Buffer ? req.body.toString("utf8") : JSON.stringify(req.body);
+      const signature = req.headers["x-linkwa-signature"];
+
+      if (!verifySignature(raw, signature)) {
+        console.warn("[linkwa/webhook] bad signature");
+        return res.status(401).json({ message: "Invalid signature" });
+      }
+
+      const body = JSON.parse(raw);
+      console.log("[linkwa/webhook] received:", {
+        reference: body.reference,
+        status: body.status,
+        amount: body.amount,
+      });
+
+      // Immediately ack
+      res.status(200).json({ received: true });
+
+      // Process async
+      if (body.status !== "PAID") return;
+
+      // Match by external_payment_link_id (we stored it when creating the link)
+      const externalId = body.external_payment_link_id;
+      if (!externalId) return;
+
+      const payment = await Payment.findOne({ linkwaExternalLinkId: externalId });
+      if (!payment) {
+        console.warn("[linkwa/webhook] no payment for external link:", externalId);
+        return;
+      }
+
+      // Idempotency
+      if (payment.status === "paid") {
+        console.log("[linkwa/webhook] already paid, skipping");
+        return;
+      }
+
+      // Amount check
+      if (Number(body.amount) !== Number(payment.amount)) {
+        console.warn("[linkwa/webhook] amount mismatch", body.amount, payment.amount);
+        payment.status = "failed";
+        payment.failureReason = "Amount mismatch";
+        payment.webhookPayload = body;
+        payment.webhookReceivedAt = new Date();
         await payment.save();
         return;
       }
 
       payment.status = "paid";
       payment.paidAt = new Date();
+      payment.webhookPayload = body;
+      payment.webhookReceivedAt = new Date();
+      payment.linkwaReceiptId = body.receipt_id || null;
       await payment.save();
 
       await activateFeature(payment);
-    } else if (newStatus === "failed") {
-      payment.status = "failed";
-      payment.failureReason = body.message || "Declined";
-      await payment.save();
-    } else {
-      await payment.save();
+    } catch (e) {
+      console.error("[linkwa/webhook] error:", e);
     }
-  } catch (e) {
-    console.error("[webhook] processing error:", e);
   }
-});
+);
 
-router.get("/status/:reference", protect, async (req, res) => {
-  try {
-    const payment = await Payment.findOne({ reference: req.params.reference });
-    if (!payment) return res.status(404).json({ message: "Payment not found" });
-    if (String(payment.user) !== String(req.user._id) && req.user.accountType !== "admin") {
-      return res.status(403).json({ message: "Not yours" });
-    }
-    res.json({
-      reference: payment.reference,
-      status: payment.status,
-      paidAt: payment.paidAt,
-      type: payment.type,
-      plan: payment.plan,
-      amount: payment.amount,
-      message: payment.failureReason || null,
-    });
-  } catch (e) {
-    res.status(500).json({ message: e.message });
-  }
-});
-
+/**
+ * GET /api/payments/my
+ */
 router.get("/my", protect, async (req, res) => {
   try {
     const payments = await Payment.find({ user: req.user._id })
@@ -185,12 +253,43 @@ router.get("/my", protect, async (req, res) => {
   }
 });
 
+// ── helpers ──
+
+function buildStatusResponse(payment) {
+  return {
+    reference: payment.reference,
+    status: payment.status,
+    paidAt: payment.paidAt,
+    type: payment.type,
+    plan: payment.plan,
+    amount: payment.amount,
+    checkoutUrl: payment.linkwaCheckoutUrl || null,
+    message: payment.failureReason || null,
+  };
+}
+
 async function activateFeature(payment) {
   try {
     const { type, user: userId, metadata } = payment;
+    const now = new Date();
 
-    if (type === "boost") {
-      const reach = metadata?.reach || 20000;
+    if (type === "starter_biweekly" || type === "plus_biweekly" || type === "pro_monthly") {
+      const days = type === "pro_monthly" ? 30 : 14;
+      const tier =
+        type === "starter_biweekly" ? "starter" :
+        type === "plus_biweekly" ? "plus" : "pro";
+
+      await User.findByIdAndUpdate(userId, {
+        isPremium: true,
+        subscriptionTier: tier,
+        premiumPlan: tier === "pro" ? "monthly" : "none",
+        subscriptionExpiresAt: new Date(now.getTime() + days * 24 * 60 * 60 * 1000),
+        premiumExpiresAt: new Date(now.getTime() + days * 24 * 60 * 60 * 1000),
+        lastPaymentId: payment._id,
+      });
+      console.log("[activate] tier:", tier, "user:", userId);
+    } else if (type === "boost_20k" || type === "boost_80k") {
+      const reach = metadata?.reach || (type === "boost_80k" ? 80000 : 20000);
       await Boost.create({
         userId,
         type: "post",
@@ -198,29 +297,16 @@ async function activateFeature(payment) {
         reach,
         price: payment.amount,
         status: "active",
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
       });
-      console.log("[activate] boost created for user", userId, "reach", reach);
-    } else if (type === "push_cv") {
-      await User.findByIdAndUpdate(userId, { $inc: { pushCredits: 1 } });
-      console.log("[activate] push CV credit +1 for user", userId);
-    } else if (type === "premium_monthly" || type === "premium_yearly") {
-      const days = type === "premium_yearly" ? 365 : 30;
-      const plan = type === "premium_yearly" ? "yearly" : "monthly";
-      await User.findByIdAndUpdate(userId, {
-        isPremium: true,
-        premiumPlan: plan,
-        premiumExpiresAt: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
-        lastPaymentId: payment._id,
-      });
-      console.log("[activate] premium", plan, "for user", userId);
+      console.log("[activate] boost:", reach, "user:", userId);
     }
 
     try {
       const { notifyUser } = await import("../utils/notify.js");
       await notifyUser(userId, {
         title: "Payment confirmed",
-        body: "Your " + type.replace(/_/g, " ") + " is now active.",
+        body: "Your purchase is now active.",
         data: { type: "payment", reference: payment.reference },
       });
     } catch (e) {

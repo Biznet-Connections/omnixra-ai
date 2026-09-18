@@ -1,45 +1,115 @@
 ﻿import React, { useState } from "react";
 import PaymentModal from "../components/PaymentModal";
-import { Crown, Send, Rocket } from "lucide-react";
+import { Crown, Check, Rocket } from "lucide-react";
+
+const TIERS = [
+  {
+    key: "starter_biweekly",
+    name: "Starter",
+    price: 5,
+    period: "2 weeks",
+    features: ["Inbox HR", "Push My Profile"],
+  },
+  {
+    key: "plus_biweekly",
+    name: "Plus",
+    price: 10,
+    period: "2 weeks",
+    features: ["Inbox HR", "Push My Profile", "Higher visibility", "Advanced AI insights"],
+  },
+  {
+    key: "pro_monthly",
+    name: "Pro",
+    price: 25,
+    period: "month",
+    highlight: true,
+    badge: "BEST",
+    features: ["Everything in Plus", "Instant notifications", "Priority support", "Verified badge"],
+  },
+];
 
 export default function PremiumPage() {
   const [activePlan, setActivePlan] = useState(null);
 
-  const cards = [
-    { key: "push_cv",         title: "Push CV",           price: 5,  icon: Send,   desc: "Send your CV to one company instantly.",        cta: "Push CV" },
-    { key: "premium_monthly", title: "Premium - Monthly", price: 5,  icon: Crown,  desc: "Verified badge, profile views, premium badge.", cta: "Go Premium" },
-    { key: "premium_yearly",  title: "Premium - Yearly",  price: 45, icon: Crown,  desc: "Same as monthly, save 25%.",                     cta: "Save 25%" },
-    { key: "boost_20k",       title: "Boost Post - 20K",  price: 2,  icon: Rocket, desc: "20,000 reach for one of your posts.",            cta: "Boost 20K" },
-    { key: "boost_80k",       title: "Boost Post - 80K",  price: 5,  icon: Rocket, desc: "80,000 reach - best value.",                     cta: "Boost 80K" },
-  ];
-
   return (
     <div className="max-w-3xl mx-auto p-4 text-white">
-      <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-        Upgrade Omnixra
-      </h1>
-      <p className="text-white/60 mb-6">Pay with EcoCash, InnBucks, or OneMoney. USD only.</p>
+      <div className="text-center mb-6">
+        <Crown size={32} className="mx-auto text-amber-400 mb-2" />
+        <h1 className="text-2xl font-bold mb-1 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+          Upgrade Omnixra
+        </h1>
+        <p className="text-white/60 text-sm">Unlock power tools for your job search.</p>
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {cards.map(c => {
-          const Icon = c.icon;
-          return (
-            <div key={c.key} className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col">
-              <div className="flex items-center gap-2 mb-2">
-                <Icon size={18} className="text-indigo-400" />
-                <h3 className="font-semibold">{c.title}</h3>
+      <div className="space-y-4">
+        {TIERS.map(t => (
+          <div
+            key={t.key}
+            className={`rounded-2xl border p-4 ${
+              t.highlight ? "border-amber-500/40 bg-amber-500/[.04]" : "border-white/10 bg-white/5"
+            }`}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-lg">{t.name}</h3>
+                  {t.badge && (
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">
+                      {t.badge}
+                    </span>
+                  )}
+                </div>
+                <div className="text-3xl font-bold mt-1">
+                  ${t.price}
+                  <span className="text-sm text-white/50 ml-1">/ {t.period}</span>
+                </div>
               </div>
-              <div className="text-2xl font-bold mb-2">${c.price}</div>
-              <p className="text-sm text-white/60 flex-1">{c.desc}</p>
-              <button
-                onClick={() => setActivePlan(c.key)}
-                className="mt-3 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 font-medium"
-              >
-                {c.cta}
-              </button>
             </div>
-          );
-        })}
+
+            <div className="space-y-1.5 mb-4">
+              {t.features.map((f, i) => (
+                <div key={i} className="flex items-start gap-2 text-sm text-white/70">
+                  <Check size={14} className="text-emerald-400 mt-0.5 flex-shrink-0" />
+                  <span>{f}</span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setActivePlan(t.key)}
+              className={t.highlight ? "primary-button w-full" : "secondary-button w-full justify-center"}
+            >
+              {t.highlight ? "Go Pro →" : `Choose ${t.name}`}
+            </button>
+          </div>
+        ))}
+
+        <div className="pt-4 border-t border-white/10">
+          <div className="flex items-center gap-2 mb-3">
+            <Rocket size={16} className="text-indigo-400" />
+            <h3 className="font-semibold text-sm">One-time boosts</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={() => setActivePlan("boost_20k")}
+              className="rounded-xl border border-white/10 bg-white/5 p-3 text-left hover:border-white/20"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm">📊 20,000 reach</span>
+                <span className="font-bold text-indigo-400">$2</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActivePlan("boost_80k")}
+              className="rounded-xl border border-white/10 bg-white/5 p-3 text-left hover:border-white/20"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm">📊 80,000 reach ⭐</span>
+                <span className="font-bold text-indigo-400">$5</span>
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
 
       {activePlan && (

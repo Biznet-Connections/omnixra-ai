@@ -1,96 +1,64 @@
-import React, { useState } from "react";
-import { X, Rocket, Check } from "lucide-react";
-import api from "../api/axios";
+﻿import React, { useState } from "react";
+import { X, Rocket } from "lucide-react";
+import PaymentModal from "./PaymentModal";
 
 function BoostModal({ post, onClose }) {
-  const [selected, setSelected] = useState(null);
-  const [voucherCode, setVoucherCode] = useState("");
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState("");
+  const [activePlan, setActivePlan] = useState(null);
 
-  const options = [
-    { reach: 20000, price: 2, label: "20,000 people" },
-    { reach: 80000, price: 5, label: "80,000 people" }
-  ];
-
-  const handleBoost = async () => {
-    if (!selected) { setError("Select a boost option"); return; }
-    try {
-      await api.post("/boosts", {
-        type: "post",
-        postId: post?._id,
-        reach: selected.reach,
-        price: selected.price,
-        voucherCode
-      });
-      setSuccess(true);
-      setTimeout(() => onClose(), 2000);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to boost");
-    }
-  };
+  if (activePlan) {
+    return (
+      <PaymentModal
+        planKey={activePlan}
+        metadata={{ postId: post?._id }}
+        onClose={() => { setActivePlan(null); onClose(); }}
+        onSuccess={() => { setActivePlan(null); onClose(); }}
+      />
+    );
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold">🚀 Boost Post</h2>
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <Rocket size={20} className="text-indigo-400" />
+            Boost this post
+          </h2>
           <button onClick={onClose} className="icon-button"><X size={18} /></button>
         </div>
 
-        {success ? (
-          <div className="text-center py-6">
-            <div className="text-4xl mb-3">✅</div>
-            <h3 className="text-lg font-bold">Boost Activated!</h3>
-          </div>
-        ) : (
-          <>
-            <p className="text-sm text-slate-400 mb-4">Choose your reach:</p>
-            <div className="space-y-3">
-              {options.map(opt => (
-                <button
-                  key={opt.reach}
-                  onClick={() => setSelected(opt)}
-                  className={`w-full p-4 rounded-xl border transition-all ${
-                    selected?.reach === opt.reach
-                      ? "border-indigo-500 bg-indigo-500/10"
-                      : "border-white/[.06] bg-white/[.02] hover:border-white/[.15]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-sm">🔥 {opt.label}</div>
-                      <div className="text-xs text-slate-500 mt-1">Reach {opt.label}</div>
-                    </div>
-                    <div className="text-lg font-bold text-indigo-400">${opt.price}</div>
-                  </div>
-                </button>
-              ))}
+        <p className="text-sm text-slate-400 mb-4">Choose your reach:</p>
+
+        <div className="space-y-3">
+          <button
+            onClick={() => setActivePlan("boost_20k")}
+            className="w-full p-4 rounded-xl border border-white/[.06] bg-white/[.02] hover:border-white/[.15] text-left"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-sm">📊 20,000 reach</div>
+                <div className="text-xs text-slate-500 mt-1">~2,000 extra views</div>
+              </div>
+              <div className="text-lg font-bold text-indigo-400">$2</div>
             </div>
+          </button>
 
-            <div className="mt-4">
-              <label className="form-label">Voucher code (from WhatsApp)</label>
-              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} className="form-input" placeholder="ABC123" />
+          <button
+            onClick={() => setActivePlan("boost_80k")}
+            className="w-full p-4 rounded-xl border border-amber-500/30 bg-amber-500/[.04] hover:border-amber-500/50 text-left"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-sm">📊 80,000 reach ⭐</div>
+                <div className="text-xs text-slate-500 mt-1">~8,000 extra views · Best value</div>
+              </div>
+              <div className="text-lg font-bold text-indigo-400">$5</div>
             </div>
-
-            {error && <div className="mt-2 text-xs text-red-400">{error}</div>}
-
-            <button onClick={handleBoost} className="primary-button w-full mt-4">
-              <Rocket size={16} /> Activate Boost
-            </button>
-
-            <a
-              href="https://wa.me/263719217133?text=Hello%20Omnixra%2C%20I%20want%20to%20boost%20my%20post"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="secondary-button w-full mt-3"
-            >
-              💬 Buy Voucher on WhatsApp
-            </a>
-          </>
-        )}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
+
 export default BoostModal;

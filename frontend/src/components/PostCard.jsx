@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { Heart, MessageCircle, Share2, Bookmark, Ellipsis, Check, Trash2, UserPlus, Building2, Lock, Pencil } from "lucide-react";
+﻿import React, { useState, useEffect } from "react";
+import { Heart, MessageCircle, Share2, Bookmark, Ellipsis, Check, Trash2, UserPlus, Building2, Lock, Pencil, Rocket } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import CommentsBottomSheet from "./CommentsBottomSheet";
+import BoostModal from "./BoostModal";
 import ModernVideoPlayer from "./ModernVideoPlayer";
 import VerifiedBadge from "./VerifiedBadge";
 import AIAvatar from "./AIAvatar";
@@ -73,7 +74,8 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   const [following, setFollowing] = useState(() => {
     const followingList = JSON.parse(localStorage.getItem("omnixra_following") || "[]");
     return followingList.includes(post.author?._id);
-  });
+  });
+  const [showBoost, setShowBoost] = useState(false);
 
   useEffect(() => {
     const savedPosts = JSON.parse(localStorage.getItem("omnixra_saved_posts") || "[]");
@@ -146,7 +148,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
       } catch {}
     } finally {
       setIsLikePending(false);
-      console.log("🔥 handleLike finished. New count:", likeCount, "liked:", liked);
+      console.log("ðŸ”¥ handleLike finished. New count:", likeCount, "liked:", liked);
     }
   };
 
@@ -272,7 +274,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
                   {isCompany && <span className="company-badge"><Building2 size={10} /> Company</span>}
                 </div>
                 <div className="text-[10px] text-slate-600 mt-1">
-                  {timeAgo(post.createdAt)} · 🌍 {post.edited && <span className="text-slate-500 ml-1">(edited)</span>}
+                  {timeAgo(post.createdAt)} Â· ðŸŒ {post.edited && <span className="text-slate-500 ml-1">(edited)</span>}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -346,14 +348,14 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
                     <div style={{ height: "100%", width: (post.uploadProgress || 0) + "%", background: "linear-gradient(90deg, #6366f1, #a855f7)", transition: "width 0.2s" }} />
                   </div>
                   <div style={{ marginTop: 10, fontSize: 12, color: "white", textAlign: "center", fontWeight: 600 }}>
-                    Uploading video… {post.uploadProgress || 0}%
+                    Uploading videoâ€¦ {post.uploadProgress || 0}%
                   </div>
                 </div>
               </div>
             )}
             {post.failed && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-white px-4">
-                <div style={{ fontSize: 13, marginBottom: 6, fontWeight: 600 }}>⚠️ Video upload failed</div>
+                <div style={{ fontSize: 13, marginBottom: 6, fontWeight: 600 }}>âš ï¸ Video upload failed</div>
                 <div style={{ fontSize: 11, opacity: 0.8, textAlign: "center" }}>{post.errorMessage || "Please try again."}</div>
               </div>
             )}
@@ -361,7 +363,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
         ) : post.pending ? (
           <div className="post-video-container mt-4 relative overflow-hidden rounded-xl bg-black" style={{ aspectRatio: "16/9" }}>
             <div className="absolute inset-0 flex items-center justify-center text-white text-xs">
-              Processing video…
+              Processing videoâ€¦
             </div>
           </div>
         ) : null}
@@ -377,6 +379,11 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
               <button onClick={handleSave} className={`post-action-icon ${saved ? "post-action-liked" : ""}`}>
                 <Bookmark size={20} fill={saved ? "currentColor" : "none"} />
               </button>
+              {isAuthor && (
+                <button onClick={() => setShowBoost(true)} className="post-action-icon" title="Boost post">
+                  <Rocket size={20} />
+                </button>
+              )}
             </div>
             <div className="post-stat-numbers">
               <span>{likeCount}</span>
@@ -388,6 +395,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
         )}
       </article>
       {showComments && <CommentsBottomSheet post={post} onClose={() => setShowComments(false)} onUpdate={onUpdate} />}
+      {showBoost && <BoostModal post={post} onClose={() => setShowBoost(false)} />}
     </>
   );
 }
