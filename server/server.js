@@ -38,6 +38,7 @@ import { enrichJobs } from "./scraper/enrichJobs.js";
 import { flushJobBatches, matchJobsToUsers } from "./utils/notifyBatcher.js";
 import searchRoutes from "./routes/search.js";
 import channelRoutes from "./routes/channels.js";
+import paymentRoutes from "./routes/payments.js";
 import { getTodayFocus, getRecentNewsTopics, hashNews, isDuplicateNews } from "./utils/newsDedupe.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -87,6 +88,7 @@ app.use("/api/connections", connectionRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/channels", channelRoutes);
+app.use("/api/payments", paymentRoutes);
 app.use("/share", shareRoutes);
 app.use("/", seoRoutes);
 
