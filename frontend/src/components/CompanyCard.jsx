@@ -5,6 +5,8 @@ import PremiumModal from "./PremiumModal";
 import LockedFeatureModal from "./LockedFeatureModal";
 import PaymentModal from "./PaymentModal";
 import { hasTier } from "../utils/tierHelpers";
+import InboxHRModal from "./InboxHRModal";
+import ProfilePushModal from "./ProfilePushModal";
 import { useAuth } from "../context/AuthContext";
 
 function CompanyCard({ company }) {
@@ -13,7 +15,8 @@ function CompanyCard({ company }) {
   const [showLocked, setShowLocked] = useState(false);
   const [lockedFeature, setLockedFeature] = useState("");
   const [activePlan, setActivePlan] = useState(null);
-  const [contacting, setContacting] = useState(false);
+  const [showInbox, setShowInbox] = useState(false);
+  const [showProfilePush, setShowProfilePush] = useState(false);
   const [followed, setFollowed] = useState(false);
 
   const handlePremiumAction = () => {
@@ -85,6 +88,30 @@ function CompanyCard({ company }) {
       </div>
 
       {showPremium && <PremiumModal onClose={() => setShowPremium(false)} />}
+      {showInbox && (
+        <InboxHRModal
+          company={company}
+          onClose={() => setShowInbox(false)}
+          onOpenChat={(conversationId) => {
+            setShowInbox(false);
+            if (conversationId) {
+              window.location.hash = `#chat/${conversationId}`;
+            }
+          }}
+        />
+      )}
+      {showProfilePush && (
+        <ProfilePushModal
+          company={company}
+          onClose={() => setShowProfilePush(false)}
+          onOpenChat={(conversationId) => {
+            setShowProfilePush(false);
+            if (conversationId) {
+              window.location.hash = `#chat/${conversationId}`;
+            }
+          }}
+        />
+      )}
       {showLocked && (
         <LockedFeatureModal
           featureName={lockedFeature}

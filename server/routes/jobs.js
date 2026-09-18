@@ -270,6 +270,109 @@ router.post("/:id/apply-gmail-log", protect, async (req, res) => {
   }
 });
 
+// ── PUSH CV (Starter+) ──
+router.post("/:id/push-cv", protect, requireTier("starter"), async (req, res) => {
+  try {
+    const { note = "" } = req.body;
+
+    let job;
+    if (req.params.id.startsWith("generated-")) {
+      job = { _id: req.params.id, title: "Generated Job", company: "Company", companyId: null };
+    } else {
+      job = await Job.findById(req.params.id);
+      if (!job) return res.status(404).json({ message: "Job not found" });
+    }
+
+    const existing = await Application.findOne({ jobId: req.params.id, userId: req.user._id });
+    if (existing && existing.pushedCV) {
+      return res.status(400).json({ message: "You already pushed your CV to this job." });
+    }
+
+    const target = await resolveCompanyTarget({
+      companyId: job.companyId,
+      companyName: job.company,
+    });
+
+    const pushMessage = note
+      ? `[CV PUSHED] ${note}`
+      : `[CV PUSHED] ${req.user.name} pushed their CV for ${job.title}.`;
+
+    let application;
+    if (existing) {
+      existing.pushedCV = true;
+      existing.message = existing.message + "\n\n" + pushMessage;
+      await existing.save();
+      application = existing;
+    } else {
+      application = await Application.create({
+        jobId: req.params.id,
+        userId: req.user._id,
+        companyId: job.companyId || null,
+        companyName: job.company,
+        message: pushMessage,
+        status: "applied",
+        matchPercentage: 50,
+        method: "omnixra",
+        pushedCV: true,
+      });
+    }
+
+    // Deliver
+    if (target.type === "user") {
+      let conversation = await Conversation.findOne({
+        participants: { $all: [req.user._id, target.userId], $size: 2 },
+      });
+      if (!conversation) {
+        conversation = await Conversation.create({
+          participants: [req.user._id, target.userId],
+          messages: [],
+        });
+      }
+      conversation.messages.push({
+        sender: req.user._id,
+        text: `CV PUSHED for ${job.title}\n\n${note || "Please review my attached CV."}`,
+      });
+      conversation.lastMessage = `CV pushed for ${job.title}`;
+      conversation.lastMessageAt = new Date();
+      await conversation.save();
+
+      application.companyUserId = target.userId;
+      application.conversationId = conversation._id;
+      application.deliveredTo = "omnixra-inbox";
+      application.deliveredAt = new Date();
+      await application.save();
+    } else if (target.type === "email") {
+      const html = applicationEmailHtml({
+        applicantName: req.user.name,
+        applicantEmail: req.user.email,
+        applicantPhone: req.user.phone || "",
+        jobTitle: `[CV PUSHED] ${job.title}`,
+        companyName: job.company,
+        coverLetter: note || `${req.user.name} has pushed their CV for this role.`,
+        cvUrl: null,
+      });
+      const result = await sendEmail({
+        to: target.email,
+        subject: `CV Pushed: ${job.title} - ${req.user.name}`,
+        html,
+        replyTo: req.user.email,
+      });
+      application.deliveredTo = target.email;
+      application.deliveredAt = result.success ? new Date() : null;
+      await application.save();
+    }
+
+    return res.status(201).json({
+      message: "CV pushed successfully",
+      application,
+      method: target.type,
+    });
+  } catch (error) {
+    console.error("Push CV error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // ── APPLY FOR ME (Starter+ — auto-send) ──
 router.post("/:id/apply-for-me", protect, requireTier("starter"), async (req, res) => {
   console.log(`=== APPLY FOR ME - Job ${req.params.id} ===`);

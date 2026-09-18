@@ -6,6 +6,7 @@ import ApplyModal from "./ApplyModal";
 import PremiumModal from "./PremiumModal";
 import ApplyMethodModal from "./ApplyMethodModal";
 import ApplyComposerPage from "../pages/ApplyComposerPage";
+import PushCVModal from "./PushCVModal";
 import LockedFeatureModal from "./LockedFeatureModal";
 import PaymentModal from "./PaymentModal";
 import { openGmailCompose, buildApplicationEmail } from "../utils/gmailCompose";
@@ -16,10 +17,12 @@ function JobCard({ job, tab = "omnixra" }) {
   const { user } = useAuth();
   const [saved, setSaved] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [showApply, setShowApply] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
   const [showApplyMethod, setShowApplyMethod] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
+  const [showPushCV, setShowPushCV] = useState(false);
   const [showLocked, setShowLocked] = useState(false);
   const [lockedFeature, setLockedFeature] = useState("This feature");
   const [activePlan, setActivePlan] = useState(null);
@@ -41,9 +44,27 @@ function JobCard({ job, tab = "omnixra" }) {
   const matchColor = match >= 80 ? "text-emerald-400" : match >= 50 ? "text-amber-400" : "text-red-400";
 
   const handleApplyForMe = async () => {
+    if (applying) return;
     if (!user?.isPremium) { setShowPremium(true); return; }
-    try { await api.post(`/jobs/${job._id}/apply-for-me`); setApplied(true); }
-    catch (err) { console.error(err); setShowPremium(true); }
+    setApplying(true);
+    try {
+      await api.post(`/jobs/${job._id}/apply-for-me`);
+      setApplied(true);
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 409) {
+        setApplied(true);
+      } else if (status === 403) {
+        setShowPremium(true);
+      } else if (status === 400) {
+        setLockedFeature("Apply for Me");
+        setShowLocked(true);
+      } else {
+        console.error("apply-for-me failed:", err?.response?.data || err.message);
+      }
+    } finally {
+      setApplying(false);
+    }
   };
 
   const handleShare = async () => {
@@ -51,12 +72,10 @@ function JobCard({ job, tab = "omnixra" }) {
   };
 
   const handleApplyClick = async () => {
-    // If scraped job with external URL, go straight there
     if (tab === "scraped" && job.applicationUrl) {
       window.open(job.applicationUrl, "_blank");
       return;
     }
-    // Fetch applicant count (optional)
     try {
       const res = await api.get(`/jobs/${job._id}/applicants`).catch(() => null);
       if (res?.data?.count) setApplicantCount(res.data.count);
@@ -71,7 +90,6 @@ function JobCard({ job, tab = "omnixra" }) {
       subject,
       body,
     });
-    // Log it
     api.post(`/jobs/${job._id}/apply-gmail-log`, { message: "Applied via Gmail" }).catch(() => {});
     setShowApplyMethod(false);
     setApplied(true);
@@ -83,15 +101,27 @@ function JobCard({ job, tab = "omnixra" }) {
   };
 
   const handlePickAuto = async () => {
+    if (applying) return;
+    setApplying(true);
     try {
       setShowApplyMethod(false);
       await api.post(`/jobs/${job._id}/apply-for-me`);
       setApplied(true);
     } catch (e) {
-      if (e?.response?.status === 403) {
+      const status = e?.response?.status;
+      if (status === 409) {
+        setApplied(true);
+      } else if (status === 403) {
         setLockedFeature("Auto Apply");
         setShowLocked(true);
+      } else if (status === 400) {
+        setLockedFeature("Auto Apply");
+        setShowLocked(true);
+      } else {
+        console.error("auto apply failed:", e?.response?.data || e.message);
       }
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -107,7 +137,7 @@ function JobCard({ job, tab = "omnixra" }) {
       setShowLocked(true);
       return;
     }
-    setActivePlan("boost_20k"); // placeholder — push CV uses subscription, no charge
+    setActivePlan("boost_20k");
     setShowPremium(true);
   };
 
@@ -160,7 +190,9 @@ function JobCard({ job, tab = "omnixra" }) {
             <Bookmark size={15} fill={saved ? "currentColor" : "none"} />
           </button>
           <button onClick={handleShare} className="outline-button"><Share2 size={13} />Share</button>
-          <button onClick={handleApplyForMe} className="outline-button text-indigo-400"><Sparkles size={13} />Apply for me</button>
+          <button onClick={handleApplyForMe} disabled={applying} className="outline-button text-indigo-400">
+            <Sparkles size={13} />{applying ? "Applying..." : "Apply for me"}
+          </button>
           {tab === "omnixra" && (
             <button onClick={() => setShowPremium(true)} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
           )}
@@ -178,6 +210,13 @@ function JobCard({ job, tab = "omnixra" }) {
           onPickOmnixra={handlePickOmnixra}
           onPickAuto={handlePickAuto}
           onLocked={handleLocked}
+        />
+      )}
+      {showPushCV && (
+        <PushCVModal
+          job={job}
+          onClose={() => setShowPushCV(false)}
+          onPushAnother={() => { setShowPushCV(false); }}
         />
       )}
       {showComposer && (
@@ -208,13 +247,13 @@ function JobCard({ job, tab = "omnixra" }) {
           <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">{job.title}</h2>
-              <button onClick={() => setShowDetail(false)} className="icon-button">âœ•</button>
+              <button onClick={() => setShowDetail(false)} className="icon-button">✕</button>
             </div>
-            <div className="text-sm text-slate-500 mb-3">{job.company} Â· {job.location}</div>
+            <div className="text-sm text-slate-500 mb-3">{job.company} · {job.location}</div>
             <div className="flex flex-wrap gap-3 mb-4 text-xs text-slate-400">
-              {job.salary && <span>ðŸ’° {job.salary}</span>}
-              {job.type && <span>ðŸ• {job.type}</span>}
-              {job.deadline && <span>ðŸ“… {new Date(job.deadline).toLocaleDateString()}</span>}
+              {job.salary && <span>💰 {job.salary}</span>}
+              {job.type && <span>🕐 {job.type}</span>}
+              {job.deadline && <span>📅 {new Date(job.deadline).toLocaleDateString()}</span>}
             </div>
             <p className="text-sm text-slate-300 leading-7">{job.description}</p>
             {job.source && job.source !== "omnixra" && <p className="text-xs text-slate-500 mt-3">Source: {job.source}</p>}

@@ -12,7 +12,6 @@ export default function ApplyComposerPage({ job, onClose, onSuccess }) {
   const [success, setSuccess] = useState(false);
   const [deliveredVia, setDeliveredVia] = useState("");
 
-  // AI generate on mount
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -21,10 +20,9 @@ export default function ApplyComposerPage({ job, onClose, onSuccess }) {
         const res = await api.post("/ai/apply-cover-letter", { jobId: job._id });
         if (!cancelled) setMessage(res.data.message || res.data.coverLetter || "");
       } catch (e) {
-        // Fallback template if AI fails
         if (!cancelled) {
           setMessage(
-            `Dear Hiring Manager,\n\nI am writing to apply for the ${job.title} position at ${job.company}. I believe my background and skills make me a strong fit for this role.\n\nI would welcome the opportunity to discuss how I can contribute.\n\nYours faithfully,\n${""}`
+            `Dear Hiring Manager,\n\nI am writing to apply for the ${job.title} position at ${job.company}. I believe my background and skills make me a strong fit for this role.\n\nI would welcome the opportunity to discuss how I can contribute.\n\nYours faithfully,\n`
           );
         }
       } finally {
@@ -32,7 +30,7 @@ export default function ApplyComposerPage({ job, onClose, onSuccess }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [job._id]);
+  }, [job._id, job.title, job.company]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -56,6 +54,7 @@ export default function ApplyComposerPage({ job, onClose, onSuccess }) {
   };
 
   const send = async () => {
+    if (sending) return;
     if (!message.trim()) {
       setError("Write a message first.");
       return;
@@ -72,7 +71,22 @@ export default function ApplyComposerPage({ job, onClose, onSuccess }) {
       setSuccess(true);
       setTimeout(() => onSuccess?.(res.data), 2200);
     } catch (e) {
-      setError(e?.response?.data?.message || e.message);
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.message;
+
+      if (status === 409) {
+        setDeliveredVia("previous application");
+        setSuccess(true);
+        setTimeout(() => onSuccess?.(e.response.data), 2200);
+      } else if (status === 403) {
+        setError(msg || "Upgrade to Starter to use this feature.");
+      } else if (status === 400) {
+        setError(msg || "Please check your message and try again.");
+      } else if (status === 401) {
+        setError("Please sign in again.");
+      } else {
+        setError(msg || "Could not send application. Please try again.");
+      }
     } finally {
       setSending(false);
     }
@@ -92,7 +106,6 @@ export default function ApplyComposerPage({ job, onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-[#06070b] flex flex-col text-white">
-      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[.06]">
         <button onClick={onClose} className="icon-button"><ArrowLeft size={18} /></button>
         <div className="flex-1 min-w-0">
@@ -105,7 +118,6 @@ export default function ApplyComposerPage({ job, onClose, onSuccess }) {
         </button>
       </div>
 
-      {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <div>
           <label className="form-label">To</label>
