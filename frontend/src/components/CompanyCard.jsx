@@ -59,7 +59,7 @@ function CompanyCard({ company }) {
             <div className="text-[9px] text-slate-700">positions</div>
           </div>
           <div className="stat-mini">
-            <div className="text-sm font-semibold">{company.jobs || "â€”"}</div>
+            <div className="text-sm font-semibold">{company.jobs || "—"}</div>
             <div className="text-[9px] text-slate-700">jobs</div>
           </div>
         </div>

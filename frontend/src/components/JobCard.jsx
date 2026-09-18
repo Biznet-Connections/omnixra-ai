@@ -208,13 +208,13 @@ function JobCard({ job, tab = "omnixra" }) {
           <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">{job.title}</h2>
-              <button onClick={() => setShowDetail(false)} className="icon-button">âœ•</button>
+              <button onClick={() => setShowDetail(false)} className="icon-button">✕</button>
             </div>
-            <div className="text-sm text-slate-500 mb-3">{job.company} Â· {job.location}</div>
+            <div className="text-sm text-slate-500 mb-3">{job.company} · {job.location}</div>
             <div className="flex flex-wrap gap-3 mb-4 text-xs text-slate-400">
-              {job.salary && <span>ðŸ’° {job.salary}</span>}
-              {job.type && <span>ðŸ• {job.type}</span>}
-              {job.deadline && <span>ðŸ“… {new Date(job.deadline).toLocaleDateString()}</span>}
+              {job.salary && <span>💰 {job.salary}</span>}
+              {job.type && <span>🕐 {job.type}</span>}
+              {job.deadline && <span>📅… {new Date(job.deadline).toLocaleDateString()}</span>}
             </div>
             <p className="text-sm text-slate-300 leading-7">{job.description}</p>
             {job.source && job.source !== "omnixra" && <p className="text-xs text-slate-500 mt-3">Source: {job.source}</p>}
