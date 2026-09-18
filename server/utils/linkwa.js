@@ -47,7 +47,7 @@ export async function createPaymentLink({
       timeout: 20000,
     });
 
-    const link = res.data?.payment_link || {};
+    const link = res.data?.product || res.data?.payment_link || {};
     return {
       success: true,
       checkoutUrl: link.checkout_url,

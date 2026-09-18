@@ -81,6 +81,10 @@ router.post("/initiate", protect, async (req, res) => {
         .status(400)
         .json({ message: linkResult.message || "Could not create checkout" });
     }
+    if (!linkResult.checkoutUrl) {
+      console.error("[payments/initiate] no checkoutUrl from Linkwa", linkResult.raw);
+      return res.status(500).json({ message: "Linkwa did not return a checkout URL" });
+    }
 
     const payment = await Payment.create({
       user: user._id,
