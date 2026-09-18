@@ -58,11 +58,6 @@ export default function PaymentModal({ planKey, metadata = {}, onClose, onSucces
       setCheckoutUrl(res.data.checkoutUrl);
 
       // Open Linkwa checkout in new tab
-      if (!res.data.checkoutUrl) {
-        setMessage("Could not create checkout. Please try again.");
-        setStep("failed");
-        return;
-      }
       window.open(res.data.checkoutUrl, "_blank");
 
       setStep("checking");
@@ -94,7 +89,9 @@ export default function PaymentModal({ planKey, metadata = {}, onClose, onSucces
 
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold">{plan.label}</h2>
-          <button onClick={onClose} className="icon-button"><X size={18} /></button>
+          {step === "confirm" && (
+            <button onClick={onClose} className="icon-button"><X size={18} /></button>
+          )}
         </div>
 
         {step === "confirm" && (
@@ -155,9 +152,6 @@ export default function PaymentModal({ planKey, metadata = {}, onClose, onSucces
                 Reopen checkout
               </a>
             )}
-            <button onClick={onClose} className="secondary-button w-full mt-3">
-              Cancel
-            </button>
           </div>
         )}
 
