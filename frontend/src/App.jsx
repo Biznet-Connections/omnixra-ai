@@ -201,8 +201,8 @@ function AppContent() {
         const { Capacitor } = await import("@capacitor/core");
         if (Capacitor.isNativePlatform()) {
           const result = await PushNotifications.requestPermissions();
-          console.log("ðŸ”” Permission result:", result.receive);
-          // register() waits for FCM setup â€” safe to enable later
+          console.log("🔔 Permission result:", result.receive);
+          // register() waits for FCM setup — safe to enable later
         } else if ("Notification" in window) {
           await Notification.requestPermission();
         }
