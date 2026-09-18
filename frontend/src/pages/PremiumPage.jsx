@@ -2,31 +2,11 @@
 import PaymentModal from "../components/PaymentModal";
 import { Crown, Check, Rocket } from "lucide-react";
 
-const TIERS = [
-  {
-    key: "starter_biweekly",
-    name: "Starter",
-    price: 5,
-    period: "2 weeks",
-    features: ["Inbox HR", "Push My Profile"],
-  },
-  {
-    key: "plus_biweekly",
-    name: "Plus",
-    price: 10,
-    period: "2 weeks",
-    features: ["Inbox HR", "Push My Profile", "Higher visibility", "Advanced AI insights"],
-  },
-  {
-    key: "pro_monthly",
-    name: "Pro",
-    price: 25,
-    period: "month",
-    highlight: true,
-    badge: "BEST",
-    features: ["Everything in Plus", "Instant notifications", "Priority support", "Verified badge"],
-  },
-];
+import { PLANS } from "../utils/planConfig";
+const TIERS = PLANS.map(p => ({
+  ...p,
+  price: parseInt(p.price.replace("$", ""), 10),
+}));
 
 export default function PremiumPage() {
   const [activePlan, setActivePlan] = useState(null);

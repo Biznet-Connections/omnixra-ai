@@ -2,31 +2,7 @@
 import { X, Crown, Check } from "lucide-react";
 import PaymentModal from "./PaymentModal";
 
-const TIERS = [
-  {
-    key: "starter_biweekly",
-    name: "Starter",
-    price: "$5",
-    period: "2 weeks",
-    features: ["Inbox HR", "Push My Profile"],
-  },
-  {
-    key: "plus_biweekly",
-    name: "Plus",
-    price: "$10",
-    period: "2 weeks",
-    features: ["Inbox HR", "Push My Profile", "Higher visibility", "Advanced AI insights"],
-  },
-  {
-    key: "pro_monthly",
-    name: "Pro",
-    price: "$25",
-    period: "month",
-    badge: "BEST",
-    highlight: true,
-    features: ["Everything in Plus", "Instant notifications", "Priority support", "Verified badge"],
-  },
-];
+import { PLANS as TIERS } from "../utils/planConfig";
 
 function PremiumModal({ onClose }) {
   const [activePlan, setActivePlan] = useState(null);

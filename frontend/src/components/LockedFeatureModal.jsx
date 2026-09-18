@@ -1,36 +1,9 @@
-import React from "react";
+﻿import React from "react";
 import { X, Lock, Check, Star } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { tierRank, tierLabel } from "../utils/tierHelpers";
 
-const TIERS = [
-  {
-    key: "starter_biweekly",
-    tier: "starter",
-    name: "Starter",
-    price: "$5",
-    period: "2 weeks",
-    features: ["Inbox HR", "Push My Profile", "Push CV", "Apply via Omnixra", "Auto Apply"],
-  },
-  {
-    key: "plus_biweekly",
-    tier: "plus",
-    name: "Plus",
-    price: "$10",
-    period: "2 weeks",
-    features: ["Everything in Starter", "Higher visibility", "Advanced AI insights"],
-  },
-  {
-    key: "pro_monthly",
-    tier: "pro",
-    name: "Pro",
-    price: "$25",
-    period: "month",
-    badge: "BEST",
-    highlight: true,
-    features: ["Everything in Plus", "Instant notifications", "Priority support", "Verified badge"],
-  },
-];
+import { PLANS as TIERS } from "../utils/planConfig";
 
 export default function LockedFeatureModal({
   featureName = "This feature",
@@ -68,7 +41,7 @@ export default function LockedFeatureModal({
               </h2>
               {isUpgrade && (
                 <div className="text-xs text-slate-500 mt-0.5">
-                  You're on {tierLabel(user)} · Upgrade to unlock
+                  You're on {tierLabel(user)} Â· Upgrade to unlock
                 </div>
               )}
             </div>
@@ -127,7 +100,7 @@ export default function LockedFeatureModal({
           onClick={onSeePricing || onClose}
           className="text-xs text-indigo-400 hover:text-indigo-300 mt-4 w-full text-center"
         >
-          See full pricing →
+          See full pricing â†’
         </button>
       </div>
     </div>
