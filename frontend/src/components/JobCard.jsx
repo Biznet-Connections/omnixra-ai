@@ -222,6 +222,7 @@ function JobCard({ job, tab = "omnixra" }) {
       {showLocked && (
         <LockedFeatureModal
           featureName={lockedFeature}
+          requiredTier="starter"
           description="Upgrade to unlock this premium feature and 5 more."
           onClose={() => setShowLocked(false)}
           onChoosePlan={(planKey) => { setShowLocked(false); setActivePlan(planKey); }}

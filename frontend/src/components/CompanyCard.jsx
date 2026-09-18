@@ -19,22 +19,22 @@ function CompanyCard({ company }) {
   const [showProfilePush, setShowProfilePush] = useState(false);
   const [followed, setFollowed] = useState(false);
 
-  const handleContact = async (mode) => {
+  const handleInboxHR = () => {
     if (!hasTier(user, "starter")) {
-      setLockedFeature(mode === "push_profile" ? "Push My Profile" : "Inbox HR");
+      setLockedFeature("Inbox HR");
       setShowLocked(true);
       return;
     }
-    try {
-      setContacting(true);
-      const res = await api.post(`/companies/${company._id}/contact`, { mode });
-      const msg = res.data.message || "Sent!";
-      alert(msg + (res.data.method === "dm" ? "\n\nCheck your Inbox for their reply." : ""));
-    } catch (e) {
-      alert(e?.response?.data?.message || e.message || "Failed to send");
-    } finally {
-      setContacting(false);
+    setShowInbox(true);
+  };
+
+  const handlePushProfile = () => {
+    if (!hasTier(user, "starter")) {
+      setLockedFeature("Push My Profile");
+      setShowLocked(true);
+      return;
     }
+    setShowProfilePush(true);
   };
 
   return (
@@ -77,11 +77,11 @@ function CompanyCard({ company }) {
         </div>
 
         <div className="flex flex-wrap gap-2 mt-4">
-          <button onClick={() => handleContact("inbox")} disabled={contacting} className="outline-button">
+          <button onClick={handleInboxHR} className="outline-button">
             <Mail size={13} />
             Inbox HR
           </button>
-          <button onClick={() => handleContact("push_profile")} disabled={contacting} className="outline-button">
+          <button onClick={handlePushProfile} className="outline-button">
             <Rocket size={13} />
             Push My Profile
           </button>
@@ -124,6 +124,7 @@ function CompanyCard({ company }) {
       {showLocked && (
         <LockedFeatureModal
           featureName={lockedFeature}
+          requiredTier="starter"
           description="Upgrade to contact companies directly."
           onClose={() => setShowLocked(false)}
           onChoosePlan={(planKey) => { setShowLocked(false); setActivePlan(planKey); }}

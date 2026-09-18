@@ -1,9 +1,12 @@
-﻿import React from "react";
-import { X, Lock, Check } from "lucide-react";
+import React from "react";
+import { X, Lock, Check, Star } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { tierRank, tierLabel } from "../utils/tierHelpers";
 
 const TIERS = [
   {
     key: "starter_biweekly",
+    tier: "starter",
     name: "Starter",
     price: "$5",
     period: "2 weeks",
@@ -11,6 +14,7 @@ const TIERS = [
   },
   {
     key: "plus_biweekly",
+    tier: "plus",
     name: "Plus",
     price: "$10",
     period: "2 weeks",
@@ -18,6 +22,7 @@ const TIERS = [
   },
   {
     key: "pro_monthly",
+    tier: "pro",
     name: "Pro",
     price: "$25",
     period: "month",
@@ -27,26 +32,54 @@ const TIERS = [
   },
 ];
 
-export default function LockedFeatureModal({ featureName = "This feature", description, onClose, onChoosePlan, onSeePricing }) {
+export default function LockedFeatureModal({
+  featureName = "This feature",
+  requiredTier = "starter",
+  description,
+  onClose,
+  onChoosePlan,
+  onSeePricing,
+}) {
+  const { user } = useAuth();
+  const currentRank = tierRank(user);
+  const requiredRank = { starter: 1, plus: 2, pro: 3 }[requiredTier] || 1;
+  const isUpgrade = currentRank > 0;
+
+  // Free user: show all tiers at or above required
+  // Paid user: show only the tiers they need to upgrade to
+  const visibleTiers = isUpgrade
+    ? TIERS.filter(t => (requiredRank === 1 ? true : { starter: 1, plus: 2, pro: 3 }[t.tier] >= requiredRank))
+    : TIERS.filter(t => ({ starter: 1, plus: 2, pro: 3 }[t.tier] >= requiredRank));
+
+  const needsPro = requiredRank === 3;
+  const needsPlus = requiredRank === 2;
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
-              <Lock size={16} className="text-amber-400" />
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+              {isUpgrade ? <Star size={16} className="text-amber-400" /> : <Lock size={16} className="text-amber-400" />}
             </div>
-            <h2 className="text-base font-bold">{featureName} is Premium</h2>
+            <div className="min-w-0">
+              <h2 className="text-base font-bold truncate">
+                {featureName} {isUpgrade ? `needs ${requiredTier.toUpperCase()}` : "is Premium"}
+              </h2>
+              {isUpgrade && (
+                <div className="text-xs text-slate-500 mt-0.5">
+                  You're on {tierLabel(user)} · Upgrade to unlock
+                </div>
+              )}
+            </div>
           </div>
-          <button onClick={onClose} className="icon-button"><X size={18} /></button>
+          <button onClick={onClose} className="icon-button flex-shrink-0"><X size={18} /></button>
         </div>
 
-        {description && (
-          <p className="text-xs text-slate-400 mb-4">{description}</p>
-        )}
+        {description && <p className="text-xs text-slate-400 mb-4">{description}</p>}
 
         <div className="space-y-3">
-          {TIERS.map(t => (
+          {visibleTiers.map(t => (
             <div
               key={t.key}
               className={`p-3 rounded-xl border ${
@@ -72,7 +105,7 @@ export default function LockedFeatureModal({ featureName = "This feature", descr
               </div>
 
               <div className="space-y-1 mb-3">
-                {t.features.slice(0, 3).map((f, i) => (
+                {t.features.slice(0, 4).map((f, i) => (
                   <div key={i} className="flex items-start gap-1.5 text-[11px] text-slate-400">
                     <Check size={11} className="text-emerald-400 mt-0.5 flex-shrink-0" />
                     <span>{f}</span>
@@ -84,7 +117,7 @@ export default function LockedFeatureModal({ featureName = "This feature", descr
                 onClick={() => onChoosePlan(t.key)}
                 className={t.highlight ? "primary-button w-full" : "secondary-button w-full justify-center"}
               >
-                {t.highlight ? "Go Pro →" : `Choose ${t.name}`}
+                {t.highlight ? `Upgrade to ${t.name}` : `Choose ${t.name}`}
               </button>
             </div>
           ))}
