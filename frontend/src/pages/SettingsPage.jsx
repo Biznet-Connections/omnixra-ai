@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Bell, BriefcaseBusiness, Globe2, Mail, Lock, Trash2, ChevronRight, Newspaper } from "lucide-react";
+﻿import React, { useState, useEffect } from "react";
+import { Bell, BriefcaseBusiness, Globe2, Mail, Lock, Trash2, ChevronRight, Newspaper, Building2, Users, CreditCard } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 
@@ -122,6 +122,24 @@ function SettingsPage() {
             <button onClick={() => setProfilePublic(!profilePublic)} className={"toggle " + (profilePublic ? "toggle-on" : "")}><span /></button>
           </div>
         </div>
+
+        {user?.accountType === "company" && (
+          <div className="settings-card mt-4">
+            <div className="settings-section-title">Company</div>
+            <button className="settings-link" onClick={() => window.location.hash = "#company-profile"}>
+              <Building2 size={16} />Company profile<ChevronRight size={14} />
+            </button>
+            <button className="settings-link" onClick={() => window.location.hash = "#post-job"}>
+              <BriefcaseBusiness size={16} />Post a job<ChevronRight size={14} />
+            </button>
+            <button className="settings-link" onClick={() => window.location.hash = "#team"}>
+              <Users size={16} />Team members<ChevronRight size={14} />
+            </button>
+            <button className="settings-link" onClick={() => window.location.hash = "#billing"}>
+              <CreditCard size={16} />Billing & subscription<ChevronRight size={14} />
+            </button>
+          </div>
+        )}
 
         <div className="settings-card mt-4">
           <div className="settings-section-title">Account</div>

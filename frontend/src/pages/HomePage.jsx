@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { UserCheck, Newspaper, Briefcase, User, FileText, MessageCircle , Search } from "lucide-react";
 import PostCard from "../components/PostCard";
 import ProfileMenu from "../components/ProfileMenu";
@@ -51,7 +51,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
 
   // Auto-refresh feed when network comes back
   useNetworkRefresh(() => {
-    console.log("🌐 [NETWORK] Auto-refreshing feed after reconnect");
+    console.log("ðŸŒ [NETWORK] Auto-refreshing feed after reconnect");
     if (typeof refreshPosts === "function") {
       refreshPosts();
     } else if (typeof fetchPosts === "function") {
@@ -101,7 +101,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
           !inFlight
         ) {
           inFlight = true;
-          console.log("SCROLL sentinel visible — loading next page");
+          console.log("SCROLL sentinel visible â€” loading next page");
           try {
             await loadMorePosts();
           } finally {
@@ -146,7 +146,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
   }, [user?._id]);
 
 
-  // ── Deep-link: scroll to a specific post after it loads ──
+  // â”€â”€ Deep-link: scroll to a specific post after it loads â”€â”€
   useEffect(() => {
     if (!focusPostId) return;
 
@@ -161,14 +161,14 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         el.classList.add("post-highlight");
         setTimeout(() => el.classList.remove("post-highlight"), 2600);
-        console.log("📌 [DEEP LINK] Scrolled to post", focusPostId);
+        console.log("ðŸ“Œ [DEEP LINK] Scrolled to post", focusPostId);
         return;
       }
       tries++;
       if (tries < MAX_TRIES) {
         setTimeout(tryScroll, 200);
       } else {
-        console.warn("📌 [DEEP LINK] Post not found after", MAX_TRIES, "tries");
+        console.warn("ðŸ“Œ [DEEP LINK] Post not found after", MAX_TRIES, "tries");
       }
     };
 
@@ -186,11 +186,19 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
     }
   };
 
-  const quickActions = [{ icon: User, label: "Profile", action: () => setShowProfileMenu(true) },
-    { icon: Search, label: "Discover", action: () => setPage("discover") },
-    { icon: UserCheck, label: "Following", action: () => setPage("following") },
-    { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
-    { icon: Newspaper, label: "News", action: () => setPage("news") },
+  const quickActions = user?.accountType === "company"
+    ? [
+        { icon: User, label: "Profile", action: () => setShowProfileMenu(true) },
+        { icon: Briefcase, label: "Post Job", action: () => setPage("post") },
+        { icon: FileText, label: "Applications", action: () => setPage("applications") },
+        { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
+      ]
+    : [
+        { icon: User, label: "Profile", action: () => setShowProfileMenu(true) },
+        { icon: Search, label: "Discover", action: () => setPage("discover") },
+        { icon: UserCheck, label: "Following", action: () => setPage("following") },
+        { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
+        { icon: Newspaper, label: "News", action: () => setPage("news") },
     { icon: Briefcase, label: "Applications", action: () => setPage("applications") },
     { icon: FileText, label: "My Posts", action: () => setPage("my-posts") },
   ];
