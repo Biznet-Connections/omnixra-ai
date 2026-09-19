@@ -24,14 +24,7 @@ function InboxPage({ setPage, initialConversationId }) {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const bottomRef = useRef(null);
 
-  // auto-open effect
-  useEffect(() => {
-    if (!initialConversationId || conversations.length === 0) return;
-    const target = conversations.find(c => String(c._id) === String(initialConversationId));
-    if (target && !selectedConversation) {
-      setSelectedConversation(target);
-    }
-  }, [initialConversationId, conversations.length]);
+  // auto-open effect (moved below openConversation)
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const { user } = useAuth();
@@ -88,13 +81,7 @@ function InboxPage({ setPage, initialConversationId }) {
     };
   }, [selectedConversation?._id, user?._id]);
 
-  useEffect(() => {
-    const openConversationId = localStorage.getItem("omnixra_open_conversation");
-    if (openConversationId) {
-      localStorage.removeItem("omnixra_open_conversation");
-      openConversation(openConversationId);
-    }
-  }, []);
+  // (old localStorage effect moved below openConversation)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -155,6 +142,24 @@ function InboxPage({ setPage, initialConversationId }) {
       setShowConversationMenu(null);
     } catch (err) { console.error(err); }
   };
+
+  // auto-open conversation effect (must be after openConversation definition)
+  useEffect(() => {
+    if (!initialConversationId) return;
+    if (selectedConversation?._id === initialConversationId) return;
+    openConversation(initialConversationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialConversationId]);
+
+  // Handle legacy localStorage navigation (from older flows)
+  useEffect(() => {
+    const openConversationId = localStorage.getItem("omnixra_open_conversation");
+    if (openConversationId) {
+      localStorage.removeItem("omnixra_open_conversation");
+      openConversation(openConversationId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sendMessage = async (text) => {
     const messageText = (text ?? newMessage).trim();
