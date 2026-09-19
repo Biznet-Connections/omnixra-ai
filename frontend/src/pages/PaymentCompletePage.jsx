@@ -31,14 +31,18 @@ export default function PaymentCompletePage({ setPage }) {
     return () => clearInterval(iv);
   }, []);
 
-  // ── When payment succeeds on mobile browser, redirect back to the APK ──
+  // ── When payment reaches ANY final state, redirect back to the APK ──
   useEffect(() => {
-    if (status !== "paid") return;
+    const finalStates = ["paid", "failed", "timeout", "unknown"];
+    if (!finalStates.includes(status)) return;
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const isNative = typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.();
     if (!isMobile || isNative) return;
     const t = setTimeout(() => {
-      const deeplink = "omnixra://payment-success" + (reference ? "?reference=" + encodeURIComponent(reference) : "");
+      const params = new URLSearchParams();
+      if (reference) params.set("reference", reference);
+      params.set("status", status);
+      const deeplink = "omnixra://payment-success?" + params.toString();
       window.location.href = deeplink;
     }, 1500);
     return () => clearTimeout(t);

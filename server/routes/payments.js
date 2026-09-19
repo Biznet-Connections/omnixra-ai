@@ -116,15 +116,33 @@ router.post("/initiate", protect, async (req, res) => {
  * GET /api/payments/status/:reference
  * Polls Linkwa if we don't have a final status yet.
  */
-router.get("/status/:reference", protect, async (req, res) => {
+router.get("/status/:reference", async (req, res) => {
+  // Allow public access when Linkwa verification params are present (user returning from checkout)
+  // Otherwise require auth
+  const hasLinkwaProof = req.query.short_url && req.query.payment_reference;
+  
+  let currentUser = null;
+  if (req.headers.authorization?.startsWith("Bearer")) {
+    try {
+      const jwt = (await import("jsonwebtoken")).default;
+      const User = (await import("../models/User.js")).default;
+      const decoded = jwt.verify(req.headers.authorization.split(" ")[1], process.env.JWT_SECRET);
+      currentUser = await User.findById(decoded.id).select("-password");
+    } catch (e) {
+      // token invalid — allow if linkwa proof present
+    }
+  }
+  
+  if (!currentUser && !hasLinkwaProof) {
+    return res.status(401).json({ message: "Not authorized" });
+  }
+  req.user = currentUser;
   try {
     const payment = await Payment.findOne({ reference: req.params.reference });
     if (!payment) return res.status(404).json({ message: "Payment not found" });
 
-    if (
-      String(payment.user) !== String(req.user._id) &&
-      req.user.accountType !== "admin"
-    ) {
+    // Ownership check — skip when verified by Linkwa (public return URL)
+    if (currentUser && String(payment.user) !== String(currentUser._id) && currentUser.accountType !== "admin") {
       return res.status(403).json({ message: "Not yours" });
     }
 

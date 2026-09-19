@@ -130,16 +130,31 @@ function AppContent() {
           const url = event.url || "";
           console.log("[deeplink] received:", url);
           if (url.startsWith("omnixra://payment-success")) {
+            // Extract status param from deeplink
+            let paymentStatus = "paid";
+            try {
+              const u = new URL(url.replace("omnixra://", "https://dummy/"));
+              paymentStatus = u.searchParams.get("status") || "paid";
+            } catch (e) {}
+
+            // Always refresh user (in case payment succeeded)
             try {
               const { default: api } = await import("./api/axios");
               const res = await api.get("/auth/me");
               setUser(res.data);
               localStorage.setItem("omnixra_user", JSON.stringify(res.data));
-              console.log("[deeplink] user refreshed:", res.data?.subscriptionTier);
+              console.log("[deeplink] user refreshed:", res.data?.subscriptionTier, "| payment status:", paymentStatus);
             } catch (e) {
               console.warn("[deeplink] user refresh failed:", e.message);
             }
-            setPage("jobs");
+
+            // Navigate appropriately
+            if (paymentStatus === "paid") {
+              setPage("jobs");
+            } else if (paymentStatus === "failed" || paymentStatus === "timeout") {
+              // Return to where they were — Jobs or Premium
+              setPage("jobs");
+            }
           }
         });
       } catch (e) {
