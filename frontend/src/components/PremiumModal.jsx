@@ -1,10 +1,9 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { X, Crown, Check } from "lucide-react";
 import PaymentModal from "./PaymentModal";
+import { PLANS } from "../utils/planConfig";
 
-import { PLANS as TIERS } from "../utils/planConfig";
-
-function PremiumModal({ onClose }) {
+function PremiumModal({ onClose, reason }) {
   const [activePlan, setActivePlan] = useState(null);
 
   if (activePlan) {
@@ -17,14 +16,15 @@ function PremiumModal({ onClose }) {
     );
   }
 
+  const title = reason ? `Unlock ${reason}` : "Omnixra Premium";
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
-
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold flex items-center gap-2">
             <Crown size={20} className="text-amber-400" />
-            Omnixra Premium
+            {title}
           </h2>
           <button onClick={onClose} className="icon-button"><X size={18} /></button>
         </div>
@@ -34,7 +34,7 @@ function PremiumModal({ onClose }) {
         </p>
 
         <div className="space-y-3">
-          {TIERS.map(t => (
+          {PLANS.map(t => (
             <div
               key={t.key}
               className={`p-3 rounded-xl border ${
@@ -56,6 +56,7 @@ function PremiumModal({ onClose }) {
                   <div className="text-xs text-slate-500 mt-0.5">
                     <span className="font-bold text-white text-base">{t.price}</span> / {t.period}
                   </div>
+                  {t.tagline && <div className="text-[10px] text-indigo-300/70 mt-0.5 italic">{t.tagline}</div>}
                 </div>
               </div>
 
@@ -77,7 +78,6 @@ function PremiumModal({ onClose }) {
             </div>
           ))}
         </div>
-
       </div>
     </div>
   );

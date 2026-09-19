@@ -1,7 +1,7 @@
-﻿import React from "react";
+import React from "react";
 import { X, Clock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { tierLabel } from "../utils/tierHelpers";
+import { PLANS } from "../utils/planConfig";
 
 export default function RenewalModal({ onClose, onChoosePlan, expiredTier }) {
   const { user } = useAuth();
@@ -10,51 +10,50 @@ export default function RenewalModal({ onClose, onChoosePlan, expiredTier }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box text-center" onClick={e => e.stopPropagation()}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
         <div className="flex justify-end">
           <button onClick={onClose} className="icon-button"><X size={18} /></button>
         </div>
 
-        <Clock className="mx-auto text-amber-400 mb-3" size={48} />
+        <div className="text-center mb-5">
+          <Clock className="mx-auto text-amber-400 mb-3" size={48} />
+          <h2 className="text-lg font-bold mb-2">Your {label} plan has expired</h2>
+          <p className="text-xs text-slate-400">
+            Renew to keep your premium features.
+          </p>
+        </div>
 
-        <h2 className="text-lg font-bold mb-2">Your {label} has expired</h2>
-        <p className="text-xs text-slate-400 mb-6">
-          Renew to keep your premium features.
-        </p>
-
-        <div className="space-y-3 text-left">
-          <div className="p-3 rounded-xl border border-indigo-500/40 bg-indigo-500/[.04]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-semibold text-sm">Starter</span>
-              <span className="font-bold text-white">$5</span>
+        <div className="space-y-3">
+          {PLANS.map(t => (
+            <div
+              key={t.key}
+              className={`p-3 rounded-xl border ${
+                t.highlight
+                  ? "border-amber-500/40 bg-amber-500/[.04]"
+                  : "border-white/[.06] bg-white/[.02]"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <span className="font-semibold text-sm">{t.name}</span>
+                  {t.badge && (
+                    <span className="text-[9px] px-1.5 py-0.5 ml-2 rounded bg-amber-500/20 text-amber-400 font-bold">
+                      {t.badge}
+                    </span>
+                  )}
+                </div>
+                <span className="font-bold text-white">
+                  {t.price} <span className="text-xs text-slate-500">/ {t.period}</span>
+                </span>
+              </div>
+              <button
+                onClick={() => onChoosePlan(t.key)}
+                className={t.highlight ? "primary-button w-full" : "secondary-button w-full justify-center"}
+              >
+                Renew {t.name}
+              </button>
             </div>
-            <div className="text-xs text-slate-500 mb-2">Inbox HR · Push CV · Push Profile</div>
-            <button onClick={() => onChoosePlan("starter_biweekly")} className="secondary-button w-full justify-center">
-              Renew Starter
-            </button>
-          </div>
-
-          <div className="p-3 rounded-xl border border-purple-500/40 bg-purple-500/[.04]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-semibold text-sm">Plus</span>
-              <span className="font-bold text-white">$10</span>
-            </div>
-            <div className="text-xs text-slate-500 mb-2">+ Higher visibility + AI insights</div>
-            <button onClick={() => onChoosePlan("plus_biweekly")} className="secondary-button w-full justify-center">
-              Upgrade to Plus
-            </button>
-          </div>
-
-          <div className="p-3 rounded-xl border border-amber-500/40 bg-amber-500/[.04]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-semibold text-sm">Pro ⭐</span>
-              <span className="font-bold text-white">$25</span>
-            </div>
-            <div className="text-xs text-slate-500 mb-2">Everything + notifications + badge</div>
-            <button onClick={() => onChoosePlan("pro_monthly")} className="primary-button w-full">
-              Go Pro
-            </button>
-          </div>
+          ))}
         </div>
       </div>
     </div>

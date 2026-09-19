@@ -1,6 +1,7 @@
 import React from "react";
 import { Menu, Bell, ChevronDown } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import SubscriptionBadge from "./SubscriptionBadge";
 
 function Header({ setMobileOpen }) {
   const { user } = useAuth();
@@ -23,6 +24,7 @@ function Header({ setMobileOpen }) {
       </div>
 
       <div className="header-right">
+        <SubscriptionBadge onClick={() => window.dispatchEvent(new CustomEvent("navigate-to", { detail: "premium" }))} />
         <button className="icon-button">
           <Bell size={18} />
           <span className="notification-dot" />

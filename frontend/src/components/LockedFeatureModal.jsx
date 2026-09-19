@@ -1,9 +1,10 @@
-﻿import React from "react";
+import React from "react";
 import { X, Lock, Check, Star } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { tierRank, tierLabel } from "../utils/tierHelpers";
+import { PLANS } from "../utils/planConfig";
 
-import { PLANS as TIERS } from "../utils/planConfig";
+const TIER_RANK = { starter: 1, plus: 2, pro: 3 };
 
 export default function LockedFeatureModal({
   featureName = "This feature",
@@ -15,17 +16,10 @@ export default function LockedFeatureModal({
 }) {
   const { user } = useAuth();
   const currentRank = tierRank(user);
-  const requiredRank = { starter: 1, plus: 2, pro: 3 }[requiredTier] || 1;
+  const requiredRank = TIER_RANK[requiredTier] || 1;
   const isUpgrade = currentRank > 0;
 
-  // Free user: show all tiers at or above required
-  // Paid user: show only the tiers they need to upgrade to
-  const visibleTiers = isUpgrade
-    ? TIERS.filter(t => (requiredRank === 1 ? true : { starter: 1, plus: 2, pro: 3 }[t.tier] >= requiredRank))
-    : TIERS.filter(t => ({ starter: 1, plus: 2, pro: 3 }[t.tier] >= requiredRank));
-
-  const needsPro = requiredRank === 3;
-  const needsPlus = requiredRank === 2;
+  const visibleTiers = PLANS.filter(t => TIER_RANK[t.tier] >= requiredRank);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -41,7 +35,7 @@ export default function LockedFeatureModal({
               </h2>
               {isUpgrade && (
                 <div className="text-xs text-slate-500 mt-0.5">
-                  You're on {tierLabel(user)} Â· Upgrade to unlock
+                  You're on {tierLabel(user)} — upgrade to unlock
                 </div>
               )}
             </div>
@@ -74,6 +68,7 @@ export default function LockedFeatureModal({
                   <div className="text-xs text-slate-500 mt-0.5">
                     <span className="font-bold text-white text-sm">{t.price}</span> / {t.period}
                   </div>
+                  {t.tagline && <div className="text-[10px] text-indigo-300/70 mt-0.5 italic">{t.tagline}</div>}
                 </div>
               </div>
 
@@ -100,7 +95,7 @@ export default function LockedFeatureModal({
           onClick={onSeePricing || onClose}
           className="text-xs text-indigo-400 hover:text-indigo-300 mt-4 w-full text-center"
         >
-          See full pricing â†’
+          See full pricing →
         </button>
       </div>
     </div>

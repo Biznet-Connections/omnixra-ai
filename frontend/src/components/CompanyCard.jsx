@@ -124,7 +124,7 @@ function CompanyCard({ company }) {
       {showLocked && (
         <LockedFeatureModal
           featureName={lockedFeature}
-          requiredTier="starter"
+          requiredTier="plus"
           description="Upgrade to contact companies directly."
           onClose={() => setShowLocked(false)}
           onChoosePlan={(planKey) => { setShowLocked(false); setActivePlan(planKey); }}

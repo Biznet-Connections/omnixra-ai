@@ -42,6 +42,7 @@ import { useAuth } from "./context/AuthContext";
 import { PostsProvider } from "./context/PostsContext";
 import { SocketProvider } from "./context/SocketContext";
 import InAppNotificationBanner from "./components/InAppNotificationBanner";
+import ExpiryBanner from "./components/ExpiryBanner";
 import DiscoverPage from "./pages/DiscoverPage";
 import ChannelPage from "./pages/ChannelPage";
 import PremiumPage from "./pages/PremiumPage";
@@ -298,6 +299,7 @@ const isAdminPage = page === "admin" || page === "admin-login" || page.startsWit
     <div className="app-root">
       
       <InAppNotificationBanner />
+      <ExpiryBanner onRenew={() => handleNavClick("premium")} />
       {!isAdminPage && <DesktopSidebar page={page} setPage={handleNavClick} />}
       <main className="app-main">
         <ErrorBoundary key={page}>{renderPage()}</ErrorBoundary>

@@ -1,12 +1,7 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import PaymentModal from "../components/PaymentModal";
 import { Crown, Check, Rocket } from "lucide-react";
-
 import { PLANS } from "../utils/planConfig";
-const TIERS = PLANS.map(p => ({
-  ...p,
-  price: parseInt(p.price.replace("$", ""), 10),
-}));
 
 export default function PremiumPage() {
   const [activePlan, setActivePlan] = useState(null);
@@ -22,7 +17,7 @@ export default function PremiumPage() {
       </div>
 
       <div className="space-y-4">
-        {TIERS.map(t => (
+        {PLANS.map(t => (
           <div
             key={t.key}
             className={`rounded-2xl border p-4 ${
@@ -40,9 +35,10 @@ export default function PremiumPage() {
                   )}
                 </div>
                 <div className="text-3xl font-bold mt-1">
-                  ${t.price}
+                  {t.price}
                   <span className="text-sm text-white/50 ml-1">/ {t.period}</span>
                 </div>
+                {t.tagline && <div className="text-xs text-indigo-300/70 mt-1 italic">{t.tagline}</div>}
               </div>
             </div>
 
@@ -75,7 +71,7 @@ export default function PremiumPage() {
               className="rounded-xl border border-white/10 bg-white/5 p-3 text-left hover:border-white/20"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm">📊 20,000 reach</span>
+                <span className="text-sm">20,000 reach</span>
                 <span className="font-bold text-indigo-400">$2</span>
               </div>
             </button>
@@ -84,7 +80,7 @@ export default function PremiumPage() {
               className="rounded-xl border border-white/10 bg-white/5 p-3 text-left hover:border-white/20"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm">📊 80,000 reach ⭐</span>
+                <span className="text-sm">80,000 reach ★</span>
                 <span className="font-bold text-indigo-400">$5</span>
               </div>
             </button>
