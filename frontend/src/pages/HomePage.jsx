@@ -201,7 +201,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
         { icon: Newspaper, label: "News", action: () => setPage("news") },
         { icon: Briefcase, label: "Applications", action: () => setPage("applications") },
         { icon: FileText, label: "My Posts", action: () => setPage("my-posts") },
-  ];
+      ];
 
   return (
     <div className="page-scroll">
