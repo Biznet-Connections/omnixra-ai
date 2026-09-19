@@ -90,6 +90,7 @@ app.use("/api/notifications", notificationsRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/channels", channelRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/company", companyRoutes);
 app.use("/share", shareRoutes);
 app.use("/", seoRoutes);
 

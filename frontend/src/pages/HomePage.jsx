@@ -12,6 +12,7 @@ import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import EmptyState from "../components/EmptyState";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
+import CompanyHome from "../components/CompanyHome";
 
 function HomePage({ setPage, setSelectedUserId, focusPostId }) {
   const {
@@ -206,6 +207,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
   return (
     <div className="page-scroll">
       <div className="page-container">
+        {user?.accountType === "company" && <CompanyHome setPage={setPage} />}
         {!online && hasCachedPosts && (
           <EmptyState variant="offline-cached" />
         )}
