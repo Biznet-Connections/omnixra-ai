@@ -7,7 +7,7 @@ import TalentCard from "../components/TalentCard";
 
 function ChatPage() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState([{ role: "assistant", text: user?.accountType === "company" ? `Hello ${user?.name} ðŸ‘‹\n\nTell me the job you are posting, or the employees you are looking for.` : "Hey ðŸ‘‹ I'm Omnixra, your AI employment assistant. I can find jobs, improve CV, and help with your career." }]);
+  const [messages, setMessages] = useState([{ role: "assistant", text: user?.accountType === "company" ? `Hello ${user?.name} 👋\n\nTell me the job you are posting, or the employees you are looking for.` : "Hey 👋 I'm Omnixra, your AI employment assistant. I can find jobs, improve CV, and help with your career." }]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [copied, setCopied] = useState(null);

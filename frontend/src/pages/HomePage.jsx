@@ -51,7 +51,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
 
   // Auto-refresh feed when network comes back
   useNetworkRefresh(() => {
-    console.log("ðŸŒ [NETWORK] Auto-refreshing feed after reconnect");
+    console.log("🌍 [NETWORK] Auto-refreshing feed after reconnect");
     if (typeof refreshPosts === "function") {
       refreshPosts();
     } else if (typeof fetchPosts === "function") {
@@ -101,7 +101,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
           !inFlight
         ) {
           inFlight = true;
-          console.log("SCROLL sentinel visible â€” loading next page");
+          console.log("SCROLL sentinel visible — loading next page");
           try {
             await loadMorePosts();
           } finally {
@@ -161,14 +161,14 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         el.classList.add("post-highlight");
         setTimeout(() => el.classList.remove("post-highlight"), 2600);
-        console.log("ðŸ“Œ [DEEP LINK] Scrolled to post", focusPostId);
+        console.log("🎉“Œ [DEEP LINK] Scrolled to post", focusPostId);
         return;
       }
       tries++;
       if (tries < MAX_TRIES) {
         setTimeout(tryScroll, 200);
       } else {
-        console.warn("ðŸ“Œ [DEEP LINK] Post not found after", MAX_TRIES, "tries");
+        console.warn("🎉“Œ [DEEP LINK] Post not found after", MAX_TRIES, "tries");
       }
     };
 

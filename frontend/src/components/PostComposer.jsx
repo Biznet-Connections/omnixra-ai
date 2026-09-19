@@ -285,13 +285,13 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
           {isChannel && (
             <div className="channel-post-banner">
               <Radio size={14} />
-              <span>Posting to <strong>{channelName || "channel"}</strong> â€” followers will see this update</span>
+              <span>Posting to <strong>{channelName || "channel"}</strong> — followers will see this update</span>
             </div>
           )}
 
           {posted && newPost ? (
             <div className="text-center py-6">
-              <div className="text-4xl mb-3">ðŸŽ‰</div>
+              <div className="text-4xl mb-3">🎉</div>
               <h3 className="text-lg font-bold">{isChannel ? "Posted to channel!" : "Posted!"}</h3>
               {!isChannel && <p className="text-sm text-slate-500 mt-2">Boost this post to reach more people?</p>}
               <div className="flex gap-3 mt-5">
