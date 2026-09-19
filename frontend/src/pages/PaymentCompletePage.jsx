@@ -38,14 +38,25 @@ export default function PaymentCompletePage({ setPage }) {
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const isNative = typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.();
     if (!isMobile || isNative) return;
-    const t = setTimeout(() => {
-      const params = new URLSearchParams();
-      if (reference) params.set("reference", reference);
-      params.set("status", status);
-      const deeplink = "omnixra://payment-success?" + params.toString();
-      window.location.href = deeplink;
-    }, 1500);
-    return () => clearTimeout(t);
+
+    const params = new URLSearchParams();
+    if (reference) params.set("reference", reference);
+    params.set("status", status);
+    const qs = params.toString();
+
+    // Strategy: Universal Link first (no popup on verified devices), custom scheme as fallback
+    const t1 = setTimeout(() => {
+      console.log("[payment-return] trying universal link");
+      window.location.href = "https://omnixra-ai.com/app/payment-success?" + qs;
+    }, 1200);
+
+    // Fallback: custom scheme 800ms later if universal link didn't take us out
+    const t2 = setTimeout(() => {
+      console.log("[payment-return] trying custom scheme fallback");
+      window.location.href = "omnixra://payment-success?" + qs;
+    }, 2000);
+
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [status, reference]);
 
   return (

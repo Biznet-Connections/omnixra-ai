@@ -129,7 +129,11 @@ function AppContent() {
         listener = await CapApp.addListener("appUrlOpen", async (event) => {
           const url = event.url || "";
           console.log("[deeplink] received:", url);
-          if (url.startsWith("omnixra://payment-success")) {
+          // Handle both universal link (https://omnixra-ai.com/app/payment-success) and custom scheme
+          const isUniversal = url.includes("/app/payment-success");
+          const isCustom = url.startsWith("omnixra://payment-success");
+          
+          if (isUniversal || isCustom) {
             // Extract status param from deeplink
             let paymentStatus = "paid";
             try {

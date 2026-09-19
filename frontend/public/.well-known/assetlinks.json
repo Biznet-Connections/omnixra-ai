@@ -1,0 +1,11 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.omnixra.ai",
+    "sha256_cert_fingerprints": [
+      "2A:DF:67:C2:FD:52:70:FC:F4:CB:83:6C:31:9F:1E:70:8A:04:A0:74:2B:E1:D3:27:CB:94:33:89:48:D4:DB:A8",
+      "06:1E:2D:CD:F3:59:DB:49:4A:1C:99:22:88:89:63:88:75:6F:63:9C:CC:A4:C5:C2:F1:F7:7E:59:3A:73:7F:1E"
+    ]
+  }
+}]
