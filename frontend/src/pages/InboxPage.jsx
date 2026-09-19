@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import LoadingDots from "../components/LoadingDots";
 
-function InboxPage({ setPage }) {
+function InboxPage({ setPage, initialConversationId }) {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -23,6 +23,15 @@ function InboxPage({ setPage }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const bottomRef = useRef(null);
+
+  // auto-open effect
+  useEffect(() => {
+    if (!initialConversationId || conversations.length === 0) return;
+    const target = conversations.find(c => String(c._id) === String(initialConversationId));
+    if (target && !selectedConversation) {
+      setSelectedConversation(target);
+    }
+  }, [initialConversationId, conversations.length]);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const { user } = useAuth();

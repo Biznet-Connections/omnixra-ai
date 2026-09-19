@@ -3,6 +3,7 @@ import { ArrowLeft, MessageCircle, User, Briefcase, FileText, Search } from "luc
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import LoadingDots from "../components/LoadingDots";
+import InboxPage from "./InboxPage";
 
 function CompanyInboxPage({ setPage, setSelectedUserId }) {
   const { user } = useAuth();
@@ -11,6 +12,8 @@ function CompanyInboxPage({ setPage, setSelectedUserId }) {
   const [applicants, setApplicants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeConversation, setActiveConversation] = useState(null);
+  const [newMessage, setNewMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -48,11 +51,8 @@ function CompanyInboxPage({ setPage, setSelectedUserId }) {
   });
 
   const openConversation = (conv) => {
-    // Store the conversation ID and go to full chat
-    if (conv?._id) {
-      sessionStorage.setItem("openConversationId", conv._id);
-    }
-    setPage("inbox-chat");
+    setActiveConversation(conv);
+    setNewMessage("");
   };
 
   const openApplicant = (app) => {
@@ -184,6 +184,36 @@ function CompanyInboxPage({ setPage, setSelectedUserId }) {
           )
         )}
       </div>
+
+      {/* Chat Modal — shows when a conversation is selected */}
+      {activeConversation && (
+        <div className="fixed inset-0 z-50 bg-[#06070b] flex flex-col">
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[.06]">
+            <button
+              onClick={() => setActiveConversation(null)}
+              className="icon-button"
+              aria-label="Close chat"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm truncate">
+                {activeConversation.participants?.find(p => p._id !== user?._id)?.name || "Chat"}
+              </div>
+              <div className="text-[10px] text-slate-500">Company Inbox</div>
+            </div>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <InboxPage
+              setPage={(p) => {
+                setActiveConversation(null);
+                setPage(p);
+              }}
+              initialConversationId={activeConversation._id}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

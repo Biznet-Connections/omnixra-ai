@@ -13,7 +13,7 @@ const router = express.Router();
 
 // GET all companies â€” cursor pagination (scales to millions)
 // Query: ?limit=20&cursor=<lastCompanyId>
-router.get("/", async (req, res) => {
+router.get("/", cacheShort(30), async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 20, 50);
     const cursor = req.query.cursor;
