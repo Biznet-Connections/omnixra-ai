@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Home, Sparkles, PlusCircle, Briefcase, Building2, Users, Inbox } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import PostChooserModal from "./PostChooserModal";
@@ -6,8 +6,7 @@ import PostChooserModal from "./PostChooserModal";
 function BottomNav({ page, setPage }) {
   const { user } = useAuth();
   const isCompany = user?.accountType === "company";
-
-    const [showPostChooser, setShowPostChooser] = React.useState(false);
+  const [showPostChooser, setShowPostChooser] = React.useState(false);
 
   const navItems = isCompany
     ? [
@@ -36,22 +35,33 @@ function BottomNav({ page, setPage }) {
   };
 
   return (
-    <nav className="bottom-nav">
-      {navItems.map(item => {
-        const Icon = item.icon;
-        const active = page === item.id;
-        return (
-          <button
-            key={item.id}
-            onClick={() => handleClick(item.id)}
-            className={`bottom-nav-item ${active ? "bottom-nav-active" : ""}`}
-          >
-            <Icon size={22} strokeWidth={active ? 2.4 : 1.8} />
-            <span>{item.label}</span>
-          </button>
-        );
-      })}
-    </nav>
+    <>
+      <nav className="bottom-nav">
+        {navItems.map(item => {
+          const Icon = item.icon;
+          const active = page === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => handleClick(item.id)}
+              className={`bottom-nav-item ${active ? "bottom-nav-active" : ""}`}
+            >
+              <Icon size={22} strokeWidth={active ? 2.4 : 1.8} />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {showPostChooser && (
+        <PostChooserModal
+          onClose={() => setShowPostChooser(false)}
+          onPickJob={() => { setShowPostChooser(false); setPage("post-job"); }}
+          onPickUpdate={() => { setShowPostChooser(false); setPage("post"); }}
+          onPickBoost={() => { setShowPostChooser(false); setPage("post"); }}
+        />
+      )}
+    </>
   );
 }
 

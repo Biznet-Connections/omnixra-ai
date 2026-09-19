@@ -113,11 +113,29 @@ export const AuthProvider = ({ children }) => {
   const cancelVerification = () => setPendingVerification(null);
 
   const logout = () => {
-    localStorage.removeItem("omnixra_token");
-    localStorage.removeItem("omnixra_user");
-    localStorage.removeItem("omnixra_following");
-    localStorage.removeItem("omnixra_saved_posts");
-    localStorage.removeItem("omnixra_redirect");
+    // Clear ALL user-scoped keys to prevent cross-account data leak
+    const keysToRemove = [
+      "omnixra_token",
+      "omnixra_user",
+      "omnixra_following",
+      "omnixra_saved_posts",
+      "omnixra_liked_posts",
+      "omnixra_redirect",
+      "omnixra_companies_cache_v1",
+      "omnixra_jobs_cache_v1",
+      "omnixra_news_cache",
+      "omnixra_notif_prompted",
+      "omnixra_chats_cache",
+      "omnixra_inbox_cache",
+    ];
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+
+    // Nuke any leftover keys starting with omnixra_
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith("omnixra_") || k.startsWith("omnixra-")) {
+        localStorage.removeItem(k);
+      }
+    });
     setUser(null);
     setPendingVerification(null);
   };
