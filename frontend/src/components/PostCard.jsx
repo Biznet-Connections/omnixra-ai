@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from "react";
-import { Heart, MessageCircle, Share2, Bookmark, Ellipsis, Check, Trash2, UserPlus, Building2, Lock, Pencil, Rocket , Globe } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, Ellipsis, Check, Trash2, UserPlus, Building2, Lock, Pencil, Rocket, Download, FileText, MapPin } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import CommentsBottomSheet from "./CommentsBottomSheet";
@@ -368,6 +368,31 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
             </div>
           </div>
         ) : null}
+
+        {post.attachmentUrl && (
+          <a href={post.attachmentUrl} target="_blank" rel="noreferrer"
+             className="flex items-center gap-3 mt-4 p-3 rounded-xl border border-white/[.06] bg-white/[.02] hover:border-white/[.15] transition-colors"
+             onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
+              <FileText size={18} className="text-indigo-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-slate-200 truncate">{post.attachmentName || "Attachment"}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">
+                {post.attachmentSize ? (post.attachmentSize / 1024 / 1024).toFixed(1) + " MB" : "File"}
+              </div>
+            </div>
+            <Download size={16} className="text-slate-500" />
+          </a>
+        )}
+
+        {post.location?.name && (
+          <div className="flex items-center gap-1.5 mt-3 text-[11px] text-slate-500">
+            <MapPin size={11} />
+            <span>{post.location.name}</span>
+          </div>
+        )}
 
         {!isPending && !isEditing && (
           <>

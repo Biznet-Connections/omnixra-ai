@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+﻿import React, { useState, useRef, useEffect } from "react";
 import { Sparkles, Send, Plus, Paperclip, Mic, ThumbsUp, ThumbsDown, Copy, Check, Share2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
@@ -7,14 +7,43 @@ import TalentCard from "../components/TalentCard";
 
 function ChatPage() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState([{ role: "assistant", text: user?.accountType === "company" ? `Hello ${user?.name} 👋\n\nTell me the job you are posting, or the employees you are looking for.` : "Hey 👋 I'm Omnixra, your AI employment assistant. I can find jobs, improve CV, and help with your career." }]);
+  const [messages, setMessages] = useState([{ role: "assistant", text: user?.accountType === "company" ? `Hello ${user?.name} ðŸ‘‹\n\nTell me the job you are posting, or the employees you are looking for.` : "Hey ðŸ‘‹ I'm Omnixra, your AI employment assistant. I can find jobs, improve CV, and help with your career." }]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [copied, setCopied] = useState(null);
   const [shared, setShared] = useState(null);
+  const [chatAttachments, setChatAttachments] = useState([]);
+  const [uploadingChat, setUploadingChat] = useState(false);
+  const fileInputRef = useRef(null);
   const bottomRef = useRef(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, typing]);
+
+  const handleChatFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 25 * 1024 * 1024) { alert("File too large (max 25MB)"); return; }
+    setUploadingChat(true);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
+        const category = file.type.startsWith("image/") ? "image" : "file";
+        const res = await api.post("/ai/upload", {
+          fileData: reader.result,
+          fileName: file.name,
+          fileType: file.type || "application/octet-stream",
+          fileSize: file.size,
+          category,
+        });
+        setChatAttachments(prev => [...prev, res.data]);
+      } catch (err) {
+        alert(err.response?.data?.message || "Upload failed");
+      } finally {
+        setUploadingChat(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const sendMessage = async (provided) => {
     const text = (provided ?? input).trim();
@@ -142,7 +171,13 @@ function ChatPage() {
         <div className="chat-composer">
           <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder="Ask Omnixra anything..." rows={2} />
           <div className="composer-bottom">
-            <div className="flex gap-1"><button className="composer-icon"><Plus size={17} /></button><button className="composer-icon"><Paperclip size={16} /></button><button className="composer-icon"><Mic size={16} /></button></div>
+            <div className="flex gap-1">
+  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingChat} className="composer-icon" title="Attach file">
+    <Paperclip size={16} />
+  </button>
+  <input ref={fileInputRef} type="file" className="hidden" onChange={handleChatFile} />
+  <button type="button" className="composer-icon" title="Voice (coming soon)"><Mic size={16} /></button>
+</div>
             <button onClick={() => sendMessage()} className="send-button"><Send size={16} /></button>
           </div>
         </div>

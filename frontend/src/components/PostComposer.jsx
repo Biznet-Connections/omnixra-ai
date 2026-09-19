@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Image as ImageIcon, Video, X, Send, Sparkles, Globe, Users, Lock, Crop, Scissors, Radio } from "lucide-react";
+﻿import React, { useState } from "react";
+import { Image as ImageIcon, Video, X, Send, Sparkles, Globe, Users, Lock, Crop, Scissors, Radio, Paperclip, MapPin, FileText } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { usePosts } from "../context/PostsContext";
@@ -65,8 +65,36 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
   const [showBoost, setShowBoost] = useState(false);
   const [newPost, setNewPost] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [attachment, setAttachment] = useState(null);
+  const [attachmentName, setAttachmentName] = useState("");
+  const [locationName, setLocationName] = useState("");
+  const [showLocationInput, setShowLocationInput] = useState(false);
 
   const isChannel = !!channelId;
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 25 * 1024 * 1024) { setError("File too large (max 25MB)"); return; }
+    setAttachmentName(file.name);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
+        const res = await api.post("/posts/upload-attachment", {
+          fileData: reader.result,
+          fileName: file.name,
+          fileType: file.type || "application/octet-stream",
+          fileSize: file.size,
+        });
+        setAttachment(res.data);
+        console.log("Attachment uploaded:", res.data.url);
+      } catch (err) {
+        setError(err.response?.data?.message || "Upload failed");
+        setAttachmentName("");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -217,6 +245,11 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
         trimStart,
         trimEnd,
         visibility: isChannel ? "public" : visibility,
+        attachmentUrl: attachment?.url || null,
+        attachmentName: attachment?.name || null,
+        attachmentSize: attachment?.size || null,
+        attachmentType: attachment?.type || null,
+        location: locationName?.trim() ? { name: locationName.trim() } : null,
       };
       if (isChannel) body.channelId = channelId;
 
@@ -252,13 +285,13 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
           {isChannel && (
             <div className="channel-post-banner">
               <Radio size={14} />
-              <span>Posting to <strong>{channelName || "channel"}</strong> — followers will see this update</span>
+              <span>Posting to <strong>{channelName || "channel"}</strong> â€” followers will see this update</span>
             </div>
           )}
 
           {posted && newPost ? (
             <div className="text-center py-6">
-              <div className="text-4xl mb-3">🎉</div>
+              <div className="text-4xl mb-3">ðŸŽ‰</div>
               <h3 className="text-lg font-bold">{isChannel ? "Posted to channel!" : "Posted!"}</h3>
               {!isChannel && <p className="text-sm text-slate-500 mt-2">Boost this post to reach more people?</p>}
               <div className="flex gap-3 mt-5">
@@ -316,12 +349,31 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
               <div className="flex gap-2 mt-4 flex-wrap">
                 <label className="outline-button cursor-pointer"><ImageIcon size={16} /> Photo<input type="file" accept="image/*" onChange={handleImageChange} className="hidden" /></label>
                 <label className="outline-button cursor-pointer"><Video size={16} /> Video<input type="file" accept="video/*" onChange={handleVideoChange} className="hidden" /></label>
+                <label className="outline-button cursor-pointer">
+                  <Paperclip size={16} /> {attachmentName || "File"}
+                  <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" onChange={handleFileChange} className="hidden" />
+                </label>
+                <button type="button" onClick={() => setShowLocationInput(!showLocationInput)} className={"outline-button " + (locationName ? "category-active" : "")}>
+                  <MapPin size={16} /> {locationName || "Location"}
+                </button>
                 {!isChannel && <button onClick={enhanceWithAI} disabled={enhancing} className="outline-button text-indigo-400"><Sparkles size={16} /> {enhancing ? "Enhancing..." : "AI Enhance"}</button>}
                 <button onClick={handleSubmit} disabled={posting} className="primary-button ml-auto">
                   {posting ? (uploadProgress > 0 && uploadProgress < 100 ? "Uploading " + uploadProgress + "%" : "Posting...") : "Post"}
                   <Send size={14} />
                 </button>
               </div>
+
+              {showLocationInput && (
+                <div className="mt-3">
+                  <label className="form-label">Add location</label>
+                  <input
+                    value={locationName}
+                    onChange={e => setLocationName(e.target.value)}
+                    className="form-input"
+                    placeholder="e.g. Harare CBD"
+                  />
+                </div>
+              )}
 
               {posting && uploadProgress > 0 && uploadProgress < 100 && (
                 <div style={{ width: "100%", marginTop: 10 }}>

@@ -505,6 +505,31 @@ router.post("/industries", async (req, res) => {
   }
 });
 
+// UPLOAD ATTACHMENT FOR CHAT
+router.post("/upload", protect, async (req, res) => {
+  try {
+    const { fileData, fileName, fileType, fileSize, category } = req.body;
+    if (!fileData) return res.status(400).json({ message: "fileData required" });
+
+    const maxSize = category === "audio" ? 15 * 1024 * 1024 : 25 * 1024 * 1024;
+    if (fileSize > maxSize) return res.status(400).json({ message: "File too large" });
+
+    const base64 = fileData.includes(",") ? fileData.split(",")[1] : fileData;
+    const buffer = Buffer.from(base64, "base64");
+
+    const { uploadToR2 } = await import("../utils/r2.js");
+    const folder = category === "audio" ? "audio" : category === "image" ? "images" : "files";
+    const safeName = (fileName || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const key = `${folder}/${Date.now()}-${safeName}`;
+    const url = await uploadToR2(buffer, fileType || "application/octet-stream", folder);
+
+    res.json({ url, name: fileName, size: fileSize, type: fileType, category: category || "file" });
+  } catch (error) {
+    console.error("AI upload error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;
 
 // ── Generate cover letter for a job application ──

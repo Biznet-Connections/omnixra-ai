@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
 import { protect } from "../middleware/auth.js";
@@ -12,19 +12,19 @@ const router = express.Router();
 
 // DEBUG LOG ENDPOINT
 router.post("/debug/log", (req, res) => {
-  console.log("🔥 BROWSER LOG:", req.body.message || JSON.stringify(req.body));
+  console.log("ðŸ”¥ BROWSER LOG:", req.body.message || JSON.stringify(req.body));
   res.json({ ok: true });
 });
 
 // BATCH LOG ENDPOINT
 router.post("/debug/log-batch", (req, res) => {
   const logs = req.body.logs || [];
-  logs.forEach(line => console.log("📱", line));
+  logs.forEach(line => console.log("ðŸ“±", line));
   res.json({ ok: true, count: logs.length });
 });
 
 
-// ── Feed diversity: prevent same author appearing twice in a row ──
+// â”€â”€ Feed diversity: prevent same author appearing twice in a row â”€â”€
 // Keeps order mostly stable but spreads posts by the same author.
 // Uses a greedy pass: for each position, pick the first post whose
 // author differs from the previous one. If stuck, fall back to original.
@@ -68,7 +68,7 @@ function diversifyPosts(posts) {
   return result;
 }
 
-// GET ALL POSTS — Cursor pagination (scales to millions)
+// GET ALL POSTS â€” Cursor pagination (scales to millions)
 // Query: ?limit=10&cursor=<lastPostId>
 router.get("/", cacheShort(30, 60), async (req, res) => {
   try {
@@ -87,7 +87,7 @@ router.get("/", cacheShort(30, 60), async (req, res) => {
           { createdAt: last.createdAt, _id: { $lt: last._id } }
         ];
       } else {
-        // Cursor doc no longer exists — just fall back to plain _id pagination
+        // Cursor doc no longer exists â€” just fall back to plain _id pagination
         query._id = { $lt: cursor };
       }
     }
@@ -164,7 +164,7 @@ router.get("/", cacheShort(30, 60), async (req, res) => {
   }
 });
 
-// GET /random — 30 posts from a random position (Facebook-style refresh)
+// GET /random â€” 30 posts from a random position (Facebook-style refresh)
 router.get("/random", async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 30, 50);
@@ -316,8 +316,8 @@ router.post("/", protect, async (req, res) => {
   try {
     const { text, image, video, videoKey, thumbnailUrl, trimStart, trimEnd, visibility, channelId } = req.body;
 
-    // 🔍 DEBUG — confirm what actually arrives from PostComposer
-    console.log("📝 [POST /posts] body received:", {
+    // ðŸ” DEBUG â€” confirm what actually arrives from PostComposer
+    console.log("ðŸ“ [POST /posts] body received:", {
       textLen: typeof text === "string" ? text.length : 0,
       textPreview: typeof text === "string" ? text.slice(0, 60) : null,
       hasImage: !!image,
@@ -335,14 +335,14 @@ router.post("/", protect, async (req, res) => {
     if (image && isBase64Image(image)) {
       const parsed = parseBase64Image(image);
       if (parsed) {
-        console.log("📤 Uploading post image to R2...");
+        console.log("ðŸ“¤ Uploading post image to R2...");
         imageUrl = await uploadToR2(parsed.buffer, parsed.mimetype, "posts");
       }
     }
 
     // Upload video to R2 if it's base64 (large)
     let videoUrl = video;
-    // Videos are usually sent as URLs already from VideoTrimmer — keep as-is
+    // Videos are usually sent as URLs already from VideoTrimmer â€” keep as-is
 
     // Phase 7A: resolve videoKey to public R2 URL before saving
     if (videoKey) {
@@ -413,7 +413,7 @@ router.put("/:id/like", protect, async (req, res) => {
       .populate("author", "name profilePicture profilePicLocked headline category companyName accountType")
       .lean();
 
-    // ── Scoped real-time emit (post room + feed only) ──
+    // â”€â”€ Scoped real-time emit (post room + feed only) â”€â”€
     try {
       const likeCount = typeof populated.likes === "number" ? populated.likes : 0;
       emitPostLiked(post._id.toString(), likeCount);
@@ -458,7 +458,7 @@ router.post("/:id/comment", protect, async (req, res) => {
       .populate("comments.replies.user", "name profilePicture profilePicLocked")
       .lean();
 
-    // ── Scoped real-time emit ──
+    // â”€â”€ Scoped real-time emit â”€â”€
     try {
       emitPostCommented(post._id.toString(), populated.comments || [], post.comments.length);
     } catch (e) { console.warn("emitPostCommented failed:", e.message); }
@@ -583,7 +583,7 @@ router.delete("/:id", protect, async (req, res) => {
 router.put("/follow-user/:userId", protect, async (req, res) => {
   try {
     const targetId = req.params.userId;
-    // ── Prevent self-follow ──
+    // â”€â”€ Prevent self-follow â”€â”€
     if (req.user._id.toString() === targetId.toString()) {
       return res.status(400).json({ message: "You cannot follow yourself." });
     }
@@ -624,14 +624,14 @@ router.put("/follow-user/:userId", protect, async (req, res) => {
 });
 
 
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // REACT to a post (channel posts primarily)
 // Body: { emoji }   Toggle: same emoji removes, different replaces
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 router.put("/:id/react", protect, async (req, res) => {
   try {
     const { emoji } = req.body || {};
-    const allowed = ["❤️", "🔥", "👍", "😮"];
+    const allowed = ["â¤ï¸", "ðŸ”¥", "ðŸ‘", "ðŸ˜®"];
     if (!allowed.includes(emoji)) {
       return res.status(400).json({ message: "Invalid emoji" });
     }
@@ -669,4 +669,26 @@ router.put("/:id/react", protect, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+// UPLOAD ATTACHMENT for posts (File icon)
+router.post("/upload-attachment", protect, async (req, res) => {
+  try {
+    const { fileData, fileName, fileType, fileSize } = req.body;
+    if (!fileData) return res.status(400).json({ message: "fileData required" });
+    if (fileSize > 25 * 1024 * 1024) return res.status(400).json({ message: "File too large (max 25MB)" });
+
+    const base64 = fileData.includes(",") ? fileData.split(",")[1] : fileData;
+    const buffer = Buffer.from(base64, "base64");
+
+    const { uploadToR2 } = await import("../utils/r2.js");
+    const safeName = (fileName || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const key = `attachments/${Date.now()}-${safeName}`;
+    const url = await uploadToR2(buffer, fileType || "application/octet-stream", "attachments");
+
+    res.json({ url, name: fileName, size: fileSize, type: fileType });
+  } catch (error) {
+    console.error("Attachment upload error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;
