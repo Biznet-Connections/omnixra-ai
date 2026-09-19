@@ -481,6 +481,55 @@ router.get("/applicants/me", protect, async (req, res) => {
   }
 });
 
+// POST A JOB (company only)
+router.post("/post", protect, async (req, res) => {
+  try {
+    if (req.user.accountType !== "company" && req.user.accountType !== "admin") {
+      return res.status(403).json({ message: "Company account required" });
+    }
+
+    const { title, category, location, salary, type, description, requirements, deadline, applicationUrl } = req.body;
+
+    if (!title?.trim()) return res.status(400).json({ message: "Title is required" });
+    if (!location?.trim()) return res.status(400).json({ message: "Location is required" });
+    if (!description?.trim()) return res.status(400).json({ message: "Description is required" });
+
+    // Slug
+    const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+    const slug = `${baseSlug}-${Date.now().toString(36)}`;
+
+    const expiresAt = deadline
+      ? new Date(deadline)
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days default
+
+    const job = await Job.create({
+      title: title.trim(),
+      slug,
+      category: category || "General",
+      location: location.trim(),
+      salary: salary?.trim() || null,
+      type: type || "Full-time",
+      description: description.trim(),
+      requirements: requirements?.trim() || null,
+      deadline: deadline || null,
+      applicationUrl: applicationUrl?.trim() || null,
+      company: req.user.companyName || req.user.name,
+      postedBy: req.user._id,
+      companyId: null,
+      status: "active",
+      expiresAt,
+      source: "company",
+    });
+
+    console.log("[job posted]", job.title, "by", req.user.email);
+
+    res.status(201).json({ message: "Job posted successfully", job });
+  } catch (error) {
+    console.error("Post job error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // GET COMPANY APPLICANTS
 router.get("/:jobId/applicants", protect, async (req, res) => {
   console.log(`=== GET APPLICANTS FOR JOB ${req.params.jobId} ===`);

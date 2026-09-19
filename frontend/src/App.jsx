@@ -44,6 +44,7 @@ import { SocketProvider } from "./context/SocketContext";
 import InAppNotificationBanner from "./components/InAppNotificationBanner";
 import ExpiryBanner from "./components/ExpiryBanner";
 import DiscoverPage from "./pages/DiscoverPage";
+import PostJobPage from "./pages/PostJobPage";
 import ChannelPage from "./pages/ChannelPage";
 import PremiumPage from "./pages/PremiumPage";
 import PaymentCompletePage from "./pages/PaymentCompletePage";
@@ -251,6 +252,7 @@ function AppContent() {
       case "discover": return <DiscoverPage setPage={navigate} setSelectedUserId={setSelectedUserId} />;
       case "channel": return <ChannelPage slug={channelSlug} setPage={navigate} />;
       case "premium": return <PremiumPage setPage={navigate} />;
+      case "post-job": return <PostJobPage setPage={navigate} />;
       case "payment-complete": return <PaymentCompletePage setPage={navigate} />;
       case "auth-callback": return <AuthCallback setPage={navigate} />;
       case "myai": return <ChatPage />;

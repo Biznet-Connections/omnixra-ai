@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 
 const jobSchema = new mongoose.Schema(
   {
@@ -20,7 +20,16 @@ const jobSchema = new mongoose.Schema(
       default: "omnixra"
     },
     slug: { type: String, unique: true, sparse: true },
-    active: { type: Boolean, default: true }
+    active: { type: Boolean, default: true },
+
+    // ── Company posting fields ──
+    postedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    status: { type: String, enum: ["active", "expired", "paused", "draft"], default: "active" },
+    expiresAt: { type: Date },
+    priorityUntil: { type: Date },
+    aiMatchedAt: { type: Date },
+    requirements: { type: String },
+    applicationUrl: { type: String },
   },
   { timestamps: true }
 );
