@@ -72,7 +72,7 @@ function AppContent() {
   const [focusJobSlug, setFocusJobSlug] = useState(null);
   const [channelSlug, setChannelSlug] = useState(null);
   const [history, setHistory] = useState([]);
-  const { user, loading: authLoading, pendingVerification } = useAuth();
+  const { user, setUser, loading: authLoading, pendingVerification } = useAuth();
 
   // â”€â”€ Helper functions â”€â”€
   const navigate = (to) => {
@@ -116,6 +116,39 @@ function AppContent() {
     };
     window.addEventListener("oauth-token-received", handleOauthToken);
     return () => window.removeEventListener("oauth-token-received", handleOauthToken);
+  }, []);
+
+  // ── Capacitor deeplink handler (payment-success) ──
+  useEffect(() => {
+    let listener;
+    (async () => {
+      try {
+        const { Capacitor } = await import("@capacitor/core");
+        if (!Capacitor.isNativePlatform()) return;
+        const { App: CapApp } = await import("@capacitor/app");
+        listener = await CapApp.addListener("appUrlOpen", async (event) => {
+          const url = event.url || "";
+          console.log("[deeplink] received:", url);
+          if (url.startsWith("omnixra://payment-success")) {
+            try {
+              const { default: api } = await import("./api/axios");
+              const res = await api.get("/auth/me");
+              setUser(res.data);
+              localStorage.setItem("omnixra_user", JSON.stringify(res.data));
+              console.log("[deeplink] user refreshed:", res.data?.subscriptionTier);
+            } catch (e) {
+              console.warn("[deeplink] user refresh failed:", e.message);
+            }
+            setPage("jobs");
+          }
+        });
+      } catch (e) {
+        console.warn("[deeplink] init failed:", e.message);
+      }
+    })();
+    return () => {
+      if (listener && listener.remove) listener.remove();
+    };
   }, []);
 
   useEffect(() => {

@@ -31,6 +31,19 @@ export default function PaymentCompletePage({ setPage }) {
     return () => clearInterval(iv);
   }, []);
 
+  // ── When payment succeeds on mobile browser, redirect back to the APK ──
+  useEffect(() => {
+    if (status !== "paid") return;
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isNative = typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.();
+    if (!isMobile || isNative) return;
+    const t = setTimeout(() => {
+      const deeplink = "omnixra://payment-success" + (reference ? "?reference=" + encodeURIComponent(reference) : "");
+      window.location.href = deeplink;
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [status, reference]);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center text-white p-6">
       {status === "loading" && <Loader2 className="animate-spin text-indigo-400 mb-4" size={48} />}
@@ -47,7 +60,7 @@ export default function PaymentCompletePage({ setPage }) {
 
       {status === "paid" && (
         <p className="text-sm text-white/60 mb-4 text-center">
-          Your features are now active. Head back to the app to use them.
+          Your features are now active. {/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? "Returning to app..." : "Head back to the app to use them."}
         </p>
       )}
 
