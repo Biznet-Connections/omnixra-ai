@@ -1,17 +1,22 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { ArrowLeft, Camera } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 
 function EditProfilePage({ setPage }) {
   const { user, setUser } = useAuth();
+  const isCompany = user?.accountType === "company";
+
   const [formData, setFormData] = useState({
     name: user?.name || "",
     headline: user?.headline || "",
     location: user?.location || "",
     about: user?.about || "",
     skills: user?.skills?.join(", ") || "",
-    companyName: user?.companyName || ""
+    companyName: user?.companyName || "",
+    industry: user?.industry || "",
+    website: user?.website || "",
+    companySize: user?.companySize || "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -40,14 +45,25 @@ function EditProfilePage({ setPage }) {
     setSaving(true);
     setError("");
     try {
-      const res = await api.put("/profile/update", {
-        name: formData.name,
-        headline: formData.headline,
-        location: formData.location,
-        about: formData.about,
-        skills: formData.skills.split(",").map(s => s.trim()).filter(s => s),
-        companyName: formData.companyName
-      });
+      const payload = isCompany
+        ? {
+            companyName: formData.companyName,
+            location: formData.location,
+            about: formData.about,
+            industry: formData.industry,
+            website: formData.website,
+            companySize: formData.companySize,
+            name: formData.companyName, // keep name in sync
+          }
+        : {
+            name: formData.name,
+            headline: formData.headline,
+            location: formData.location,
+            about: formData.about,
+            skills: formData.skills.split(",").map(s => s.trim()).filter(s => s),
+          };
+
+      const res = await api.put("/profile/update", payload);
       setUser(res.data);
       setSuccess(true);
       setTimeout(() => setPage("home"), 1500);
@@ -66,7 +82,7 @@ function EditProfilePage({ setPage }) {
           Back
         </button>
 
-        <h1 className="page-title">Edit Profile</h1>
+        <h1 className="page-title">{isCompany ? "Company Profile" : "Edit Profile"}</h1>
 
         <div className="flex justify-center mt-6 mb-6">
           <label className="cursor-pointer">
@@ -83,38 +99,56 @@ function EditProfilePage({ setPage }) {
         </div>
 
         <div className="space-y-4">
-          {user?.accountType === "company" ? (
-            <div>
-              <label className="form-label">Company Name</label>
-              <input name="companyName" value={formData.companyName} onChange={handleChange} className="form-input" />
-            </div>
+          {isCompany ? (
+            <>
+              <div>
+                <label className="form-label">Company Name</label>
+                <input name="companyName" value={formData.companyName} onChange={handleChange} className="form-input" />
+              </div>
+              <div>
+                <label className="form-label">Industry</label>
+                <input name="industry" value={formData.industry} onChange={handleChange} className="form-input" placeholder="e.g. Manufacturing, Retail" />
+              </div>
+              <div>
+                <label className="form-label">Location</label>
+                <input name="location" value={formData.location} onChange={handleChange} className="form-input" />
+              </div>
+              <div>
+                <label className="form-label">Company Size</label>
+                <input name="companySize" value={formData.companySize} onChange={handleChange} className="form-input" placeholder="e.g. 10-50 employees" />
+              </div>
+              <div>
+                <label className="form-label">Website</label>
+                <input name="website" value={formData.website} onChange={handleChange} className="form-input" placeholder="https://" />
+              </div>
+              <div>
+                <label className="form-label">About the Company</label>
+                <textarea name="about" value={formData.about} onChange={handleChange} className="form-textarea" rows={4} placeholder="Tell jobseekers about your company..." />
+              </div>
+            </>
           ) : (
-            <div>
-              <label className="form-label">Full Name</label>
-              <input name="name" value={formData.name} onChange={handleChange} className="form-input" />
-            </div>
-          )}
-
-          <div>
-            <label className="form-label">Headline</label>
-            <input name="headline" value={formData.headline} onChange={handleChange} className="form-input" />
-          </div>
-
-          <div>
-            <label className="form-label">Location</label>
-            <input name="location" value={formData.location} onChange={handleChange} className="form-input" />
-          </div>
-
-          <div>
-            <label className="form-label">About</label>
-            <textarea name="about" value={formData.about} onChange={handleChange} className="form-textarea" rows={4} />
-          </div>
-
-          {user?.accountType === "jobseeker" && (
-            <div>
-              <label className="form-label">Skills (comma separated)</label>
-              <input name="skills" value={formData.skills} onChange={handleChange} className="form-input" />
-            </div>
+            <>
+              <div>
+                <label className="form-label">Full Name</label>
+                <input name="name" value={formData.name} onChange={handleChange} className="form-input" />
+              </div>
+              <div>
+                <label className="form-label">Headline</label>
+                <input name="headline" value={formData.headline} onChange={handleChange} className="form-input" />
+              </div>
+              <div>
+                <label className="form-label">Location</label>
+                <input name="location" value={formData.location} onChange={handleChange} className="form-input" />
+              </div>
+              <div>
+                <label className="form-label">About</label>
+                <textarea name="about" value={formData.about} onChange={handleChange} className="form-textarea" rows={4} />
+              </div>
+              <div>
+                <label className="form-label">Skills (comma separated)</label>
+                <input name="skills" value={formData.skills} onChange={handleChange} className="form-input" />
+              </div>
+            </>
           )}
 
           {error && <div className="text-xs text-red-400">{error}</div>}

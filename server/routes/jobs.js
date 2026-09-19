@@ -440,6 +440,47 @@ router.get("/applications/:id", protect, async (req, res) => {
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 
+// GET APPLICANTS ACROSS ALL MY JOBS (company only)
+router.get("/applicants/me", protect, async (req, res) => {
+  try {
+    if (req.user.accountType !== "company") {
+      return res.status(403).json({ message: "Company only" });
+    }
+
+    // Find all jobs posted by this company
+    // Companies may match by companyId (if they have one) or by company name
+    const Job = (await import("../models/Job.js")).default;
+    const companyName = req.user.companyName || req.user.name;
+
+    const myJobs = await Job.find({
+      $or: [
+        { postedBy: req.user._id },
+        { companyId: req.user._id },
+        { company: companyName },
+      ],
+    }).select("_id title company location").lean();
+
+    const jobIds = myJobs.map(j => j._id);
+
+    if (jobIds.length === 0) {
+      return res.json([]);
+    }
+
+    const Application = (await import("../models/Application.js")).default;
+    const applications = await Application.find({ jobId: { $in: jobIds } })
+      .populate("userId", "name profilePicture location headline skills")
+      .populate("jobId", "title company location")
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean();
+
+    res.json(applications);
+  } catch (error) {
+    console.error("applicants/me error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // GET COMPANY APPLICANTS
 router.get("/:jobId/applicants", protect, async (req, res) => {
   console.log(`=== GET APPLICANTS FOR JOB ${req.params.jobId} ===`);

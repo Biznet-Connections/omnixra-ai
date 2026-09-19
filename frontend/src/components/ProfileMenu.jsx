@@ -1,11 +1,12 @@
-import React from "react";
-import { X, Edit3, Eye, Building2, Briefcase, BarChart3, Bookmark, Settings, LogOut, FileText, ChevronRight } from "lucide-react";
+﻿import React from "react";
+import { X, Edit3, Eye, Building2, Briefcase, BarChart3, Bookmark, Settings, LogOut, FileText, ChevronRight, Users, Plus, CreditCard, Inbox } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 function ProfileMenu({ onClose, onNavigate }) {
   const { user, logout } = useAuth();
+  const isCompany = user?.accountType === "company";
 
-  const menuItems = [
+  const jobseekerItems = [
     { id: "edit-profile", label: "Edit Profile", icon: Edit3 },
     { id: "my-posts", label: "Manage My Posts", icon: FileText },
     { id: "profile-views", label: "Profile Views", icon: Eye },
@@ -13,31 +14,45 @@ function ProfileMenu({ onClose, onNavigate }) {
     { id: "my-applications", label: "My Applications", icon: Briefcase },
     { id: "profile-stats", label: "Profile Stats", icon: BarChart3 },
     { id: "saved-posts", label: "Saved Posts", icon: Bookmark },
-    { id: "settings", label: "Settings", icon: Settings }
+    { id: "settings", label: "Settings", icon: Settings },
   ];
+
+  const companyItems = [
+    { id: "edit-profile", label: "Company Profile", icon: Building2 },
+    { id: "my-posts", label: "Manage My Posts", icon: FileText },
+    { id: "post-job", label: "Post a Job", icon: Plus },
+    { id: "professionals", label: "Find Talent", icon: Users },
+    { id: "inbox", label: "Company Inbox", icon: Inbox },
+    { id: "applications", label: "Applications", icon: Briefcase },
+    { id: "billing", label: "Billing & Subscription", icon: CreditCard },
+    { id: "settings", label: "Settings", icon: Settings },
+  ];
+
+  const menuItems = isCompany ? companyItems : jobseekerItems;
 
   const handleItemClick = (itemId) => {
     console.log("=== PROFILE MENU ITEM CLICKED ===");
     console.log("Item:", itemId);
-    
-    if (itemId === "edit-profile") {
-      onNavigate("edit-profile");
-    } else if (itemId === "my-posts") {
-      onNavigate("my-posts");
-    } else if (itemId === "settings") {
-      onNavigate("settings");
-    } else if (itemId === "profile-views") {
-      onNavigate("profile-views");
-    } else if (itemId === "companies-viewed") {
-      onNavigate("companies-viewed");
-    } else if (itemId === "my-applications") {
-      onNavigate("my-applications");
-    } else if (itemId === "profile-stats") {
-      onNavigate("profile-stats");
-    } else if (itemId === "saved-posts") {
-      onNavigate("saved-posts");
+
+    const routes = {
+      "edit-profile": "edit-profile",
+      "my-posts": "my-posts",
+      "post-job": "post",
+      "professionals": "professionals",
+      "inbox": "inbox",
+      "applications": "applications",
+      "billing": "premium",
+      "settings": "settings",
+      "profile-views": "profile-views",
+      "companies-viewed": "companies-viewed",
+      "my-applications": "applications",
+      "profile-stats": "profile-stats",
+      "saved-posts": "saved-posts",
+    };
+
+    if (routes[itemId]) {
+      onNavigate(routes[itemId]);
     }
-    
     onClose();
   };
 
@@ -58,7 +73,9 @@ function ProfileMenu({ onClose, onNavigate }) {
           </div>
           <div>
             <div className="font-semibold text-sm">{user?.name || "User"}</div>
-            <div className="text-[10px] text-slate-600">{user?.email}</div>
+            <div className="text-[10px] text-slate-600">
+              {isCompany ? user?.companyName || user?.name : user?.email}
+            </div>
           </div>
         </div>
 
