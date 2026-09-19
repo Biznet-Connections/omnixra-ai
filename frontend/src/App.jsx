@@ -45,6 +45,7 @@ import InAppNotificationBanner from "./components/InAppNotificationBanner";
 import ExpiryBanner from "./components/ExpiryBanner";
 import DiscoverPage from "./pages/DiscoverPage";
 import PostJobPage from "./pages/PostJobPage";
+import CompanyInboxPage from "./pages/CompanyInboxPage";
 import ChannelPage from "./pages/ChannelPage";
 import PremiumPage from "./pages/PremiumPage";
 import PaymentCompletePage from "./pages/PaymentCompletePage";
@@ -271,7 +272,9 @@ function AppContent() {
       case "companies-viewed": return <CompaniesViewedPage setPage={navigate} />;
       case "profile-stats": return <ProfileStatsPage setPage={navigate} />;
       case "saved-posts": return <SavedPostsPage setPage={navigate} />;
-      case "inbox": return <InboxPage setPage={navigate} />;
+      case "inbox": return user?.accountType === "company"
+        ? <CompanyInboxPage setPage={navigate} setSelectedUserId={setSelectedUserId} />
+        : <InboxPage setPage={navigate} />;
       case "applications": return <ApplicationsPage setPage={navigate} />;
       case "shared-ai": return <SharedAIPage chatId={sharedChatId} setPage={navigate} />;
       case "admin-login": return <AdminLogin onSuccess={() => setPage("admin")} />;
