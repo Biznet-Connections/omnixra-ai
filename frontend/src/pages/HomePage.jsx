@@ -189,7 +189,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
   const quickActions = user?.accountType === "company"
     ? [
         { icon: User, label: "Profile", action: () => setShowProfileMenu(true) },
-        { icon: Briefcase, label: "Post Job", action: () => setPage("post") },
+        { icon: Briefcase, label: "Post Job", action: () => setPage("post-job") },
         { icon: FileText, label: "Applications", action: () => setPage("applications") },
         { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
       ]
@@ -199,8 +199,9 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
         { icon: UserCheck, label: "Following", action: () => setPage("following") },
         { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
         { icon: Newspaper, label: "News", action: () => setPage("news") },
-    { icon: Briefcase, label: "Applications", action: () => setPage("applications") },
-    { icon: FileText, label: "My Posts", action: () => setPage("my-posts") },
+        { icon: Briefcase, label: "Applications", action: () => setPage("applications") },
+        { icon: FileText, label: "My Posts", action: () => setPage("my-posts") },
+      ];
   ];
 
   return (
