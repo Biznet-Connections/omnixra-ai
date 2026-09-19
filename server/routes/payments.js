@@ -141,8 +141,9 @@ router.get("/status/:reference", async (req, res) => {
     const payment = await Payment.findOne({ reference: req.params.reference });
     if (!payment) return res.status(404).json({ message: "Payment not found" });
 
-    // Ownership check — skip when verified by Linkwa (public return URL)
-    if (currentUser && String(payment.user) !== String(currentUser._id) && currentUser.accountType !== "admin") {
+    // Ownership check — skip entirely when Linkwa proof present
+    // (public return URL from external checkout may carry a different user's token)
+    if (!hasLinkwaProof && currentUser && String(payment.user) !== String(currentUser._id) && currentUser.accountType !== "admin") {
       return res.status(403).json({ message: "Not yours" });
     }
 

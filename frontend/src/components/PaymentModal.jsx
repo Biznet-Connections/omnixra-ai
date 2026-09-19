@@ -63,7 +63,20 @@ export default function PaymentModal({ planKey, metadata = {}, onClose, onSucces
         setStep("failed");
         return;
       }
-      window.open(res.data.checkoutUrl, "_blank");
+      // Open in system browser (Chrome) so deeplink back to APK works
+      try {
+        const { Capacitor } = await import("@capacitor/core");
+        if (Capacitor.isNativePlatform()) {
+          const { Browser } = await import("@capacitor/browser");
+          await Browser.open({ url: res.data.checkoutUrl, presentationStyle: "popover" });
+          console.log("[payment] opened in system browser");
+        } else {
+          window.open(res.data.checkoutUrl, "_blank");
+        }
+      } catch (e) {
+        console.warn("[payment] browser open failed:", e.message);
+        window.open(res.data.checkoutUrl, "_blank");
+      }
 
       setStep("checking");
 

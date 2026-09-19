@@ -81,7 +81,7 @@ if ("serviceWorker" in navigator) {
   if (!isNative && import.meta.env.PROD) {
     setTimeout(() => {
       navigator.serviceWorker
-        .register("/sw.js", { updateViaCache: "none" })
+        .register("/sw.js?v=3", { updateViaCache: "none" })
         .then((reg) => {
           console.log("🔥 SW registered:", reg.scope);
           reg.update();
