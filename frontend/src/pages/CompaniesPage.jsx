@@ -11,7 +11,7 @@ let cachedHasMore = true;
 
 
 // ── Companies cache (offline-first) ──
-const COMPANIES_CACHE_KEY = "omnixra_companies_cache_v1";
+const COMPANIES_CACHE_KEY = "omnixra_companies_cache_v2";
 const COMPANIES_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 function readCompaniesCache() {

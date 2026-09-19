@@ -13,7 +13,7 @@ const router = express.Router();
 
 // GET all companies â€” cursor pagination (scales to millions)
 // Query: ?limit=20&cursor=<lastCompanyId>
-router.get("/", cacheShort(60, 120), async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 20, 50);
     const cursor = req.query.cursor;
@@ -42,16 +42,54 @@ router.get("/", cacheShort(60, 120), async (req, res) => {
 
     // â”€â”€ Seeded companies via cursor â”€â”€
     const query = {};
+    const hasCursorFilter = !!cursor;
     if (cursor) query._id = { $lt: cursor };
+
+    // Fetch a LARGER pool so we get a good mix of real businesses + education
+    // (the DB has 462 companies total, so 300 gives us most of them)
+    const POOL = cursor ? limit + 1 : 300;
 
     const seeded = await Company.find(query)
       .sort({ _id: -1 })
-      .limit(limit + 1)
+      .limit(hasCursorFilter ? limit + 1 : POOL)
       .select("name email location category industry verified createdAt")
       .lean();
 
-    const hasMoreSeeded = seeded.length > limit;
-    const seededPage = hasMoreSeeded ? seeded.slice(0, limit) : seeded;
+    // Fisher-Yates shuffle
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    // Classify education vs real business
+    const EDU_KEYWORDS = ["school", "college", "university", "academy", "polytechnic", "institute", "teachers", "primary", "secondary", "high school", "nursery", "kindergarten", "creche"];
+    function isEducation(company) {
+      const name = (company.name || "").toLowerCase();
+      const cat = (company.category || "").toLowerCase();
+      const ind = (company.industry || "").toLowerCase();
+      if (["education", "school", "academic"].includes(cat)) return true;
+      if (["education", "academic"].includes(ind)) return true;
+      return EDU_KEYWORDS.some(k => name.includes(k));
+    }
+
+    // Bucket
+    const verifiedRealBiz = seeded.filter(x => x.verified && !isEducation(x));
+    const realBiz = seeded.filter(x => !x.verified && !isEducation(x));
+    const eduBiz = seeded.filter(x => isEducation(x));
+
+    // Sort: verified real → real (shuffled) → education (shuffled)
+    const shuffled = [
+      ...shuffle(verifiedRealBiz),
+      ...shuffle(realBiz),
+      ...shuffle(eduBiz),
+    ];
+
+    const hasMoreSeeded = shuffled.length > limit;
+    const seededPage = hasMoreSeeded ? shuffled.slice(0, limit) : shuffled;
     const lastSeeded = seededPage[seededPage.length - 1];
     const nextCursor = hasMoreSeeded && lastSeeded ? lastSeeded._id.toString() : null;
 
