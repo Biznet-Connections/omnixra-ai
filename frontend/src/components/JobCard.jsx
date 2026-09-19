@@ -1,8 +1,7 @@
-﻿import React, { useState } from "react";
-import { MapPin, DollarSign, Clock3, ExternalLink, Send, Bookmark, Share2, Sparkles, Check, Rocket } from "lucide-react";
+import React, { useState } from "react";
+import { MapPin, DollarSign, Clock3, ExternalLink, Send, Bookmark, Share2, Check, Rocket } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
-import ApplyModal from "./ApplyModal";
 import PremiumModal from "./PremiumModal";
 import ApplyMethodModal from "./ApplyMethodModal";
 import ApplyComposerPage from "../pages/ApplyComposerPage";
@@ -18,7 +17,6 @@ function JobCard({ job, tab = "omnixra" }) {
   const [saved, setSaved] = useState(false);
   const [applied, setApplied] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [showApply, setShowApply] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
   const [showApplyMethod, setShowApplyMethod] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
@@ -42,30 +40,6 @@ function JobCard({ job, tab = "omnixra" }) {
 
   const match = calculateMatch();
   const matchColor = match >= 80 ? "text-emerald-400" : match >= 50 ? "text-amber-400" : "text-red-400";
-
-  const handleApplyForMe = async () => {
-    if (applying) return;
-    if (!user?.isPremium) { setShowPremium(true); return; }
-    setApplying(true);
-    try {
-      await api.post(`/jobs/${job._id}/apply-for-me`);
-      setApplied(true);
-    } catch (err) {
-      const status = err?.response?.status;
-      if (status === 409) {
-        setApplied(true);
-      } else if (status === 403) {
-        setShowPremium(true);
-      } else if (status === 400) {
-        setLockedFeature("Apply for Me");
-        setShowLocked(true);
-      } else {
-        console.error("apply-for-me failed:", err?.response?.data || err.message);
-      }
-    } finally {
-      setApplying(false);
-    }
-  };
 
   const handleShare = async () => {
     try { await shareJob(job); } catch (err) { console.error(err); }
@@ -114,9 +88,6 @@ function JobCard({ job, tab = "omnixra" }) {
       } else if (status === 403) {
         setLockedFeature("Auto Apply");
         setShowLocked(true);
-      } else if (status === 400) {
-        setLockedFeature("Auto Apply");
-        setShowLocked(true);
       } else {
         console.error("auto apply failed:", e?.response?.data || e.message);
       }
@@ -137,7 +108,7 @@ function JobCard({ job, tab = "omnixra" }) {
       setShowLocked(true);
       return;
     }
-    setShowComposer(true);
+    setShowPushCV(true);
   };
 
   return (
@@ -173,27 +144,19 @@ function JobCard({ job, tab = "omnixra" }) {
         </div>
         <div className="card-actions">
           <button onClick={() => setShowDetail(true)} className="outline-button"><ExternalLink size={13} />View</button>
-          <button
-            onClick={handleApplyClick}
-            className={`apply-button ${applied ? "applied" : ""}`}
-          >
+          <button onClick={handleApplyClick} className={`apply-button ${applied ? "applied" : ""}`}>
             {applied ? <Check size={13} /> : <Send size={13} />} {applied ? "Applied" : "Apply"}
           </button>
           <button onClick={() => setSaved(!saved)} className={`save-button ${saved ? "save-active" : ""}`}>
             <Bookmark size={15} fill={saved ? "currentColor" : "none"} />
           </button>
           <button onClick={handleShare} className="outline-button"><Share2 size={13} />Share</button>
-          <button onClick={handleApplyForMe} disabled={applying} className="outline-button text-indigo-400">
-            <Sparkles size={13} />{applying ? "Applying..." : "Apply for me"}
-          </button>
           {tab === "omnixra" && (
             <button onClick={handlePushCV} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
           )}
         </div>
       </div>
 
-      {showApply && <ApplyModal job={job} onClose={() => setShowApply(false)} onApplied={() => setApplied(true)} />}
-      {showPremium && <PremiumModal onClose={() => setShowPremium(false)} />}
       {showApplyMethod && (
         <ApplyMethodModal
           job={job}
@@ -229,6 +192,9 @@ function JobCard({ job, tab = "omnixra" }) {
           onSeePricing={() => { setShowLocked(false); setShowPremium(true); }}
         />
       )}
+      {showPremium && (
+        <PremiumModal onClose={() => setShowPremium(false)} />
+      )}
       {activePlan && (
         <PaymentModal
           planKey={activePlan}
@@ -241,11 +207,11 @@ function JobCard({ job, tab = "omnixra" }) {
           <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">{job.title}</h2>
-              <button onClick={() => setShowDetail(false)} className="icon-button">✕</button>
+              <button onClick={() => setShowDetail(false)} className="icon-button">&#10005;</button>
             </div>
-            <div className="text-sm text-slate-500 mb-3">{job.company} · {job.location}</div>
+            <div className="text-sm text-slate-500 mb-3">{job.company} &middot; {job.location}</div>
             <div className="flex flex-wrap gap-3 mb-4 text-xs text-slate-400">
-              {job.salary && <span>💰 {job.salary}</span>}
+              {job.salary && <span>&#128176; {job.salary}</span>}
               {job.type && <span>&#128336; {job.type}</span>}
               {job.deadline && <span>&#128197; {new Date(job.deadline).toLocaleDateString()}</span>}
             </div>
