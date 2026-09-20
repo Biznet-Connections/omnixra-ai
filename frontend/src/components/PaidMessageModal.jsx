@@ -32,6 +32,16 @@ export default function PaidMessageModal({ targetUser, onClose, onOpenChat }) {
     }
   };
 
+  if (showPayment) {
+    return (
+      <PaymentModal
+        planKey="direct_message"
+        onClose={() => setShowPayment(false)}
+        onSuccess={() => { setShowPayment(false); setCreditsLeft(prev => prev + 1); setStep("intro"); }}
+      />
+    );
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
@@ -113,13 +123,6 @@ export default function PaidMessageModal({ targetUser, onClose, onOpenChat }) {
         )}
       </div>
 
-      {showPayment && (
-        <PaymentModal
-          planKey="direct_message"
-          onClose={() => setShowPayment(false)}
-          onSuccess={() => { setShowPayment(false); setCreditsLeft(prev => prev + 1); setStep("intro"); }}
-        />
-      )}
     </div>
   );
 }
