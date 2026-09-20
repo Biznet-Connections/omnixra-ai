@@ -58,6 +58,7 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
 
   return (
     <>
+      {/* Backdrop */}
       <div
         onClick={onClose}
         style={{
@@ -67,6 +68,8 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
           zIndex: 9998,
         }}
       />
+
+      {/* Drawer */}
       <div
         style={{
           position: "fixed",
@@ -80,35 +83,96 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
           display: "flex",
           flexDirection: "column",
           color: "white",
+          overflow: "hidden",
         }}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[.06]">
-          <h2 className="text-sm font-bold">Chat History</h2>
-          <button onClick={onClose} className="icon-button"><X size={18} /></button>
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "14px 16px",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            flexShrink: 0,
+          }}
+        >
+          <h2 style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "white" }}>Chat History</h2>
+          <button
+            onClick={onClose}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#a5b4fc",
+              cursor: "pointer",
+              padding: "6px",
+              borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <button
-          onClick={() => { onNewChat(); onClose(); }}
-          className="mx-3 mt-3 primary-button w-full"
-        >
-          <Plus size={14} /> New chat
-        </button>
+        {/* New Chat Button */}
+        <div style={{ padding: "12px", flexShrink: 0 }}>
+          <button
+            onClick={() => { onNewChat(); onClose(); }}
+            style={{
+              width: "100%",
+              height: "42px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              background: "linear-gradient(135deg, #6366f1, #7c3aed)",
+              color: "white",
+              border: "none",
+              borderRadius: "10px",
+              fontSize: "13px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            <Plus size={15} />
+            New chat
+          </button>
+        </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-4">
+        {/* Chat list */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "0 12px 16px",
+          }}
+        >
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="animate-spin text-indigo-400" size={24} />
+            <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
+              <Loader2 className="animate-spin" style={{ color: "#818cf8" }} size={24} />
             </div>
           ) : chats.length === 0 ? (
-            <div className="text-center py-8">
-              <MessageSquare size={24} className="mx-auto text-slate-600 mb-2" />
-              <p className="text-xs text-slate-500">No past chats yet</p>
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+              <MessageSquare size={24} style={{ color: "#4b5563", margin: "0 auto 8px" }} />
+              <p style={{ fontSize: "12px", color: "#6b7280" }}>No past chats yet</p>
             </div>
           ) : (
             Object.entries(groups).map(([label, items]) => items.length > 0 && (
-              <div key={label}>
-                <div className="text-[10px] text-slate-500 uppercase tracking-wide px-1 mb-1">{label}</div>
-                <div className="space-y-1">
+              <div key={label} style={{ marginTop: "12px" }}>
+                <div
+                  style={{
+                    fontSize: "10px",
+                    color: "#6b7280",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    padding: "0 4px 6px",
+                  }}
+                >
+                  {label}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                   {items.map(ch => (
                     <div
                       key={ch._id}
@@ -123,19 +187,61 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
                           setLoadingChatId(null);
                         }
                       }}
-                      className={`group flex items-start gap-2 p-2 rounded-lg cursor-pointer hover:bg-white/[.04] ${currentChatId === ch._id ? "bg-white/[.06]" : ""}`}
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "10px",
+                        padding: "10px",
+                        borderRadius: "10px",
+                        cursor: "pointer",
+                        backgroundColor: currentChatId === ch._id ? "rgba(255,255,255,0.08)" : "transparent",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = currentChatId === ch._id ? "rgba(255,255,255,0.08)" : "transparent"}
                     >
-                      <MessageSquare size={14} className="text-slate-500 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium truncate">
-                          {ch.title}
-                          {loadingChatId === ch._id && <Loader2 size={10} className="inline ml-2 animate-spin text-indigo-400" />}
+                      <MessageSquare size={14} style={{ color: "#9ca3af", flexShrink: 0, marginTop: "2px" }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: 500,
+                            color: "white",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                          }}
+                        >
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{ch.title}</span>
+                          {loadingChatId === ch._id && <Loader2 size={10} className="animate-spin" style={{ color: "#818cf8" }} />}
                         </div>
-                        <div className="text-[10px] text-slate-400 truncate mt-0.5">{ch.preview}</div>
+                        <div
+                          style={{
+                            fontSize: "11px",
+                            color: "#9ca3af",
+                            marginTop: "2px",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {ch.preview}
+                        </div>
                       </div>
                       <button
                         onClick={(e) => handleDelete(ch._id, e)}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400"
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "#6b7280",
+                          cursor: "pointer",
+                          padding: "4px",
+                          borderRadius: "6px",
+                          opacity: 0.6,
+                        }}
                       >
                         <Trash2 size={12} />
                       </button>
