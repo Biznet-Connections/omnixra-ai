@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, MapPin, ShieldCheck, UserPlus, MessageCircle, Lock, X, Check, Sparkles, Clock, UserCheck } from "lucide-react";
 import api from "../api/axios";
+import PaidMessageModal from "../components/PaidMessageModal";
 import { useAuth } from "../context/AuthContext";
 import LoadingDots from "../components/LoadingDots";
 import ModernVideoPlayer from "../components/ModernVideoPlayer";
@@ -13,6 +14,7 @@ function UserProfilePage({ userId, setPage }) {
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [following, setFollowing] = useState(false);
+  const [showPaidDM, setShowPaidDM] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState({
     isConnected: false,
     requestSent: false,
@@ -117,11 +119,16 @@ function UserProfilePage({ userId, setPage }) {
   };
 
   const handleMessage = async () => {
+    // If viewer is a company and target is a jobseeker → paid DM flow
+    const viewerIsCompany = user?.accountType === "company";
+    const targetIsJobseeker = profile?.accountType === "jobseeker" || !profile?.accountType;
+    if (viewerIsCompany && targetIsJobseeker) {
+      setShowPaidDM(true);
+      return;
+    }
+    // Otherwise free DM
     try {
-      // Find or create conversation WITHOUT pre-written message
       const res = await api.post("/messages", { otherUserId: userId });
-      
-      // Store the conversation ID and navigate to inbox with it selected
       localStorage.setItem("omnixra_open_conversation", res.data._id);
       setPage("inbox");
     } catch (err) { console.error(err); }
@@ -280,6 +287,17 @@ function UserProfilePage({ userId, setPage }) {
             <img src={profile.profilePicture} alt="" loading="eager" decoding="async" style={{ maxWidth: "100%", maxHeight: "90vh", objectFit: "contain", borderRadius: "12px" }} />
           </div>
         </div>
+      )}
+
+      {showPaidDM && (
+        <PaidMessageModal
+          targetUser={profile}
+          onClose={() => setShowPaidDM(false)}
+          onOpenChat={(convId) => {
+            localStorage.setItem("omnixra_open_conversation", convId);
+            setPage("inbox");
+          }}
+        />
       )}
     </div>
   );

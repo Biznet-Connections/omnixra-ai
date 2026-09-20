@@ -310,4 +310,72 @@ router.get("/user/:id", protect, async (req, res) => {
   }
 });
 
+// POST a paid DM — company sends to any jobseeker for $1
+router.post("/paid", protect, async (req, res) => {
+  try {
+    if (req.user.accountType !== "company") {
+      return res.status(403).json({ message: "Company only" });
+    }
+
+    const { otherUserId } = req.body;
+    if (!otherUserId) return res.status(400).json({ message: "Target user required" });
+    if (otherUserId === String(req.user._id)) {
+      return res.status(400).json({ message: "Cannot message yourself" });
+    }
+
+    const User = (await import("../models/User.js")).default;
+    const companyUser = await User.findById(req.user._id);
+    const targetUser = await User.findById(otherUserId);
+    if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+    // Check if jobseeker already applied to any of company's jobs — then it's free
+    const Job = (await import("../models/Job.js")).default;
+    const Application = (await import("../models/Application.js")).default;
+    const companyName = companyUser.companyName || companyUser.name;
+    const myJobs = await Job.find({ $or: [{ postedBy: companyUser._id }, { company: companyName }] }).select("_id");
+    const hasApplied = await Application.findOne({
+      jobId: { $in: myJobs.map(j => j._id) },
+      userId: otherUserId,
+    });
+
+    const isFree = !!hasApplied;
+
+    // If not free, require a DM credit
+    if (!isFree && (!companyUser.dmCredits || companyUser.dmCredits < 1)) {
+      return res.status(402).json({
+        message: "This DM costs $1. Buy a Direct Message credit.",
+        requiresPurchase: true,
+        productType: "direct_message",
+      });
+    }
+
+    // Deduct credit if paid
+    if (!isFree) {
+      await User.findByIdAndUpdate(req.user._id, { $inc: { dmCredits: -1 } });
+    }
+
+    // Create or find conversation
+    const Conversation = (await import("../models/Conversation.js")).default;
+    let conversation = await Conversation.findOne({
+      participants: { $all: [req.user._id, otherUserId], $size: 2 },
+    });
+    if (!conversation) {
+      conversation = await Conversation.create({
+        participants: [req.user._id, otherUserId],
+        messages: [],
+      });
+    }
+
+    res.json({
+      message: isFree ? "Free (jobseeker already applied)" : "Credit used",
+      conversationId: conversation._id,
+      isFree,
+      creditsLeft: isFree ? companyUser.dmCredits : companyUser.dmCredits - 1,
+    });
+  } catch (error) {
+    console.error("[messages/paid] error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;

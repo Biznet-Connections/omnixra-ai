@@ -55,7 +55,7 @@ router.get("/", cacheShort(60, 120), async (req, res) => {
 
     const total = await Job.countDocuments({ active: true });
     const jobs = await Job.find({ active: true })
-      .sort({ createdAt: -1 })
+      .sort({ priorityUntil: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit);
     const hasMore = page * limit < total;

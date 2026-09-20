@@ -356,8 +356,18 @@ async function activateFeature(payment) {
       await User.findByIdAndUpdate(userId, { $inc: { aiMatchCredits: 10 } });
       console.log("[activate] ai_match credits +10 for user", userId);
     } else if (type === "priority_listing") {
-      await User.findByIdAndUpdate(userId, { $inc: { priorityCredits: 1 } });
-      console.log("[activate] priority credit +1 for user", userId);
+      // If jobId provided in metadata, apply priority directly to that job
+      const jobId = metadata?.jobId;
+      if (jobId) {
+        const Job = (await import("../models/Job.js")).default;
+        await Job.findByIdAndUpdate(jobId, {
+          priorityUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        });
+        console.log("[activate] priority listing applied to job", jobId);
+      } else {
+        await User.findByIdAndUpdate(userId, { $inc: { priorityCredits: 1 } });
+        console.log("[activate] priority credit +1 for user", userId);
+      }
     } else if (type === "direct_message") {
       await User.findByIdAndUpdate(userId, { $inc: { dmCredits: 1 } });
       console.log("[activate] dm credit +1 for user", userId);

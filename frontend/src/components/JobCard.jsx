@@ -119,7 +119,14 @@ function JobCard({ job, tab = "omnixra" }) {
           <div className="flex-1 min-w-0">
             <div className="flex justify-between gap-3">
               <div>
-                <div className="font-semibold text-sm truncate">{job.title}</div>
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="font-semibold text-sm truncate">{job.title}</div>
+                  {job.priorityUntil && new Date(job.priorityUntil) > new Date() && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold flex-shrink-0">
+                      🔥 FEATURED
+                    </span>
+                  )}
+                </div>
                 <div className="text-[11px] text-slate-600 mt-1">{job.company}</div>
                 {job.source === "scraped" && (
                   <div className="text-[9px] text-slate-500/70 mt-0.5 italic">
