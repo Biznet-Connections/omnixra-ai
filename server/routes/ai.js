@@ -1,5 +1,6 @@
 ﻿import express from "express";
 import { protect } from "../middleware/auth.js";
+import { askChat, askOpenAIVision, transcribeAudio } from "../utils/aiProviders.js";
 import { askAI } from "../utils/aiService.js";
 import Job from "../models/Job.js";
 import Company from "../models/Company.js";
@@ -653,67 +654,26 @@ router.delete("/chats/:id", protect, async (req, res) => {
 // AI VISION — read an image URL and respond to it
 router.post("/vision", protect, async (req, res) => {
   try {
-    const { imageUrl, prompt } = req.body;
+    const { imageUrl, prompt, chatId } = req.body;
     if (!imageUrl) return res.status(400).json({ message: "imageUrl required" });
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(503).json({ message: "AI vision not configured" });
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(503).json({ message: "Vision not configured" });
     }
 
-    // Fetch the image, encode as base64
-    const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) return res.status(400).json({ message: "Could not fetch image" });
-    const arrayBuffer = await imgRes.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64 = buffer.toString("base64");
-    const mimeType = imgRes.headers.get("content-type") || "image/jpeg";
+    const userPrompt = prompt || "Describe this image and give concrete next steps related to jobs or hiring.";
+    const text = await askOpenAIVision({ imageUrl, prompt: userPrompt, model: process.env.OPENAI_MODEL || "gpt-4o" });
 
-    const userPrompt = prompt || "Describe this image and how it relates to finding a job or hiring. Give concrete next steps.";
-
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL || "gemini-1.5-flash"}:generateContent?key=${process.env.GEMINI_API_KEY}`;
-
-    const body = {
-      contents: [{
-        parts: [
-          { text: userPrompt },
-          { inline_data: { mime_type: mimeType, data: base64 } },
-        ],
-      }],
-    };
-
-    const aiRes = await fetch(geminiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      console.error("[ai/vision] gemini error:", errText);
-      return res.status(503).json({ message: "AI vision failed. Try again." });
-    }
-
-    const data = await aiRes.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    // Save to chat
     const Chat = (await import("../models/Chat.js")).default;
-    let chatId = req.body.chatId;
     let chat;
     if (chatId) chat = await Chat.findOne({ _id: chatId, user: req.user._id });
-    if (!chat) {
-      chat = await Chat.create({
-        user: req.user._id,
-        title: "Image analysis",
-        messages: [],
-      });
-    }
+    if (!chat) chat = await Chat.create({ user: req.user._id, title: "Image analysis", messages: [] });
     chat.messages.push({ role: "user", content: userPrompt, attachments: [{ url: imageUrl, type: "image" }] });
     chat.messages.push({ role: "assistant", content: text });
     await chat.save();
 
-    res.json({ text, chatId: chat._id });
+    res.json({ text, chatId: chat._id, provider: "openai" });
   } catch (error) {
-    console.error("[ai/vision] error:", error);
+    console.error("[ai/vision] error:", error.message);
     res.status(500).json({ message: error.message });
   }
 });
@@ -791,6 +751,20 @@ router.post("/save-profile-info", protect, async (req, res) => {
   } catch (error) {
     console.error("[ai/save-profile-info] error:", error);
     res.status(500).json({ message: error.message });
+  }
+});
+
+// AI TRANSCRIBE — voice note → text via Deepgram
+router.post("/transcribe", protect, async (req, res) => {
+  try {
+    const { audioBase64, mimeType } = req.body;
+    if (!audioBase64) return res.status(400).json({ message: "audioBase64 required" });
+    const buffer = Buffer.from(audioBase64, "base64");
+    const result = await transcribeAudio({ buffer, mimeType });
+    res.json(result);
+  } catch (error) {
+    console.error("[ai/transcribe] error:", error.message);
+    res.status(503).json({ message: error.message });
   }
 });
 

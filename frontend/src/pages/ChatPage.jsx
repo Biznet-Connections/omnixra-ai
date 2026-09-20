@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Paperclip, Mic, ThumbsUp, ThumbsDown, Copy, Check, Share2, Menu } from "lucide-react";
+import { Sparkles, Send, Paperclip, Mic, ThumbsUp, ThumbsDown, Copy, Check, Share2, Menu, X, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import JobCard from "../components/JobCard";
 import TalentCard from "../components/TalentCard";
 import ChatHistorySidebar from "../components/ChatHistorySidebar";
-import VoiceRecorder from "../components/VoiceRecorder";
 
 function ChatPage() {
   const { user } = useAuth();
@@ -27,11 +26,118 @@ function ChatPage() {
   const [uploadingChat, setUploadingChat] = useState(false);
   const [chatId, setChatId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [transcribing, setTranscribing] = useState(false);
   const [profileSuggestion, setProfileSuggestion] = useState(null);
   const [profileSaved, setProfileSaved] = useState(false);
   const fileInputRef = useRef(null);
   const bottomRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordTimerRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const levelRAFRef = useRef(null);
+  const MAX_SECONDS = 60;
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      mediaRecorderRef.current = mr;
+      audioChunksRef.current = [];
+
+      mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mr.onstop = () => { onStopRecording(); };
+      mr.start();
+      setIsRecording(true);
+      setRecordSeconds(0);
+      setAudioLevel(0);
+
+      // Audio analyser for waveform
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        audioContextRef.current = ctx;
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 128;
+        analyserRef.current = analyser;
+        source.connect(analyser);
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        const tick = () => {
+          analyser.getByteFrequencyData(data);
+          let sum = 0;
+          for (let i = 0; i < data.length; i++) sum += data[i];
+          setAudioLevel(Math.min(100, Math.round(sum / data.length / 1.5)));
+          levelRAFRef.current = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch (e) { /* analyser optional */ }
+
+      recordTimerRef.current = setInterval(() => {
+        setRecordSeconds(prev => {
+          if (prev + 1 >= MAX_SECONDS) {
+            stopRecording();
+            return MAX_SECONDS;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (e) {
+      alert("Microphone permission required");
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+    if (levelRAFRef.current) cancelAnimationFrame(levelRAFRef.current);
+    if (analyserRef.current) { try { analyserRef.current.disconnect(); } catch(e){} }
+    if (audioContextRef.current) { try { audioContextRef.current.close(); } catch(e){} }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const cancelRecording = () => {
+    audioChunksRef.current = [];
+    stopRecording();
+    if (mediaRecorderRef.current?.stream) {
+      try { mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop()); } catch(e){}
+    }
+  };
+
+  const onStopRecording = async () => {
+    if (audioChunksRef.current.length === 0) return;
+    setTranscribing(true);
+    try {
+      const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+      const reader = new FileReader();
+      await new Promise(resolve => {
+        reader.onloadend = resolve;
+        reader.readAsDataURL(blob);
+      });
+      const base64 = String(reader.result).split(",")[1];
+      const res = await api.post("/ai/transcribe", { audioBase64: base64, mimeType: "audio/webm" });
+      const text = res.data?.text || "";
+      if (text.trim()) {
+        sendMessage(text.trim());
+      } else {
+        alert("Could not understand audio. Try again.");
+      }
+    } catch (e) {
+      alert(e.response?.data?.message || "Transcription failed");
+    } finally {
+      setTranscribing(false);
+      if (mediaRecorderRef.current?.stream) {
+        try { mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop()); } catch(e){}
+      }
+    }
+  };
+
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, typing]);
 
@@ -300,37 +406,67 @@ function ChatPage() {
           </div>
         )}
         <div className="suggestion-row">{suggestions.map(prompt => <button key={prompt} onClick={() => sendMessage(prompt)} className="suggestion-chip"><Sparkles size={11} />{prompt}</button>)}</div>
-        <div className="chat-composer">
-          <textarea
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            placeholder={isCompany ? "Ask about candidates, jobs, or hiring..." : "Ask Omnixra anything..."}
-            rows={2}
-          />
-          <div className="composer-bottom">
-            <div className="flex gap-1">
-              <button onClick={() => fileInputRef.current?.click()} disabled={uploadingChat} className="composer-icon" title="Attach file">
-                <Paperclip size={16} />
-              </button>
-              <input ref={fileInputRef} type="file" className="hidden" onChange={handleChatFile} />
-              <button onClick={() => setShowVoiceRecorder(true)} className="composer-icon" title="Voice message"><Mic size={16} /></button>
-            </div>
-            <button onClick={() => sendMessage()} className="send-button"><Send size={16} /></button>
+        {(isRecording || transcribing) ? (
+          <div className="chat-composer flex items-center gap-2 px-3 py-2">
+            {transcribing ? (
+              <>
+                <Loader2 size={16} className="animate-spin text-indigo-400" />
+                <div className="flex-1 text-xs text-slate-400">Transcribing...</div>
+              </>
+            ) : (
+              <>
+                <button onClick={cancelRecording} className="text-slate-400 hover:text-red-400 p-1">
+                  <X size={18} />
+                </button>
+                <div className="flex items-center gap-1 flex-1 h-10">
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  {[...Array(24)].map((_, i) => {
+                    const base = 4;
+                    const height = base + (Math.sin(i * 0.6 + recordSeconds * 3) + 1) * (audioLevel / 5);
+                    return (
+                      <div
+                        key={i}
+                        className="rounded-full bg-indigo-400"
+                        style={{
+                          width: 3,
+                          height: Math.max(4, Math.min(30, height)),
+                          opacity: 0.4 + (audioLevel / 100) * 0.6,
+                        }}
+                      />
+                    );
+                  })}
+                  <span className="text-xs text-slate-400 ml-2 font-mono">
+                    {String(Math.floor(recordSeconds / 60)).padStart(2, "0")}:{String(recordSeconds % 60).padStart(2, "0")}
+                  </span>
+                </div>
+                <button onClick={stopRecording} className="send-button">
+                  <Send size={16} />
+                </button>
+              </>
+            )}
           </div>
-        </div>
+        ) : (
+          <div className="chat-composer">
+            <textarea
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+              placeholder={isCompany ? "Ask about candidates, jobs, or hiring..." : "Ask Omnixra anything..."}
+              rows={2}
+            />
+            <div className="composer-bottom">
+              <div className="flex gap-1">
+                <button onClick={() => fileInputRef.current?.click()} disabled={uploadingChat} className="composer-icon" title="Attach file">
+                  <Paperclip size={16} />
+                </button>
+                <input ref={fileInputRef} type="file" className="hidden" onChange={handleChatFile} />
+                <button onClick={startRecording} className="composer-icon" title="Voice message"><Mic size={16} /></button>
+              </div>
+              <button onClick={() => sendMessage()} className="send-button"><Send size={16} /></button>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Voice recorder */}
-      {showVoiceRecorder && (
-        <VoiceRecorder
-          onClose={() => setShowVoiceRecorder(false)}
-          onTranscribed={(text) => {
-            setShowVoiceRecorder(false);
-            sendMessage(text);
-          }}
-        />
-      )}
 
       {/* History sidebar */}
       <ChatHistorySidebar
