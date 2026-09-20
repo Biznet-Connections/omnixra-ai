@@ -182,7 +182,10 @@ function UserProfilePage({ userId, setPage }) {
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-bold">{profile.name}</h1>
-                {isAI && <VerifiedBadge size="md" label="Verified Omnixra AI" />}
+                {isAI && <VerifiedBadge size="md" color="purple" label="Verified Omnixra AI" />}
+                {!isAI && profile?.verifiedBadge && (
+                  <VerifiedBadge size="md" color="blue" label="Verified" />
+                )}
                 {isAI && <span className="ai-badge"><Sparkles size={10} /> AI</span>}
               </div>
               <p className="text-sm text-slate-500 mt-1">{profile.headline || "Professional"}</p>

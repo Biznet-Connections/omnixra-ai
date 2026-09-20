@@ -366,6 +366,7 @@ async function activateFeature(payment) {
       await User.findByIdAndUpdate(userId, {
         verifiedBadge: true,
         verifiedBadgeExpiresAt: expires,
+        verified: true,
       });
       console.log("[activate] verified badge for user", userId, "until", expires);
     } else if (type === "company_boost_monthly") {

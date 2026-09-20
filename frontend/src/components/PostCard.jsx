@@ -270,7 +270,13 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button onClick={() => onViewProfile?.(post.author)} className="font-semibold text-sm hover:text-indigo-300">{authorName}</button>
-                  {isAI && <VerifiedBadge size="sm" label="Verified Omnixra AI" />}
+                  {isAI && <VerifiedBadge size="sm" color="purple" label="Verified Omnixra AI" />}
+                  {!isAI && post.author?.verifiedBadge && (
+                    <VerifiedBadge size="sm" color="blue" label="Verified Employer" />
+                  )}
+                  {!isAI && post.author?.verified && !post.author?.verifiedBadge && (
+                    <VerifiedBadge size="sm" color="blue" label="Verified" />
+                  )}
                   {!isAI && <span className="author-category">({authorHeadline})</span>}
                   {isCompany && <span className="company-badge"><Building2 size={10} /> Company</span>}
                 </div>

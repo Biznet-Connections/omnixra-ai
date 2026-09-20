@@ -5,56 +5,66 @@ import Company from "../models/Company.js";
 import { slugify } from "../utils/slugify.js";
 
 const router = express.Router();
+const BASE_URL = "https://omnixra-ai.com";
 
-// Dynamic Sitemap
+// ── ROBOTS.TXT ──
+router.get("/robots.txt", (req, res) => {
+  res.type("text/plain");
+  res.send(`User-agent: *
+Allow: /
+
+Disallow: /api/
+Disallow: /uploads/
+Disallow: /share/
+
+Sitemap: ${BASE_URL}/sitemap.xml
+`);
+});
+
+// ── SITEMAP ──
 router.get("/sitemap.xml", async (req, res) => {
   try {
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
     const staticUrls = [
-      { loc: `${baseUrl}/`, priority: "1.0" },
-      { loc: `${baseUrl}/jobs`, priority: "0.9" },
-      { loc: `${baseUrl}/companies`, priority: "0.9" },
-      { loc: `${baseUrl}/news`, priority: "0.8" },
-      { loc: `${baseUrl}/professionals`, priority: "0.8" }
+      { loc: `${BASE_URL}/`,              priority: "1.0", changefreq: "daily"  },
+      { loc: `${BASE_URL}/jobs`,          priority: "0.9", changefreq: "daily"  },
+      { loc: `${BASE_URL}/companies`,     priority: "0.9", changefreq: "daily"  },
+      { loc: `${BASE_URL}/news`,          priority: "0.8", changefreq: "daily"  },
+      { loc: `${BASE_URL}/professionals`, priority: "0.8", changefreq: "weekly" },
     ];
 
-    // Get all users with public profiles
-    const users = await User.find({ accountType: "jobseeker", discoverable: true }).select("name headline category").limit(500);
-    const userUrls = users.map(user => {
-      const slug = slugify(`${user.name}-${user._id}`.slice(0, 80));
-      return {
-        loc: `${baseUrl}/profile/${slug}`,
-        priority: "0.7"
-      };
+    const users = await User.find({ accountType: "jobseeker", discoverable: true })
+      .select("name _id").limit(500).lean();
+    const userUrls = users.map((u) => {
+      const slug = slugify(`${u.name}-${u._id}`).slice(0, 80);
+      return { loc: `${BASE_URL}/profile/${slug}`, priority: "0.7", changefreq: "weekly" };
     });
 
-    // Get all active jobs
-    const jobs = await Job.find({ active: true }).select("slug").limit(500);
-    const jobUrls = jobs.map(job => ({
-      loc: `${baseUrl}/jobs/${job.slug || job._id}`,
-      priority: "0.8"
+    const jobs = await Job.find({ active: true }).select("slug _id").limit(500).lean();
+    const jobUrls = jobs.map((j) => ({
+      loc: `${BASE_URL}/jobs/${j.slug || j._id}`, priority: "0.8", changefreq: "daily",
     }));
 
-    // Get all companies
-    const companies = await Company.find().select("name").limit(500);
-    const companyUrls = companies.map(company => {
-      const slug = slugify(`${company.name}-${company._id}`.slice(0, 80));
-      return {
-        loc: `${baseUrl}/companies/${slug}`,
-        priority: "0.8"
-      };
+    const companies = await Company.find().select("name _id").limit(500).lean();
+    const companyUrls = companies.map((c) => {
+      const slug = slugify(`${c.name}-${c._id}`).slice(0, 80);
+      return { loc: `${BASE_URL}/companies/${slug}`, priority: "0.8", changefreq: "weekly" };
     });
 
     const allUrls = [...staticUrls, ...userUrls, ...jobUrls, ...companyUrls];
 
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
-    allUrls.forEach(url => {
-      xml += `  <url>\n    <loc>${url.loc}</loc>\n    <priority>${url.priority}</priority>\n  </url>\n`;
-    });
-    xml += '</urlset>';
+    for (const url of allUrls) {
+      xml += "  <url>\n";
+      xml += `    <loc>${url.loc}</loc>\n`;
+      if (url.changefreq) xml += `    <changefreq>${url.changefreq}</changefreq>\n`;
+      if (url.priority)   xml += `    <priority>${url.priority}</priority>\n`;
+      xml += "  </url>\n";
+    }
+    xml += "</urlset>";
 
-    res.set("Content-Type", "application/xml");
+    res.set("Content-Type", "application/xml; charset=utf-8");
+    res.set("Cache-Control", "public, max-age=3600");
     res.send(xml);
   } catch (error) {
     console.error("Sitemap error:", error);
@@ -62,26 +72,25 @@ router.get("/sitemap.xml", async (req, res) => {
   }
 });
 
-// Dynamic Profile Preview (OG tags for Google/Facebook/WhatsApp)
+// ── PROFILE PREVIEW ──
 router.get("/profile/:slug", async (req, res) => {
   try {
     const slug = req.params.slug;
-    // Extract ID from slug (last part)
     const parts = slug.split("-");
     const userId = parts[parts.length - 1];
-    
-    const user = await User.findById(userId).select("name headline category location profilePicture profilePicLocked verified");
-    if (!user) {
-      return res.status(404).send('<html><body><h1>Profile not found</h1></body></html>');
-    }
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const user = await User.findById(userId).select(
+      "name headline category location profilePicture profilePicLocked verified"
+    );
+    if (!user) return res.status(404).send("<html><body><h1>Profile not found</h1></body></html>");
+
     const title = `${user.name} — ${user.headline || "Professional"} | Omnixra AI`;
     const description = `${user.name} is a ${user.headline || "Professional"}. Location: ${user.location || "Unknown"}. Category: ${user.category || "General"}. Join Omnixra AI to connect.`;
-    const image = user.profilePicture && !user.profilePicLocked ? user.profilePicture : `${baseUrl}/favicon.svg`;
-    const url = `${baseUrl}/profile/${slug}`;
+    const image = user.profilePicture && !user.profilePicLocked ? user.profilePicture : `${BASE_URL}/favicon.svg`;
+    const url = `${BASE_URL}/profile/${slug}`;
 
     const html = `<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8" />
 <title>${title}</title>
 <meta name="description" content="${description}" />
 <meta property="og:type" content="profile" />
@@ -107,25 +116,23 @@ router.get("/profile/:slug", async (req, res) => {
   }
 });
 
-// Dynamic Company Preview
+// ── COMPANY PREVIEW ──
 router.get("/companies/:slug", async (req, res) => {
   try {
     const slug = req.params.slug;
     const parts = slug.split("-");
     const companyId = parts[parts.length - 1];
-    
-    const company = await Company.findById(companyId);
-    if (!company) {
-      return res.status(404).send('<html><body><h1>Company not found</h1></body></html>');
-    }
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const company = await Company.findById(companyId);
+    if (!company) return res.status(404).send("<html><body><h1>Company not found</h1></body></html>");
+
     const title = `${company.name} | Omnixra AI`;
     const description = `${company.name} — ${company.industry || "Company"}. Location: ${company.location || "Unknown"}. Discover jobs and connect on Omnixra AI.`;
-    const image = `${baseUrl}/favicon.svg`;
-    const url = `${baseUrl}/companies/${slug}`;
+    const image = `${BASE_URL}/favicon.svg`;
+    const url = `${BASE_URL}/companies/${slug}`;
 
     const html = `<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8" />
 <title>${title}</title>
 <meta name="description" content="${description}" />
 <meta property="og:type" content="website" />
@@ -151,25 +158,4 @@ router.get("/companies/:slug", async (req, res) => {
   }
 });
 
-
-// ═══════════════════════════════════════════════════════════
-// ANDROID APP LINKS — /.well-known/assetlinks.json
-// Tells Android which app handles omnixra-ai.com/post/* links
-// ═══════════════════════════════════════════════════════════
-router.get("/.well-known/assetlinks.json", (req, res) => {
-  const envSha = process.env.ANDROID_APP_SHA256 || "";
-  const sha256 = envSha || "2A:DF:67:C2:FD:52:70:FC:F4:CB:83:6C:31:9F:1E:70:8A:04:A0:74:2B:E1:D3:27:CB:94:33:89:48:D4:DB:A8";
-  res.set("Content-Type", "application/json");
-  res.set("Cache-Control", "public, max-age=3600");
-  res.json([
-    {
-      relation: ["delegate_permission/common.handle_all_urls"],
-      target: {
-        namespace: "android_app",
-        package_name: "com.omnixra.ai",
-        sha256_cert_fingerprints: [sha256],
-      },
-    },
-  ]);
-});
 export default router;

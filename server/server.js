@@ -48,6 +48,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const app = express();
+app.set("trust proxy", 1);
 const allowedOrigins = (process.env.CLIENT_ORIGIN || "*").split(",").map(s => s.trim());
 
 app.use(cors({

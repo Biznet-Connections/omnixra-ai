@@ -8,6 +8,7 @@ import { hasTier } from "../utils/tierHelpers";
 import InboxHRModal from "./InboxHRModal";
 import ProfilePushModal from "./ProfilePushModal";
 import { useAuth } from "../context/AuthContext";
+import VerifiedBadge from "./VerifiedBadge";
 
 function CompanyCard({ company, setPage }) {
   const { user } = useAuth();
@@ -60,7 +61,12 @@ function CompanyCard({ company, setPage }) {
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h3 className="font-semibold text-sm">{company.name}</h3>
+                <h3 className="font-semibold text-sm flex items-center gap-1.5">
+                {company.name}
+                {(company.verifiedBadge || company.verified) && (
+                  <VerifiedBadge size="sm" color="blue" label="Verified Company" showTooltip={false} />
+                )}
+              </h3>
                 {company.verified && <ShieldCheck size={12} className="text-indigo-400" />}
               </div>
               <div className="text-xs text-slate-600 mt-1">{company.industry || company.category}</div>
