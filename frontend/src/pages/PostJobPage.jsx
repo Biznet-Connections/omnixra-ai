@@ -64,13 +64,13 @@ export default function PostJobPage({ setPage }) {
           primaryLabel="🤖 Find top 10 candidates — $5"
           onPrimary={() => setShowAIMatch(true)}
           secondaryLabel="Manage my jobs"
-          onSecondary={() => setPage("my-posts")}
+          onSecondary={() => setPage("my-jobs")}
           onClose={() => setPage("home")}
         />
         {showAIMatch && postedJob && (
           <AIMatchingModal
             job={postedJob}
-            onClose={() => { setShowAIMatch(false); setPage("my-posts"); }}
+            onClose={() => { setShowAIMatch(false); setPage("my-jobs"); }}
             setPage={setPage}
             onPurchaseCredit={(type) => { setShowAIMatch(false); setShowPayment(type); }}
           />
@@ -162,3 +162,5 @@ export default function PostJobPage({ setPage }) {
     </div>
   );
 }
+
+

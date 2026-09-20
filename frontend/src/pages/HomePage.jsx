@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from "react";
-import { UserCheck, Newspaper, Briefcase, User, FileText, MessageCircle , Search } from "lucide-react";
+import { UserCheck, Newspaper, Briefcase, User, FileText, MessageCircle, Search, BarChart3, Inbox } from "lucide-react";
 import PostCard from "../components/PostCard";
 import ProfileMenu from "../components/ProfileMenu";
 import LoadingDots from "../components/LoadingDots";
@@ -190,9 +190,10 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
   const quickActions = user?.accountType === "company"
     ? [
         { icon: User, label: "Profile", action: () => setShowProfileMenu(true) },
-        { icon: Briefcase, label: "Post Job", action: () => setPage("post-job") },
+        { icon: Briefcase, label: "My Jobs", action: () => setPage("my-job-posts") },
         { icon: FileText, label: "Applications", action: () => setPage("applications") },
         { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
+        { icon: BarChart3, label: "Dashboard", action: () => setPage("company-dashboard") },
       ]
     : [
         { icon: User, label: "Profile", action: () => setShowProfileMenu(true) },
@@ -207,7 +208,6 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
   return (
     <div className="page-scroll">
       <div className="page-container">
-        {user?.accountType === "company" && <CompanyHome setPage={setPage} />}
         {!online && hasCachedPosts && (
           <EmptyState variant="offline-cached" />
         )}

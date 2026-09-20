@@ -15,6 +15,7 @@ import ProfessionalsPage from "./pages/ProfessionalsPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import MyPostsPage from "./pages/MyPostsPage";
+import ManageJobsPage from "./pages/ManageJobsPage";
 import EditProfilePage from "./pages/EditProfilePage";
 import NewsPage from "./pages/NewsPage";
 import MyNetworkPage from "./pages/MyNetworkPage";
@@ -47,6 +48,8 @@ import DiscoverPage from "./pages/DiscoverPage";
 import PostJobPage from "./pages/PostJobPage";
 import CompanyInboxPage from "./pages/CompanyInboxPage";
 import CompanyPostsPage from "./pages/CompanyPostsPage";
+import MyJobPostsPage from "./pages/MyJobPostsPage";
+import CompanyDashboardPage from "./pages/CompanyDashboardPage";
 import ChannelPage from "./pages/ChannelPage";
 import PremiumPage from "./pages/PremiumPage";
 import PaymentCompletePage from "./pages/PaymentCompletePage";
@@ -321,6 +324,7 @@ function AppContent() {
       case "profile": return <ProfilePage />;
       case "settings": return <SettingsPage />;
       case "my-posts": return <MyPostsPage setPage={navigate} />;
+      case "my-jobs": return <ManageJobsPage setPage={navigate} />;
       case "edit-profile": return <EditProfilePage setPage={navigate} />;
       case "news": return <NewsPage setPage={navigate} />;
       case "my-network": return <MyNetworkPage setPage={navigate} />;
@@ -334,6 +338,8 @@ function AppContent() {
         ? <CompanyInboxPage setPage={navigate} setSelectedUserId={setSelectedUserId} />
         : <InboxPage setPage={navigate} />;
       case "applications": return <ApplicationsPage setPage={navigate} />;
+      case "my-job-posts": return <MyJobPostsPage setPage={navigate} />;
+      case "company-dashboard": return <CompanyDashboardPage setPage={navigate} />;
       case "shared-ai": return <SharedAIPage chatId={sharedChatId} setPage={navigate} />;
       case "admin-login": return <AdminLogin onSuccess={() => setPage("admin")} />;
       case "admin": return user?.accountType === "admin" ? <AdminDashboard setPage={navigate} /> : <HomePage setPage={navigate} />;
@@ -382,4 +388,6 @@ export default function App() {
     </PostsProvider>
   );
 }
+
+
 

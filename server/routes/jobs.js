@@ -482,6 +482,76 @@ router.get("/applicants/me", protect, async (req, res) => {
   }
 });
 
+// GET MY JOB POSTS (company only)
+router.get("/my-jobs", protect, async (req, res) => {
+  try {
+    if (req.user.accountType !== "company" && req.user.accountType !== "admin") {
+      return res.status(403).json({ message: "Company account required" });
+    }
+
+    const companyName = req.user.companyName || req.user.name;
+    const userId = req.user._id;
+
+    const jobs = await Job.find({
+      $or: [
+        { postedBy: userId },
+        { company: companyName },
+      ],
+    })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    // Enrich with applicant counts
+    const Application = (await import("../models/Application.js")).default;
+    const enriched = await Promise.all(
+      jobs.map(async (j) => {
+        const applicantCount = await Application.countDocuments({ jobId: j._id });
+        const daysLeft = j.expiresAt
+          ? Math.max(0, Math.ceil((new Date(j.expiresAt) - new Date()) / (1000 * 60 * 60 * 24)))
+          : null;
+        return {
+          ...j,
+          applicantCount,
+          daysLeft,
+          isExpired: j.expiresAt && new Date(j.expiresAt) < new Date(),
+        };
+      })
+    );
+
+    res.json({ jobs: enriched, count: enriched.length });
+  } catch (error) {
+    console.error("[jobs/my-jobs] error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// CLOSE A JOB (company only — hides from feed)
+router.put("/:id/close", protect, async (req, res) => {
+  try {
+    if (req.user.accountType !== "company" && req.user.accountType !== "admin") {
+      return res.status(403).json({ message: "Company account required" });
+    }
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+
+    // Ownership check
+    const companyName = req.user.companyName || req.user.name;
+    const isOwner =
+      String(job.postedBy) === String(req.user._id) ||
+      job.company === companyName ||
+      req.user.accountType === "admin";
+    if (!isOwner) return res.status(403).json({ message: "Not your job" });
+
+    job.status = "paused";
+    await job.save();
+    res.json({ message: "Job closed", job });
+  } catch (error) {
+    console.error("[jobs/:id/close] error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // POST A JOB (company only)
 router.post("/post", protect, async (req, res) => {
   try {
@@ -689,4 +759,110 @@ router.put("/applications/:id/status", protect, async (req, res) => {
   } catch (error) { res.status(500).json({ message: error.message }); }
 });
 
+// ── GET MY JOBS (company-only) ──
+router.get("/mine/list", protect, async (req, res) => {
+  try {
+    if (req.user.accountType !== "company" && req.user.accountType !== "admin") {
+      return res.status(403).json({ message: "Company account required" });
+    }
+
+    const jobs = await Job.find({ postedBy: req.user._id })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const Application = (await import("../models/Application.js")).default;
+    const jobIds = jobs.map(j => j._id);
+    const counts = await Application.aggregate([
+      { $match: { jobId: { $in: jobIds } } },
+      { $group: { _id: "$jobId", count: { $sum: 1 } } },
+    ]);
+    const countMap = Object.fromEntries(counts.map(c => [c._id.toString(), c.count]));
+
+    const enriched = jobs.map(j => ({
+      ...j,
+      applicantCount: countMap[j._id.toString()] || 0,
+    }));
+
+    res.json(enriched);
+  } catch (error) {
+    console.error("my-jobs error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ── EDIT A JOB (owner only) ──
+router.put("/:id", protect, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+
+    if (job.postedBy?.toString() !== req.user._id.toString() && req.user.accountType !== "admin") {
+      return res.status(403).json({ message: "Not your job" });
+    }
+
+    const editable = [
+      "title", "category", "location", "salary", "type",
+      "description", "requirements", "deadline", "applicationUrl",
+    ];
+    for (const field of editable) {
+      if (req.body[field] !== undefined) {
+        job[field] = typeof req.body[field] === "string" ? req.body[field].trim() : req.body[field];
+      }
+    }
+
+    await job.save();
+    res.json({ message: "Job updated", job });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "A job with this title already exists" });
+    }
+    console.error("edit job error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ── PAUSE / RESUME A JOB (owner only) ──
+router.patch("/:id/status", protect, async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!["active", "paused", "expired", "draft"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+
+    if (job.postedBy?.toString() !== req.user._id.toString() && req.user.accountType !== "admin") {
+      return res.status(403).json({ message: "Not your job" });
+    }
+
+    job.status = status;
+    job.active = status === "active";
+    await job.save();
+
+    res.json({ message: "Job " + status, job });
+  } catch (error) {
+    console.error("job status error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ── DELETE A JOB (owner only) ──
+router.delete("/:id", protect, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: "Job not found" });
+
+    if (job.postedBy?.toString() !== req.user._id.toString() && req.user.accountType !== "admin") {
+      return res.status(403).json({ message: "Not your job" });
+    }
+
+    await Job.findByIdAndDelete(req.params.id);
+    res.json({ message: "Job deleted" });
+  } catch (error) {
+    console.error("delete job error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
 export default router;
+

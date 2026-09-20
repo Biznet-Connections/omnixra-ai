@@ -9,6 +9,7 @@ function ProfileMenu({ onClose, onNavigate }) {
   const jobseekerItems = [
     { id: "edit-profile", label: "Edit Profile", icon: Edit3 },
     { id: "my-posts", label: "Manage My Posts", icon: FileText },
+    { id: "my-jobs", label: "Manage My Jobs", icon: Briefcase },
     { id: "profile-views", label: "Profile Views", icon: Eye },
     { id: "companies-viewed", label: "Companies Viewed", icon: Building2 },
     { id: "my-applications", label: "My Applications", icon: Briefcase },
@@ -20,6 +21,7 @@ function ProfileMenu({ onClose, onNavigate }) {
   const companyItems = [
     { id: "edit-profile", label: "Company Profile", icon: Building2 },
     { id: "my-posts", label: "Manage My Posts", icon: FileText },
+    { id: "my-jobs", label: "Manage My Jobs", icon: Briefcase },
     { id: "post-job", label: "Post a Job", icon: Plus },
     { id: "professionals", label: "Find Talent", icon: Users },
     { id: "inbox", label: "Company Inbox", icon: Inbox },
@@ -37,6 +39,7 @@ function ProfileMenu({ onClose, onNavigate }) {
     const routes = {
       "edit-profile": "edit-profile",
       "my-posts": "my-posts",
+      "my-jobs": "my-jobs",
       "post-job": "post",
       "professionals": "professionals",
       "inbox": "inbox",
@@ -106,3 +109,5 @@ function ProfileMenu({ onClose, onNavigate }) {
 }
 
 export default ProfileMenu;
+
+

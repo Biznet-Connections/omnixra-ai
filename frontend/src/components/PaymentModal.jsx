@@ -19,7 +19,7 @@ const PLANS = {
     label: "Priority Job Listing",
     amount: 2,
     duration: "7 days",
-    unlocks: ["Featured at top of feed", ""🔥 Featured" badge"],
+    unlocks: ["Featured at top of feed", "🔥 Featured badge"],
   },
   direct_message: {
     label: "Direct Message",
@@ -72,7 +72,7 @@ const PLANS = {
 };
 
 export default function PaymentModal({ planKey, metadata = {}, onClose, onSuccess }) {
-  const [step, setStep] = useState("confirm"); // confirm | opening | checking | success | failed
+  const [step, setStep] = useState("confirm");
   const [reference, setReference] = useState(null);
   const [checkoutUrl, setCheckoutUrl] = useState(null);
   const [message, setMessage] = useState("");
@@ -93,13 +93,11 @@ export default function PaymentModal({ planKey, metadata = {}, onClose, onSucces
       setReference(res.data.reference);
       setCheckoutUrl(res.data.checkoutUrl);
 
-      // Open Linkwa checkout in new tab
       if (!res.data.checkoutUrl) {
         setMessage("Could not create checkout. Please try again.");
         setStep("failed");
         return;
       }
-      // Open in system browser (Chrome) so deeplink back to APK works
       try {
         const { Capacitor } = await import("@capacitor/core");
         if (Capacitor.isNativePlatform()) {
@@ -116,7 +114,6 @@ export default function PaymentModal({ planKey, metadata = {}, onClose, onSucces
 
       setStep("checking");
 
-      // Poll our backend for status
       pollRef.current = setInterval(async () => {
         try {
           const s = await api.get("/payments/status/" + res.data.reference);
