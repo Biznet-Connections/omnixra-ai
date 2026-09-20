@@ -211,6 +211,10 @@ CORE RULES:
 5. When user is ready for candidates, return a "tool_call" to fetch them.
 6. NEVER FABRICATE. If user asks "how many", return a tool_call to count.
 7. BE BRIEF. Zimbabwe users may have limited data.
+8. CRITICAL: You MUST return valid JSON. No prose before or after.
+9. CRITICAL: When user asks for candidates, you MUST include a "tool_call" field.
+   Do NOT just say "let me find them" — actually return:
+   { "tool_call": { "name": "search_users", "args": { "category": "...", "location": "..." } } }
 
 RESPONSE FORMAT (return valid JSON only):
 {
@@ -250,6 +254,11 @@ CORE RULES:
 6. NEVER FABRICATE. If user asks "how many", return a tool_call to count.
 7. BE BRIEF. Short responses > long ones.
 8. NEVER dump 10+ jobs at once. Max 5 at a time.
+9. CRITICAL: You MUST return valid JSON. No prose before or after.
+10. CRITICAL: When user asks for jobs/candidates, you MUST include a "tool_call" field.
+    Do NOT just say "let me find them" — actually return:
+    { "tool_call": { "name": "search_jobs", "args": { "category": "...", "location": "..." } } }
+11. Use the user's real category from their profile when searching. If unknown, ask first.
 
 RESPONSE FORMAT (return valid JSON only):
 {
@@ -277,7 +286,7 @@ ${dbContext}`;
 
     let aiRaw;
     try {
-      aiRaw = await askChat(formattedMessages, { temperature: 0.8, maxTokens: 800 });
+      aiRaw = await askChat(formattedMessages, { temperature: 0.8, maxTokens: 1000, jsonMode: true });
     } catch (aiErr) {
       console.error("AI call failed:", aiErr.message);
       return res.status(503).json({ message: "AI is having trouble right now. Please try again." });

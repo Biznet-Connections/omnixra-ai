@@ -1,6 +1,27 @@
 import axios from "axios";
 
-// ── DeepSeek (primary chat) ──
+// ── OpenAI (primary while DeepSeek has no credit) ──
+export async function askOpenAI(messages, opts = {}) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("OPENAI_API_KEY missing");
+  const res = await axios.post(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      model: opts.model || process.env.OPENAI_MODEL || "gpt-4o-mini",
+      messages,
+      temperature: opts.temperature ?? 0.8,
+      max_tokens: opts.maxTokens ?? 1200,
+      response_format: opts.jsonMode ? { type: "json_object" } : undefined,
+    },
+    {
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      timeout: 45000,
+    }
+  );
+  return res.data?.choices?.[0]?.message?.content || "";
+}
+
+// ── DeepSeek (fallback) ──
 export async function askDeepSeek(messages, opts = {}) {
   const key = process.env.DEEPSEEK_API_KEY;
   if (!key) throw new Error("DEEPSEEK_API_KEY missing");
@@ -10,7 +31,8 @@ export async function askDeepSeek(messages, opts = {}) {
       model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
       messages,
       temperature: opts.temperature ?? 0.7,
-      max_tokens: opts.maxTokens ?? 1500,
+      max_tokens: opts.maxTokens ?? 1200,
+      response_format: opts.jsonMode ? { type: "json_object" } : undefined,
     },
     {
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -20,34 +42,27 @@ export async function askDeepSeek(messages, opts = {}) {
   return res.data?.choices?.[0]?.message?.content || "";
 }
 
-// ── OpenAI (chat fallback + vision) ──
-export async function askOpenAI(messages, opts = {}) {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("OPENAI_API_KEY missing");
-  const res = await axios.post(
-    "https://api.openai.com/v1/chat/completions",
-    {
-      model: opts.model || process.env.OPENAI_MODEL || "gpt-4o",
-      messages,
-      temperature: opts.temperature ?? 0.7,
-      max_tokens: opts.maxTokens ?? 1500,
-    },
-    {
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      timeout: 30000,
-    }
-  );
-  return res.data?.choices?.[0]?.message?.content || "";
+// ── Chat priority: OpenAI first, DeepSeek fallback ──
+export async function askChat(messages, opts = {}) {
+  try {
+    const text = await askOpenAI(messages, opts);
+    if (text && text.trim()) return { text, provider: "openai" };
+    throw new Error("Empty OpenAI response");
+  } catch (e) {
+    console.warn("[ai] OpenAI failed, trying DeepSeek:", e.message);
+    const text = await askDeepSeek(messages, opts);
+    return { text, provider: "deepseek" };
+  }
 }
 
-// ── OpenAI Vision (image URL) ──
+// ── OpenAI Vision ──
 export async function askOpenAIVision({ imageUrl, prompt, model }) {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("OPENAI_API_KEY missing");
   const res = await axios.post(
     "https://api.openai.com/v1/chat/completions",
     {
-      model: model || "gpt-4o",
+      model: model || "gpt-4o-mini",
       messages: [
         {
           role: "user",
@@ -67,22 +82,8 @@ export async function askOpenAIVision({ imageUrl, prompt, model }) {
   return res.data?.choices?.[0]?.message?.content || "";
 }
 
-// ── Chat with priority: DeepSeek → OpenAI ──
-export async function askChat(messages, opts = {}) {
-  try {
-    const text = await askDeepSeek(messages, opts);
-    if (text && text.trim()) return { text, provider: "deepseek" };
-    throw new Error("Empty DeepSeek response");
-  } catch (e) {
-    console.warn("[ai] DeepSeek failed, trying OpenAI:", e.message);
-    const text = await askOpenAI(messages, opts);
-    return { text, provider: "openai" };
-  }
-}
-
-// ── Voice transcribe: Deepgram → OpenAI Whisper ──
+// ── Transcribe: Deepgram → Whisper ──
 export async function transcribeAudio({ buffer, mimeType }) {
-  // 1. Deepgram
   if (process.env.DEEPGRAM_API_KEY) {
     try {
       const url = `${process.env.DEEPGRAM_API_URL || "https://api.deepgram.com/v1/listen"}?model=nova-2&smart_format=true&punctuate=true`;
@@ -99,8 +100,6 @@ export async function transcribeAudio({ buffer, mimeType }) {
       console.warn("[ai] Deepgram failed:", e.message);
     }
   }
-
-  // 2. OpenAI Whisper fallback
   if (process.env.OPENAI_API_KEY) {
     try {
       const FormData = (await import("form-data")).default;
@@ -117,6 +116,5 @@ export async function transcribeAudio({ buffer, mimeType }) {
       console.warn("[ai] OpenAI Whisper failed:", e.message);
     }
   }
-
   throw new Error("All transcription providers failed");
 }
