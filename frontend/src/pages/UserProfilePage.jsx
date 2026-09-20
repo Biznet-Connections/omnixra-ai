@@ -120,7 +120,7 @@ function UserProfilePage({ userId, setPage }) {
 
   const handleMessage = async () => {
     // If viewer is a company and target is a jobseeker → paid DM flow
-    const viewerIsCompany = user?.accountType === "company";
+    const viewerIsCompany = currentUser?.accountType === "company";
     const targetIsJobseeker = profile?.accountType === "jobseeker" || !profile?.accountType;
     if (viewerIsCompany && targetIsJobseeker) {
       setShowPaidDM(true);
