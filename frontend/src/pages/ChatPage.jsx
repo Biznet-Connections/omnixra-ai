@@ -5,6 +5,7 @@ import api from "../api/axios";
 import JobCard from "../components/JobCard";
 import TalentCard from "../components/TalentCard";
 import ChatHistorySidebar from "../components/ChatHistorySidebar";
+import VoiceRecorder from "../components/VoiceRecorder";
 
 function ChatPage() {
   const { user } = useAuth();
@@ -26,6 +27,9 @@ function ChatPage() {
   const [uploadingChat, setUploadingChat] = useState(false);
   const [chatId, setChatId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [profileSuggestion, setProfileSuggestion] = useState(null);
+  const [profileSaved, setProfileSaved] = useState(false);
   const fileInputRef = useRef(null);
   const bottomRef = useRef(null);
 
@@ -74,8 +78,28 @@ function ChatPage() {
     const userMsg = { role: "user", text, attachments: chatAttachments };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
+    const capturedAttachments = [...chatAttachments];
     setChatAttachments([]);
     setTyping(true);
+
+    // ── AI VISION PATH — if user attached an image ──
+    const imageAttachment = capturedAttachments.find(a => a.category === "image" || a.type?.startsWith("image/"));
+    if (imageAttachment && !text) {
+      try {
+        const res = await api.post("/ai/vision", {
+          imageUrl: imageAttachment.url,
+          prompt: text || undefined,
+          chatId,
+        });
+        setMessages(prev => [...prev, { role: "assistant", text: res.data.text, chatId: res.data.chatId }]);
+        if (res.data.chatId) setChatId(res.data.chatId);
+      } catch (e) {
+        setMessages(prev => [...prev, { role: "assistant", text: e.response?.data?.message || "Could not read image." }]);
+      } finally {
+        setTyping(false);
+      }
+      return;
+    }
 
     try {
       // Build chat history
@@ -290,12 +314,23 @@ function ChatPage() {
                 <Paperclip size={16} />
               </button>
               <input ref={fileInputRef} type="file" className="hidden" onChange={handleChatFile} />
-              <button className="composer-icon" title="Voice (coming soon)"><Mic size={16} /></button>
+              <button onClick={() => setShowVoiceRecorder(true)} className="composer-icon" title="Voice message"><Mic size={16} /></button>
             </div>
             <button onClick={() => sendMessage()} className="send-button"><Send size={16} /></button>
           </div>
         </div>
       </div>
+
+      {/* Voice recorder */}
+      {showVoiceRecorder && (
+        <VoiceRecorder
+          onClose={() => setShowVoiceRecorder(false)}
+          onTranscribed={(text) => {
+            setShowVoiceRecorder(false);
+            sendMessage(text);
+          }}
+        />
+      )}
 
       {/* History sidebar */}
       <ChatHistorySidebar

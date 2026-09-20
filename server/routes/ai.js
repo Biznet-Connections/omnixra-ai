@@ -650,6 +650,150 @@ router.delete("/chats/:id", protect, async (req, res) => {
   }
 });
 
+// AI VISION — read an image URL and respond to it
+router.post("/vision", protect, async (req, res) => {
+  try {
+    const { imageUrl, prompt } = req.body;
+    if (!imageUrl) return res.status(400).json({ message: "imageUrl required" });
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(503).json({ message: "AI vision not configured" });
+    }
+
+    // Fetch the image, encode as base64
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) return res.status(400).json({ message: "Could not fetch image" });
+    const arrayBuffer = await imgRes.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64 = buffer.toString("base64");
+    const mimeType = imgRes.headers.get("content-type") || "image/jpeg";
+
+    const userPrompt = prompt || "Describe this image and how it relates to finding a job or hiring. Give concrete next steps.";
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL || "gemini-1.5-flash"}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+
+    const body = {
+      contents: [{
+        parts: [
+          { text: userPrompt },
+          { inline_data: { mime_type: mimeType, data: base64 } },
+        ],
+      }],
+    };
+
+    const aiRes = await fetch(geminiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!aiRes.ok) {
+      const errText = await aiRes.text();
+      console.error("[ai/vision] gemini error:", errText);
+      return res.status(503).json({ message: "AI vision failed. Try again." });
+    }
+
+    const data = await aiRes.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    // Save to chat
+    const Chat = (await import("../models/Chat.js")).default;
+    let chatId = req.body.chatId;
+    let chat;
+    if (chatId) chat = await Chat.findOne({ _id: chatId, user: req.user._id });
+    if (!chat) {
+      chat = await Chat.create({
+        user: req.user._id,
+        title: "Image analysis",
+        messages: [],
+      });
+    }
+    chat.messages.push({ role: "user", content: userPrompt, attachments: [{ url: imageUrl, type: "image" }] });
+    chat.messages.push({ role: "assistant", content: text });
+    await chat.save();
+
+    res.json({ text, chatId: chat._id });
+  } catch (error) {
+    console.error("[ai/vision] error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// AUTO-COLLECT profile info from a conversation
+router.post("/collect-profile", protect, async (req, res) => {
+  try {
+    const { conversation } = req.body;
+    if (!conversation || !Array.isArray(conversation)) {
+      return res.status(400).json({ message: "conversation array required" });
+    }
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(503).json({ message: "AI not configured" });
+    }
+
+    const text = conversation.map(m => (m.role || "user") + ": " + (m.content || m.text || "")).join("\n");
+
+    const prompt = `Extract any of the following from this conversation. Only include fields that are clearly mentioned. Return ONLY valid JSON.
+
+Fields:
+- name: string (person's full name)
+- phone: string (phone number, any format)
+- location: string (city/area)
+- skills: array of strings (job skills mentioned)
+- category: string (job category/industry, single word or short phrase)
+- expectedSalary: string (amount if mentioned)
+
+Conversation:
+${text}
+
+Return ONLY the JSON object. If no fields found, return {}.`;
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL || "gemini-1.5-flash"}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+    const aiRes = await fetch(geminiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+
+    if (!aiRes.ok) return res.status(503).json({ message: "AI extraction failed" });
+
+    const data = await aiRes.json();
+    let raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    raw = raw.replace(/```json/g, "").replace(/```/g, "").trim();
+
+    let extracted = {};
+    try { extracted = JSON.parse(raw); } catch (e) { extracted = {}; }
+
+    res.json({ extracted });
+  } catch (error) {
+    console.error("[ai/collect-profile] error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// SAVE collected profile data
+router.post("/save-profile-info", protect, async (req, res) => {
+  try {
+    const { name, phone, location, skills, category, expectedSalary } = req.body;
+    const User = (await import("../models/User.js")).default;
+
+    const update = {};
+    if (name && !req.user.name) update.name = name;
+    if (phone && !req.user.phone) update.phone = phone;
+    if (location && !req.user.location) update.location = location;
+    if (skills && Array.isArray(skills) && skills.length > 0) update.skills = skills;
+    if (category && (!req.user.category || req.user.category === "General")) update.category = category;
+
+    if (Object.keys(update).length === 0) {
+      return res.json({ message: "Nothing to update", updated: {} });
+    }
+
+    const user = await User.findByIdAndUpdate(req.user._id, update, { new: true }).select("-password");
+    res.json({ message: "Profile updated", updated: update, user });
+  } catch (error) {
+    console.error("[ai/save-profile-info] error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;
 
 // ── Generate cover letter for a job application ──
