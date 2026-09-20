@@ -28,14 +28,19 @@ function JobCard({ job, tab = "omnixra" }) {
   const [showDetail, setShowDetail] = useState(false);
 
   const calculateMatch = () => {
+    // If backend provided a real match score, use it
+    if (typeof job?.matchScore === "number" && job.matchScore > 0) {
+      return job.matchScore;
+    }
+    // Otherwise fallback (only for non-AI job feeds)
     if (!user?.category || !job.category) return 30;
     const userCat = user.category.toLowerCase();
     const jobCat = job.category.toLowerCase();
     if (userCat === "general") return Math.floor(Math.random() * 20) + 30;
-    if (userCat === jobCat) return 96;
+    if (userCat === jobCat) return 90;
     if (jobCat === "general") return Math.floor(Math.random() * 15) + 15;
-    if (jobCat.includes(userCat) || userCat.includes(jobCat)) return 80;
-    return Math.floor(Math.random() * 15) + 5;
+    if (jobCat.includes(userCat) || userCat.includes(jobCat)) return 75;
+    return Math.floor(Math.random() * 15) + 20;
   };
 
   const match = calculateMatch();
