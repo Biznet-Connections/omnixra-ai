@@ -4,7 +4,7 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
 export default function AIMatchingModal({ job, onClose, setPage, onPurchaseCredit }) {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [step, setStep] = useState("intro"); // intro | loading | results | no-credits
   const [candidates, setCandidates] = useState([]);
   const [error, setError] = useState("");

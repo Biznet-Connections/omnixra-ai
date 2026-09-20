@@ -5,7 +5,7 @@ import api from "../api/axios";
 import PaymentModal from "./PaymentModal";
 
 export default function PaidMessageModal({ targetUser, onClose, onOpenChat }) {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [step, setStep] = useState("intro"); // intro | no-credits | sending | success
   const [error, setError] = useState("");
   const [creditsLeft, setCreditsLeft] = useState(user?.dmCredits || 0);
@@ -37,7 +37,18 @@ export default function PaidMessageModal({ targetUser, onClose, onOpenChat }) {
       <PaymentModal
         planKey="direct_message"
         onClose={() => setShowPayment(false)}
-        onSuccess={() => { setShowPayment(false); setCreditsLeft(prev => prev + 1); setStep("intro"); }}
+        onSuccess={async () => {
+          setShowPayment(false);
+          try {
+            const me = await api.get("/auth/me");
+            setUser(me.data);
+            localStorage.setItem("omnixra_user", JSON.stringify(me.data));
+            setCreditsLeft(me.data.dmCredits || 0);
+          } catch (e) {
+            setCreditsLeft(prev => prev + 1);
+          }
+          setStep("intro");
+        }}
       />
     );
   }
