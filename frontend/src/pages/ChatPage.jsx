@@ -111,12 +111,31 @@ function ChatPage() {
     try {
       const res = await api.get(`/ai/chats/${id}`);
       const chat = res.data.chat;
-      if (!chat?.messages) return;
-      const loaded = chat.messages.map(m => ({
-        role: m.role === "user" ? "user" : "assistant",
-        text: m.content || "",
-        attachments: m.attachments || [],
-      }));
+      if (!chat) {
+        alert("Chat not found");
+        return;
+      }
+
+      // Handle new (messages[]) or legacy (message/response)
+      let loaded = [];
+      if (Array.isArray(chat.messages) && chat.messages.length > 0) {
+        loaded = chat.messages.map(m => ({
+          role: m.role === "user" ? "user" : "assistant",
+          text: m.content || "",
+          attachments: m.attachments || [],
+        }));
+      } else if (chat.message || chat.response) {
+        // Legacy shape
+        loaded = [];
+        if (chat.message) loaded.push({ role: "user", text: chat.message });
+        if (chat.response) loaded.push({ role: "assistant", text: chat.response });
+      }
+
+      if (loaded.length === 0) {
+        alert("This chat is empty");
+        return;
+      }
+
       setMessages(loaded);
       setChatId(id);
     } catch (e) {
