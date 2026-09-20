@@ -16,7 +16,7 @@ const jobSchema = new mongoose.Schema(
     email: { type: String },
     source: {
       type: String,
-      enum: ["omnixra", "seed", "scraped", "jsearch", "ai-generated"],
+      enum: ["omnixra", "seed", "scraped", "jsearch", "ai-generated", "company"],
       default: "omnixra"
     },
     slug: { type: String, unique: true, sparse: true },
@@ -28,6 +28,7 @@ const jobSchema = new mongoose.Schema(
     expiresAt: { type: Date },
     priorityUntil: { type: Date },
     aiMatchedAt: { type: Date },
+    aiMatches: { type: Array, default: [] },
     requirements: { type: String },
     applicationUrl: { type: String },
   },

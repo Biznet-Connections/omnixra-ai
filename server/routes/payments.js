@@ -14,6 +14,42 @@ const router = express.Router();
 
 // Server-side product catalog (never trust client)
 const CATALOG = {
+  ai_matching: {
+    type: "ai_matching",
+    amount: 5,
+    label: "AI Candidate Matching",
+    description: "Top 10 pre-screened candidates for one job",
+  },
+  priority_listing: {
+    type: "priority_listing",
+    amount: 2,
+    label: "Priority Job Listing",
+    description: "Featured at top of jobseeker feed for 7 days",
+  },
+  verified_badge_monthly: {
+    type: "verified_badge_monthly",
+    amount: 15,
+    label: "Verified Badge (Monthly)",
+    description: "Verified employer badge + trust signal",
+  },
+  direct_message: {
+    type: "direct_message",
+    amount: 1,
+    label: "Direct Message Credit",
+    description: "Message any jobseeker directly",
+  },
+  bundle_ai_10: {
+    type: "bundle_ai_10",
+    amount: 20,
+    label: "AI Matching Bundle (10)",
+    description: "10 AI candidate matches (save 60%)",
+  },
+  company_boost_monthly: {
+    type: "company_boost_monthly",
+    amount: 5,
+    label: "Company Boost (Monthly)",
+    description: "Featured on Companies page for 30 days",
+  },
   starter_biweekly: {
     type: "starter_biweekly",
     amount: 5,
@@ -312,6 +348,32 @@ async function activateFeature(payment) {
         lastPaymentId: payment._id,
       });
       console.log("[activate] tier:", tier, "user:", userId);
+    } else if (type === "ai_matching") {
+      // Grant 1 AI match credit
+      await User.findByIdAndUpdate(userId, { $inc: { aiMatchCredits: 1 } });
+      console.log("[activate] ai_match credit +1 for user", userId);
+    } else if (type === "bundle_ai_10") {
+      await User.findByIdAndUpdate(userId, { $inc: { aiMatchCredits: 10 } });
+      console.log("[activate] ai_match credits +10 for user", userId);
+    } else if (type === "priority_listing") {
+      await User.findByIdAndUpdate(userId, { $inc: { priorityCredits: 1 } });
+      console.log("[activate] priority credit +1 for user", userId);
+    } else if (type === "direct_message") {
+      await User.findByIdAndUpdate(userId, { $inc: { dmCredits: 1 } });
+      console.log("[activate] dm credit +1 for user", userId);
+    } else if (type === "verified_badge_monthly") {
+      const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      await User.findByIdAndUpdate(userId, {
+        verifiedBadge: true,
+        verifiedBadgeExpiresAt: expires,
+      });
+      console.log("[activate] verified badge for user", userId, "until", expires);
+    } else if (type === "company_boost_monthly") {
+      const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      await User.findByIdAndUpdate(userId, {
+        companyBoostExpiresAt: expires,
+      });
+      console.log("[activate] company boost for user", userId, "until", expires);
     } else if (type === "boost_20k" || type === "boost_80k") {
       const reach = metadata?.reach || (type === "boost_80k" ? 80000 : 20000);
       await Boost.create({

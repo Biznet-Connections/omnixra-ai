@@ -3,6 +3,42 @@ import api from "../api/axios";
 import { X, CheckCircle, XCircle, Loader2, ShieldCheck, Smartphone, CreditCard, Wallet } from "lucide-react";
 
 const PLANS = {
+  ai_matching: {
+    label: "AI Candidate Matching",
+    amount: 5,
+    duration: "one job",
+    unlocks: ["Top 10 ranked candidates", "AI analyzes all applicants + matches"],
+  },
+  bundle_ai_10: {
+    label: "AI Matching Bundle (10)",
+    amount: 20,
+    duration: "10 jobs",
+    unlocks: ["10 AI matches", "Save 60% vs single", "$2 per match"],
+  },
+  priority_listing: {
+    label: "Priority Job Listing",
+    amount: 2,
+    duration: "7 days",
+    unlocks: ["Featured at top of feed", ""🔥 Featured" badge"],
+  },
+  direct_message: {
+    label: "Direct Message",
+    amount: 1,
+    duration: "1 message",
+    unlocks: ["Message any jobseeker directly"],
+  },
+  verified_badge_monthly: {
+    label: "Verified Badge",
+    amount: 15,
+    duration: "30 days",
+    unlocks: ["Verified employer checkmark", "3x more trust"],
+  },
+  company_boost_monthly: {
+    label: "Company Boost",
+    amount: 5,
+    duration: "30 days",
+    unlocks: ["Featured on Companies page"],
+  },
   starter_biweekly: {
     label: "Starter Plan",
     amount: 5,

@@ -3,6 +3,8 @@ import { ArrowLeft, Sparkles, CheckCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import SuccessModal from "../components/SuccessModal";
+import AIMatchingModal from "../components/AIMatchingModal";
+import PaymentModal from "../components/PaymentModal";
 
 const CATEGORIES = [
   "General", "IT", "Accounting", "Finance", "Sales", "Marketing",
@@ -30,6 +32,8 @@ export default function PostJobPage({ setPage }) {
   const [error, setError] = useState("");
   const [posted, setPosted] = useState(false);
   const [postedJob, setPostedJob] = useState(null);
+  const [showAIMatch, setShowAIMatch] = useState(false);
+  const [showPayment, setShowPayment] = useState(null);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -53,15 +57,32 @@ export default function PostJobPage({ setPage }) {
 
   if (posted) {
     return (
-      <SuccessModal
-        title="Your job is live!"
-        message={`"${postedJob?.title}" is now visible to jobseekers. You can manage it from My Posts.`}
-        primaryLabel="View my jobs"
-        onPrimary={() => setPage("my-posts")}
-        secondaryLabel="Post another"
-        onSecondary={() => { setPosted(false); setForm({ ...form, title: "", description: "", requirements: "" }); }}
-        onClose={() => setPage("home")}
-      />
+      <>
+        <SuccessModal
+          title="Your job is live!"
+          message={`"${postedJob?.title}" is now visible to jobseekers. Want us to find the best candidates for you?`}
+          primaryLabel="🤖 Find top 10 candidates — $5"
+          onPrimary={() => setShowAIMatch(true)}
+          secondaryLabel="Manage my jobs"
+          onSecondary={() => setPage("my-posts")}
+          onClose={() => setPage("home")}
+        />
+        {showAIMatch && postedJob && (
+          <AIMatchingModal
+            job={postedJob}
+            onClose={() => { setShowAIMatch(false); setPage("my-posts"); }}
+            setPage={setPage}
+            onPurchaseCredit={(type) => { setShowAIMatch(false); setShowPayment(type); }}
+          />
+        )}
+        {showPayment && (
+          <PaymentModal
+            planKey={showPayment}
+            onClose={() => setShowPayment(null)}
+            onSuccess={() => { setShowPayment(null); setShowAIMatch(true); }}
+          />
+        )}
+      </>
     );
   }
 

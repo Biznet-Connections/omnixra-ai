@@ -1,4 +1,5 @@
 ﻿import express from "express";
+import User from "../models/User.js";
 import { sendEmail, applicationEmailHtml } from "../utils/mailer.js";
 import { resolveCompanyTarget } from "../utils/companyResolver.js";
 import { requireTier } from "../middleware/tier.js";
@@ -526,6 +527,135 @@ router.post("/post", protect, async (req, res) => {
     res.status(201).json({ message: "Job posted successfully", job });
   } catch (error) {
     console.error("Post job error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// AI MATCHING — company pays 1 credit, gets 10 best candidates
+router.post("/:id/ai-match", protect, async (req, res) => {
+  try {
+    if (req.user.accountType !== "company" && req.user.accountType !== "admin") {
+      return res.status(403).json({ message: "Company account required" });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user.aiMatchCredits || user.aiMatchCredits < 1) {
+      return res.status(402).json({
+        message: "You need an AI Match credit to use this. Buy one for $5.",
+        requiresPurchase: true,
+        productType: "ai_matching",
+      });
+    }
+
+    const job = await Job.findById(req.params.id).lean();
+    if (!job) return res.status(404).json({ message: "Job not found" });
+
+    // Get all applicants to this job
+    const applicants = await Application.find({ jobId: req.params.id })
+      .populate("userId", "name profilePicture location headline skills category about")
+      .lean();
+
+    // Get broader pool — users matching the job category
+    const matchingUsers = await User.find({
+      accountType: "jobseeker",
+      category: job.category || "General",
+    })
+      .select("name profilePicture location headline skills category about")
+      .limit(50)
+      .lean();
+
+    // Combine + dedupe
+    const seen = new Set();
+    const candidates = [];
+    for (const a of applicants) {
+      if (a.userId && !seen.has(String(a.userId._id))) {
+        seen.add(String(a.userId._id));
+        candidates.push({ ...a.userId, source: "applicant" });
+      }
+    }
+    for (const u of matchingUsers) {
+      if (!seen.has(String(u._id))) {
+        seen.add(String(u._id));
+        candidates.push({ ...u, source: "match" });
+      }
+    }
+
+    if (candidates.length === 0) {
+      return res.status(200).json({
+        message: "No candidates found matching this job",
+        candidates: [],
+        creditsLeft: user.aiMatchCredits,
+      });
+    }
+
+    // Build AI prompt for ranking
+    const { askAI } = await import("../utils/aiService.js");
+    const candidateBrief = candidates.slice(0, 20).map((c, i) =>
+      `#${i + 1}: ${c.name} | ${c.category || "General"} | ${c.location || "?"} | Skills: ${(c.skills || []).join(",") || "none"} | ${c.headline || ""}`
+    ).join("\n");
+
+    const prompt = `Job: ${job.title} at ${job.company}
+Category: ${job.category}
+Location: ${job.location}
+Description: ${(job.description || "").slice(0, 300)}
+
+Candidates:
+${candidateBrief}
+
+Rank the TOP 10 candidates by fit for this job. Return ONLY a JSON array like:
+[{"rank":1,"name":"...","score":95,"reason":"..."}]
+Score 0-100 based on match. Be honest — some may be low scores.`;
+
+    let ranked = [];
+    try {
+      const aiResponse = await askAI([
+        { role: "system", content: "You rank candidates for jobs. Return ONLY valid JSON." },
+        { role: "user", content: prompt },
+      ]);
+      const jsonMatch = String(aiResponse).match(/\[[\s\S]*\]/);
+      if (jsonMatch) ranked = JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      console.error("[ai-match] AI ranking failed:", e.message);
+      // Fallback: just rank by applicant source
+      ranked = candidates.slice(0, 10).map((c, i) => ({
+        rank: i + 1,
+        name: c.name,
+        score: c.source === "applicant" ? 85 - i : 70 - i,
+        reason: c.source === "applicant" ? "Already applied" : "Category match",
+      }));
+    }
+
+    // Enrich with full candidate data
+    const enriched = ranked.slice(0, 10).map(r => {
+      const c = candidates.find(x => x.name === r.name);
+      return {
+        ...r,
+        _id: c?._id,
+        profilePicture: c?.profilePicture,
+        location: c?.location,
+        headline: c?.headline,
+        skills: c?.skills || [],
+        category: c?.category,
+        source: c?.source,
+      };
+    });
+
+    // Deduct 1 credit
+    await User.findByIdAndUpdate(req.user._id, { $inc: { aiMatchCredits: -1 } });
+
+    // Save match result on job
+    await Job.findByIdAndUpdate(req.params.id, {
+      aiMatchedAt: new Date(),
+      aiMatches: enriched,
+    });
+
+    res.json({
+      message: `Found ${enriched.length} top candidates`,
+      candidates: enriched,
+      creditsLeft: user.aiMatchCredits - 1,
+    });
+  } catch (error) {
+    console.error("[ai-match] error:", error);
     res.status(500).json({ message: error.message });
   }
 });
