@@ -17,8 +17,11 @@ export default function MyJobPostsPage({ setPage }) {
 
   const loadJobs = () => {
     setLoading(true);
-    api.get("/jobs/my-jobs")
-      .then(res => setJobs(res.data.jobs || []))
+    api.get("/jobs/mine/list")
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data : (res.data.jobs || []);
+        setJobs(list);
+      })
       .catch(e => setError(e?.response?.data?.message || e.message))
       .finally(() => setLoading(false));
   };

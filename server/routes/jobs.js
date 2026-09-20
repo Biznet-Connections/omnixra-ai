@@ -482,51 +482,6 @@ router.get("/applicants/me", protect, async (req, res) => {
   }
 });
 
-// GET MY JOB POSTS (company only)
-router.get("/my-jobs", protect, async (req, res) => {
-  try {
-    if (req.user.accountType !== "company" && req.user.accountType !== "admin") {
-      return res.status(403).json({ message: "Company account required" });
-    }
-
-    const companyName = req.user.companyName || req.user.name;
-    const userId = req.user._id;
-
-    const jobs = await Job.find({
-      $or: [
-        { postedBy: userId },
-        { company: companyName },
-      ],
-    })
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .lean();
-
-    // Enrich with applicant counts
-    const Application = (await import("../models/Application.js")).default;
-    const enriched = await Promise.all(
-      jobs.map(async (j) => {
-        const applicantCount = await Application.countDocuments({ jobId: j._id });
-        const daysLeft = j.expiresAt
-          ? Math.max(0, Math.ceil((new Date(j.expiresAt) - new Date()) / (1000 * 60 * 60 * 24)))
-          : null;
-        return {
-          ...j,
-          applicantCount,
-          daysLeft,
-          isExpired: j.expiresAt && new Date(j.expiresAt) < new Date(),
-        };
-      })
-    );
-
-    res.json({ jobs: enriched, count: enriched.length });
-  } catch (error) {
-    console.error("[jobs/my-jobs] error:", error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// CLOSE A JOB (company only — hides from feed)
 router.put("/:id/close", protect, async (req, res) => {
   try {
     if (req.user.accountType !== "company" && req.user.accountType !== "admin") {
@@ -564,6 +519,17 @@ router.post("/post", protect, async (req, res) => {
     if (!title?.trim()) return res.status(400).json({ message: "Title is required" });
     if (!location?.trim()) return res.status(400).json({ message: "Location is required" });
     if (!description?.trim()) return res.status(400).json({ message: "Description is required" });
+
+    // Validate deadline
+    if (deadline) {
+      const d = new Date(deadline);
+      if (isNaN(d.getTime())) {
+        return res.status(400).json({ message: "Invalid deadline date" });
+      }
+      if (d < new Date()) {
+        return res.status(400).json({ message: "Deadline cannot be in the past" });
+      }
+    }
 
     // Slug
     const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
@@ -778,10 +744,18 @@ router.get("/mine/list", protect, async (req, res) => {
     ]);
     const countMap = Object.fromEntries(counts.map(c => [c._id.toString(), c.count]));
 
-    const enriched = jobs.map(j => ({
-      ...j,
-      applicantCount: countMap[j._id.toString()] || 0,
-    }));
+    const enriched = jobs.map(j => {
+      const daysLeft = j.expiresAt
+        ? Math.max(0, Math.ceil((new Date(j.expiresAt) - new Date()) / (1000 * 60 * 60 * 24)))
+        : null;
+      const isExpired = j.expiresAt ? new Date(j.expiresAt) < new Date() : false;
+      return {
+        ...j,
+        applicantCount: countMap[j._id.toString()] || 0,
+        daysLeft,
+        isExpired,
+      };
+    });
 
     res.json(enriched);
   } catch (error) {

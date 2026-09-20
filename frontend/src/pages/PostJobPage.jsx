@@ -141,8 +141,18 @@ export default function PostJobPage({ setPage }) {
           </div>
 
           <div>
-            <label className="form-label">Application Deadline (optional)</label>
-            <input type="date" name="deadline" value={form.deadline} onChange={handleChange} className="form-input" />
+            <label className="form-label">
+              Application Deadline (optional)
+              <span className="text-[10px] text-slate-500 ml-2">Must be a future date</span>
+            </label>
+            <input
+              type="date"
+              name="deadline"
+              value={form.deadline}
+              onChange={handleChange}
+              min={new Date().toISOString().split("T")[0]}
+              className="form-input"
+            />
           </div>
 
           <div>
