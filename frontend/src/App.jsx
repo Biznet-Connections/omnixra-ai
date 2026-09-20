@@ -46,6 +46,7 @@ import ExpiryBanner from "./components/ExpiryBanner";
 import DiscoverPage from "./pages/DiscoverPage";
 import PostJobPage from "./pages/PostJobPage";
 import CompanyInboxPage from "./pages/CompanyInboxPage";
+import CompanyPostsPage from "./pages/CompanyPostsPage";
 import ChannelPage from "./pages/ChannelPage";
 import PremiumPage from "./pages/PremiumPage";
 import PaymentCompletePage from "./pages/PaymentCompletePage";
@@ -310,7 +311,12 @@ function AppContent() {
       case "auth-callback": return <AuthCallback setPage={navigate} />;
       case "myai": return <ChatPage />;
       case "jobs": return <JobsPage focusJobSlug={focusJobSlug} />;
-      case "companies": return <CompaniesPage />;
+      case "companies": return <CompaniesPage setPage={navigate} />;
+      case "company-posts": return <CompanyPostsPage
+        companyId={sessionStorage.getItem("company_posts_id")}
+        companyName={sessionStorage.getItem("company_posts_name")}
+        setPage={navigate}
+      />;
       case "professionals": return <ProfessionalsPage setPage={navigate} />;
       case "profile": return <ProfilePage />;
       case "settings": return <SettingsPage />;

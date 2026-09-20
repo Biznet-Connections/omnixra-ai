@@ -135,6 +135,46 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// GET POSTS BY A COMPANY (from User account or by company name)
+router.get("/:id/posts", async (req, res) => {
+  try {
+    const Post = (await import("../models/Post.js")).default;
+    const Company = (await import("../models/Company.js")).default;
+    const User = (await import("../models/User.js")).default;
+
+    const idParam = req.params.id;
+
+    let company = await Company.findById(idParam).lean();
+    let companyUser = null;
+    if (!company) {
+      companyUser = await User.findById(idParam).select("name companyName").lean();
+    }
+
+    const companyName = company?.name || companyUser?.companyName || companyUser?.name;
+    if (!companyName) return res.status(404).json({ message: "Company not found" });
+
+    const orConds = [];
+    if (companyUser) orConds.push({ author: companyUser._id });
+
+    // Also match by user.companyName
+    const matchingUsers = await User.find({ companyName }).select("_id").lean();
+    if (matchingUsers.length) orConds.push({ author: { $in: matchingUsers.map(u => u._id) } });
+
+    if (orConds.length === 0) return res.json({ posts: [], count: 0 });
+
+    const posts = await Post.find({ $or: orConds, deleted: { $ne: true } })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate("author", "name companyName profilePicture verified accountType")
+      .lean();
+
+    res.json({ posts, count: posts.length });
+  } catch (error) {
+    console.error("[companies/:id/posts] error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;
 
 // ── CONTACT COMPANY (Inbox HR / Push My Profile) — Starter+ ──

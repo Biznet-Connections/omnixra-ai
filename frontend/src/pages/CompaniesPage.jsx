@@ -181,7 +181,7 @@ function CompaniesPage() {
           <>
             <div className="company-grid mt-7">
               {companies.map(company => (
-                <CompanyCard key={company._id} company={company} />
+                <CompanyCard key={company._id} company={company} setPage={setPage} />
               ))}
             </div>
 

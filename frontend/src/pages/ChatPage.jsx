@@ -19,6 +19,17 @@ function ChatPage() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, typing]);
 
+  // ── Auto-send prompt from elsewhere (e.g. CompanyCard "Ask AI") ──
+  useEffect(() => {
+    const pending = sessionStorage.getItem("ai_auto_prompt");
+    if (!pending) return;
+    sessionStorage.removeItem("ai_auto_prompt");
+    // Slight delay so component is fully mounted
+    const t = setTimeout(() => { sendMessage(pending); }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleChatFile = async (e) => {
     const file = e.target.files[0];
     if (!file) return;

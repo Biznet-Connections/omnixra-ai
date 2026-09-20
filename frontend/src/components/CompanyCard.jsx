@@ -9,7 +9,7 @@ import InboxHRModal from "./InboxHRModal";
 import ProfilePushModal from "./ProfilePushModal";
 import { useAuth } from "../context/AuthContext";
 
-function CompanyCard({ company }) {
+function CompanyCard({ company, setPage }) {
   const { user } = useAuth();
   const [showPremium, setShowPremium] = useState(false);
   const [showLocked, setShowLocked] = useState(false);
@@ -35,6 +35,19 @@ function CompanyCard({ company }) {
       return;
     }
     setShowProfilePush(true);
+  };
+
+  const handleAskAI = () => {
+    const name = company?.name || "this company";
+    const prompt = `Tell me about ${name} — what they do, what jobs they have open, and whether I should reach out. My profile: ${user?.category || "General"}, ${user?.location || "Zimbabwe"}`;
+    sessionStorage.setItem("ai_auto_prompt", prompt);
+    setPage?.("myai");
+  };
+
+  const handleViewPosts = () => {
+    sessionStorage.setItem("company_posts_id", company?._id || "");
+    sessionStorage.setItem("company_posts_name", company?.name || "");
+    setPage?.("company-posts");
   };
 
   return (
@@ -85,11 +98,11 @@ function CompanyCard({ company }) {
             <Rocket size={13} />
             Push My Profile
           </button>
-          <button className="outline-button text-indigo-400">
+          <button onClick={handleAskAI} className="outline-button text-indigo-400">
             <Sparkles size={13} />
             Ask AI
           </button>
-          <button className="outline-button">
+          <button onClick={handleViewPosts} className="outline-button">
             <FileText size={13} />
             Posts
           </button>
