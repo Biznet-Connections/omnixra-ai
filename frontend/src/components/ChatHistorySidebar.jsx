@@ -58,8 +58,8 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
 
   return (
     <>
-      <div className="fixed inset-0 z-[65] bg-black/70" onClick={onClose} />
-      <div className="fixed top-0 left-0 bottom-0 z-[70] w-80 max-w-[85vw] bg-[#0f0f1a] border-r-2 border-white/[.12] flex flex-col text-white shadow-[8px_0_40px_rgba(0,0,0,0.7)]">
+      <div className="fixed inset-0 z-40 bg-black/70" onClick={onClose} />
+      <div className="fixed top-0 left-0 bottom-0 z-50 w-80 max-w-xs bg-gray-900 border-r border-gray-700 flex flex-col text-white" style={{ boxShadow: "8px 0 40px rgba(0,0,0,0.7)" }}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[.06]">
           <h2 className="text-sm font-bold">Chat History</h2>
           <button onClick={onClose} className="icon-button"><X size={18} /></button>
@@ -92,9 +92,14 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
                       key={ch._id}
                       onClick={async () => {
                         setLoadingChatId(ch._id);
-                        try { await onLoad(ch._id); } catch (e) {}
-                        setLoadingChatId(null);
-                        onClose();
+                        try {
+                          await onLoad(ch._id);
+                          onClose();
+                        } catch (e) {
+                          alert(e?.response?.data?.message || "Could not load chat");
+                        } finally {
+                          setLoadingChatId(null);
+                        }
                       }}
                       className={`group flex items-start gap-2 p-2 rounded-lg cursor-pointer hover:bg-white/[.04] ${currentChatId === ch._id ? "bg-white/[.06]" : ""}`}
                     >
