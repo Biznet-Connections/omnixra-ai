@@ -58,8 +58,30 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/70" onClick={onClose} />
-      <div className="fixed top-0 left-0 bottom-0 z-50 w-80 max-w-xs bg-gray-900 border-r border-gray-700 flex flex-col text-white" style={{ boxShadow: "8px 0 40px rgba(0,0,0,0.7)" }}>
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.75)",
+          zIndex: 9998,
+        }}
+      />
+      <div
+        style={{
+          position: "fixed",
+          top: 0, left: 0, bottom: 0,
+          width: "320px",
+          maxWidth: "85vw",
+          backgroundColor: "#1a1a2e",
+          borderRight: "2px solid rgba(255,255,255,0.15)",
+          boxShadow: "10px 0 50px rgba(0,0,0,0.8)",
+          zIndex: 9999,
+          display: "flex",
+          flexDirection: "column",
+          color: "white",
+        }}
+      >
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[.06]">
           <h2 className="text-sm font-bold">Chat History</h2>
           <button onClick={onClose} className="icon-button"><X size={18} /></button>
@@ -85,7 +107,7 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
           ) : (
             Object.entries(groups).map(([label, items]) => items.length > 0 && (
               <div key={label}>
-                <div className="text-[10px] text-slate-600 uppercase tracking-wide px-1 mb-1">{label}</div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wide px-1 mb-1">{label}</div>
                 <div className="space-y-1">
                   {items.map(ch => (
                     <div
@@ -109,7 +131,7 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
                           {ch.title}
                           {loadingChatId === ch._id && <Loader2 size={10} className="inline ml-2 animate-spin text-indigo-400" />}
                         </div>
-                        <div className="text-[10px] text-slate-600 truncate mt-0.5">{ch.preview}</div>
+                        <div className="text-[10px] text-slate-400 truncate mt-0.5">{ch.preview}</div>
                       </div>
                       <button
                         onClick={(e) => handleDelete(ch._id, e)}
