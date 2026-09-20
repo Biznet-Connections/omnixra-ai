@@ -22,6 +22,7 @@ function groupByDate(chats) {
 export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, currentChatId }) {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingChatId, setLoadingChatId] = useState(null);
 
   const load = () => {
     setLoading(true);
@@ -58,7 +59,7 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
   return (
     <>
       <div className="fixed inset-0 z-[60] bg-black/50" onClick={onClose} />
-      <div className="fixed top-0 left-0 bottom-0 z-[61] w-80 max-w-[85vw] bg-[#0a0a14] border-r border-white/[.08] flex flex-col text-white shadow-2xl">
+      <div className="fixed top-0 left-0 bottom-0 z-[61] w-80 max-w-[85vw] bg-[#12121e] border-r border-white/[.08] flex flex-col text-white shadow-2xl">
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[.06]">
           <h2 className="text-sm font-bold">Chat History</h2>
           <button onClick={onClose} className="icon-button"><X size={18} /></button>
@@ -89,12 +90,20 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
                   {items.map(ch => (
                     <div
                       key={ch._id}
-                      onClick={() => { onLoad(ch._id); onClose(); }}
+                      onClick={async () => {
+                        setLoadingChatId(ch._id);
+                        try { await onLoad(ch._id); } catch (e) {}
+                        setLoadingChatId(null);
+                        onClose();
+                      }}
                       className={`group flex items-start gap-2 p-2 rounded-lg cursor-pointer hover:bg-white/[.04] ${currentChatId === ch._id ? "bg-white/[.06]" : ""}`}
                     >
                       <MessageSquare size={14} className="text-slate-500 flex-shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium truncate">{ch.title}</div>
+                        <div className="text-xs font-medium truncate">
+                          {ch.title}
+                          {loadingChatId === ch._id && <Loader2 size={10} className="inline ml-2 animate-spin text-indigo-400" />}
+                        </div>
                         <div className="text-[10px] text-slate-600 truncate mt-0.5">{ch.preview}</div>
                       </div>
                       <button

@@ -579,7 +579,14 @@ router.get("/chats", protect, async (req, res) => {
       .lean();
 
     // Summary per chat — handles legacy (message/response) AND new (messages[]) shape
-    const list = chats.map(ch => {
+    // Filter out empty chats (no messages and no legacy content)
+    const validChats = chats.filter(ch => {
+      const hasNew = Array.isArray(ch.messages) && ch.messages.length > 0;
+      const hasLegacy = !!(ch.message || ch.response);
+      return hasNew || hasLegacy;
+    });
+
+    const list = validChats.map(ch => {
       const hasNew = Array.isArray(ch.messages) && ch.messages.length > 0;
       const firstUserMsg = hasNew
         ? (ch.messages.find(m => m.role === "user")?.content || ch.messages[0]?.content || "")
