@@ -144,20 +144,38 @@ router.post("/jobs", protect, async (req, res) => {
 
 router.post("/chat", protect, async (req, res) => {
   try {
-    const { messages } = req.body;
+    const { messages, chatId } = req.body;
     const now = new Date();
     const currentDate = now.toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" });
     const currentYear = now.getFullYear();
-    const systemPrompt = `You are Omnixra AI, a friendly employment assistant for Zimbabwe and Africa.
-Today's date is ${currentDate}. The current year is ${currentYear}.
-You can speak English, Shona, Ndebele, and any language the user prefers.
-Your job is to help users find jobs, understand job requirements, improve CVs, and navigate employment.
-Be warm, helpful, and professional. Always support the user regardless of education level.
-When mentioning dates or years, always use ${currentYear} or future years. Never mention past years as if they were current.`;
+
+    // Detect user's dominant language from last message
+    const lastUserMsg = (messages[messages.length - 1]?.content || messages[messages.length - 1]?.text || "").toLowerCase();
+    const hasShona = /ndinoda|ndikubatsire|ndinodawo|mhoroi|ndapota|zvakanaka|basa|unoda|uri|ndiri|mudzimba|kutsvaira/i.test(lastUserMsg);
+    const hasNdebele = /ngicela|ngiyabonga|ngifuna|ngubani|sawubona|umsebenzi|ngiyafuna/i.test(lastUserMsg);
+    const languageHint = hasShona ? "The user is speaking Shona. Reply in Shona." : hasNdebele ? "The user is speaking Ndebele. Reply in Ndebele." : "Reply in the user's language.";
+
+    const isCompany = req.user.accountType === "company";
+    const systemPrompt = isCompany
+      ? `You are Omnixra AI, a friendly hiring assistant for Zimbabwe and Africa. Today is ${currentDate}, year ${currentYear}.
+You help companies find qualified candidates, draft job posts, and screen applicants.
+Be warm, efficient, and professional. Match the user's tone — casual if casual, formal if formal.
+${languageHint}
+When listing candidates, format as short summaries (name, headline, location, match %).
+When the user asks for candidates, always respond with concrete names from the platform when possible.`
+      : `You are Omnixra AI, a friendly employment assistant for Zimbabwe and Africa. Today is ${currentDate}, year ${currentYear}.
+You help jobseekers find jobs, improve CVs, and navigate employment.
+Be warm, supportive, and encouraging. Match the user's energy — casual if casual, formal if formal.
+${languageHint}
+Never use complex jargon. Treat every user with dignity regardless of education level.
+Always offer concrete next steps (jobs to apply to, CV tips, etc.).
+Never mention past years as if they were current.`;
+
     const formattedMessages = messages.map(m => ({
       role: m.role === "ai" || m.role === "assistant" ? "assistant" : m.role,
       content: m.content || m.text
     }));
+
     let aiResponse;
     try {
       aiResponse = await askAI([{ role: "system", content: systemPrompt }, ...formattedMessages]);
@@ -169,17 +187,37 @@ When mentioning dates or years, always use ${currentYear} or future years. Never
     if (!aiResponse || typeof aiResponse !== "string" || !aiResponse.trim()) {
       return res.status(503).json({ message: "AI returned an empty response. Please try again." });
     }
-    
-    // Save to chat history
-    const chat = await Chat.create({
-      user: req.user._id,
-      message: messages[messages.length - 1]?.content || messages[messages.length - 1]?.text || "",
-      response: aiResponse,
-      shared: false
-    });
-    
+
+    // ── Save or update chat ──
+    const lastUserText = messages[messages.length - 1]?.content || messages[messages.length - 1]?.text || "";
+    const newMsgs = messages.map(m => ({
+      role: m.role === "user" ? "user" : "assistant",
+      content: m.content || m.text || "",
+    }));
+    newMsgs.push({ role: "assistant", content: aiResponse });
+
+    let chat;
+    if (chatId) {
+      chat = await Chat.findOne({ _id: chatId, user: req.user._id });
+    }
+    if (chat) {
+      chat.messages = newMsgs;
+      if (!chat.title || chat.title === "New chat") {
+        chat.title = lastUserText.slice(0, 60) || "New chat";
+      }
+      await chat.save();
+    } else {
+      chat = await Chat.create({
+        user: req.user._id,
+        title: lastUserText.slice(0, 60) || "New chat",
+        messages: newMsgs,
+        shared: false,
+      });
+    }
+
     res.json({ text: aiResponse, chatId: chat._id });
   } catch (error) {
+    console.error("[ai/chat] error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -527,6 +565,57 @@ router.post("/upload", protect, async (req, res) => {
   } catch (error) {
     console.error("AI upload error:", error);
     res.status(500).json({ message: error.message });
+  }
+});
+
+// LIST user's chat history
+router.get("/chats", protect, async (req, res) => {
+  try {
+    const Chat = (await import("../models/Chat.js")).default;
+    const chats = await Chat.find({ user: req.user._id, shared: { $ne: true } })
+      .select("title messages updatedAt createdAt")
+      .sort({ updatedAt: -1 })
+      .limit(50)
+      .lean();
+
+    // Summary per chat
+    const list = chats.map(ch => ({
+      _id: ch._id,
+      title: ch.title || (ch.messages?.[0]?.content?.slice(0, 60)) || "Untitled",
+      messageCount: ch.messages?.length || 0,
+      updatedAt: ch.updatedAt,
+      createdAt: ch.createdAt,
+      preview: ch.messages?.[ch.messages.length - 1]?.content?.slice(0, 80) || "",
+    }));
+
+    res.json({ chats: list, count: list.length });
+  } catch (e) {
+    console.error("[ai/chats] error:", e);
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// LOAD specific chat
+router.get("/chats/:id", protect, async (req, res) => {
+  try {
+    const Chat = (await import("../models/Chat.js")).default;
+    const chat = await Chat.findOne({ _id: req.params.id, user: req.user._id }).lean();
+    if (!chat) return res.status(404).json({ message: "Chat not found" });
+    res.json({ chat });
+  } catch (e) {
+    console.error("[ai/chats/:id] error:", e);
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// DELETE a chat
+router.delete("/chats/:id", protect, async (req, res) => {
+  try {
+    const Chat = (await import("../models/Chat.js")).default;
+    const r = await Chat.deleteOne({ _id: req.params.id, user: req.user._id });
+    res.json({ deleted: r.deletedCount });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
   }
 });
 

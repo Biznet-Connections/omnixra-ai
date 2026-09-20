@@ -1,30 +1,41 @@
-﻿import React, { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Plus, Paperclip, Mic, ThumbsUp, ThumbsDown, Copy, Check, Share2 } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Sparkles, Send, Paperclip, Mic, ThumbsUp, ThumbsDown, Copy, Check, Share2, Menu } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import JobCard from "../components/JobCard";
 import TalentCard from "../components/TalentCard";
+import ChatHistorySidebar from "../components/ChatHistorySidebar";
 
 function ChatPage() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState([{ role: "assistant", text: user?.accountType === "company" ? `Hello ${user?.name} 👋\n\nTell me the job you are posting, or the employees you are looking for.` : "Hey 👋 I'm Omnixra, your AI employment assistant. I can find jobs, improve CV, and help with your career." }]);
+  const isCompany = user?.accountType === "company";
+
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      text: isCompany
+        ? `Hello ${user?.name} 👋\n\nTell me the job you're hiring for, or the kind of person you're looking for.`
+        : `Hey 👋 I'm Omnixra, your AI employment assistant. I can find jobs, improve your CV, and help you build your career.`,
+    },
+  ]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [copied, setCopied] = useState(null);
   const [shared, setShared] = useState(null);
   const [chatAttachments, setChatAttachments] = useState([]);
   const [uploadingChat, setUploadingChat] = useState(false);
+  const [chatId, setChatId] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
   const fileInputRef = useRef(null);
   const bottomRef = useRef(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, typing]);
 
-  // ── Auto-send prompt from elsewhere (e.g. CompanyCard "Ask AI") ──
+  // Auto-send prompt from elsewhere (CompanyCard "Ask AI" etc.)
   useEffect(() => {
     const pending = sessionStorage.getItem("ai_auto_prompt");
     if (!pending) return;
     sessionStorage.removeItem("ai_auto_prompt");
-    // Slight delay so component is fully mounted
     const t = setTimeout(() => { sendMessage(pending); }, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -58,79 +69,107 @@ function ChatPage() {
 
   const sendMessage = async (provided) => {
     const text = (provided ?? input).trim();
-    if (!text) return;
-    setMessages(prev => [...prev, { role: "user", text }]);
+    if (!text && chatAttachments.length === 0) return;
+
+    const userMsg = { role: "user", text, attachments: chatAttachments };
+    setMessages(prev => [...prev, userMsg]);
     setInput("");
+    setChatAttachments([]);
     setTyping(true);
+
     try {
-      if (user?.accountType === "company") {
+      // Build chat history
+      const chatHistory = [...messages, userMsg]
+        .filter(m => m.text || m.attachments?.length)
+        .map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text || "" }));
+      chatHistory.push({ role: "user", content: text });
+
+      // Route based on intent
+      const lower = text.toLowerCase();
+      if (isCompany && (lower.includes("candidate") || lower.includes("hire") || lower.includes("find") || lower.includes("talent") || lower.includes("recruit"))) {
         const res = await api.post("/ai/talent", { query: text });
         setMessages(prev => [...prev, { role: "assistant", text: res.data.text, talent: res.data.talent, chatId: res.data.chatId }]);
-      } else if (text.toLowerCase().includes("job") || text.toLowerCase().includes("work") || text.toLowerCase().includes("vacancy") || text.toLowerCase().includes("career")) {
+      } else if (!isCompany && (lower.includes("job") || lower.includes("work") || lower.includes("vacancy") || lower.includes("career") || lower.includes("basa") || lower.includes("umsebenzi"))) {
         const res = await api.post("/ai/jobs", { query: text });
         setMessages(prev => [...prev, { role: "assistant", text: res.data.text, jobs: res.data.jobs }]);
       } else {
-        const chatHistory = messages.filter(m => m.text).map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text }));
-        chatHistory.push({ role: "user", content: text });
-        const res = await api.post("/ai/chat", { messages: chatHistory });
+        const res = await api.post("/ai/chat", { messages: chatHistory, chatId });
         setMessages(prev => [...prev, { role: "assistant", text: res.data.text, chatId: res.data.chatId }]);
+        if (res.data.chatId) setChatId(res.data.chatId);
       }
     } catch (err) {
       const errMsg = !navigator.onLine
-        ? "You are offline. Check your internet connection and try again."
-        : (err.response?.data?.message || "I'm having trouble. Please try again.");
+        ? "You're offline. Check your internet connection and try again."
+        : (err.response?.data?.message || "I'm having trouble. Please try again in a moment.");
       setMessages(prev => [...prev, { role: "assistant", text: errMsg }]);
+    } finally {
+      setTyping(false);
     }
-    finally { setTyping(false); }
+  };
+
+  const loadChat = async (id) => {
+    try {
+      const res = await api.get(`/ai/chats/${id}`);
+      const chat = res.data.chat;
+      if (!chat?.messages) return;
+      const loaded = chat.messages.map(m => ({
+        role: m.role === "user" ? "user" : "assistant",
+        text: m.content || "",
+        attachments: m.attachments || [],
+      }));
+      setMessages(loaded);
+      setChatId(id);
+    } catch (e) {
+      alert(e.response?.data?.message || "Could not load chat");
+    }
+  };
+
+  const newChat = () => {
+    setChatId(null);
+    setMessages([{
+      role: "assistant",
+      text: isCompany
+        ? `Hello ${user?.name} 👋\n\nTell me the job you're hiring for, or the kind of person you're looking for.`
+        : `Hey 👋 I'm Omnixra, your AI employment assistant. What can I help you with today?`,
+    }]);
   };
 
   const getSuggestions = () => {
-    const category = user?.category || "General";
-    if (user?.accountType === "company") return ["Find employees", "Post a job", "Find talent"];
-    const cat = category.toLowerCase();
-    if (cat.includes("network") || cat.includes("it") || cat.includes("software")) return ["Find networking jobs", "Improve my CV", "Find IT jobs"];
-    if (cat.includes("account") || cat.includes("finance")) return ["Find accounting jobs", "Improve my CV", "Find finance roles"];
-    if (cat.includes("plumb")) return ["Find plumbing jobs", "Improve my CV", "Find construction jobs"];
-    if (cat.includes("electric")) return ["Find electrical jobs", "Improve my CV", "Find maintenance jobs"];
-    if (cat.includes("house") || cat.includes("clean")) return ["Find housekeeping jobs", "Improve my CV", "Find domestic jobs"];
-    if (cat.includes("garden")) return ["Find gardening jobs", "Improve my CV", "Find outdoor jobs"];
-    return ["Find jobs for me", "Improve my CV", "Find remote jobs"];
+    if (isCompany) return ["Find candidates", "Draft a job post", "Analyze my talent pool", "Bulk message"];
+    const category = (user?.category || "General").toLowerCase();
+    if (category.includes("it") || category.includes("software") || category.includes("network")) return ["Find IT jobs", "Improve my CV", "Find remote jobs", "Create CV"];
+    if (category.includes("account") || category.includes("finance")) return ["Find accounting jobs", "Improve my CV", "Find finance roles", "Create CV"];
+    if (category.includes("teach") || category.includes("education")) return ["Find teaching jobs", "Improve my CV", "Create CV", "Career advice"];
+    if (category.includes("clean") || category.includes("house")) return ["Find housekeeping jobs", "Improve my CV", "Create CV", "Jobs in Harare"];
+    if (category.includes("plumb") || category.includes("electric") || category.includes("construct")) return ["Find trade jobs", "Improve my CV", "Create CV", "Find local jobs"];
+    return ["Find jobs for me", "Improve my CV", "Find remote jobs", "Create CV"];
   };
 
   const suggestions = getSuggestions();
 
-  const copyText = (text) => { navigator.clipboard.writeText(text); setCopied(text); setTimeout(() => setCopied(null), 1500); };
+  const copyText = (text) => {
+    navigator.clipboard.writeText(text);
+    setCopied(text);
+    setTimeout(() => setCopied(null), 1500);
+  };
 
   const handleShare = async (message) => {
     try {
       let shareUrl = "";
-      let chatId = message.chatId;
-
-      // If no chatId, create a chat record first
-      if (!chatId) {
+      let id = message.chatId || chatId;
+      if (!id) {
         const createRes = await api.post("/ai/chat", {
-          messages: [
-            { role: "user", content: "Share this" },
-            { role: "assistant", content: message.text }
-          ]
+          messages: [{ role: "user", content: "Share this" }, { role: "assistant", content: message.text }],
         });
-        chatId = createRes.data.chatId;
+        id = createRes.data.chatId;
       }
-
-      // Now share via API
-      const res = await api.post(`/ai/share/${chatId}`);
+      const res = await api.post(`/ai/share/${id}`);
       shareUrl = `${window.location.origin}${res.data.shareUrl}`;
-
       const shareText = `Omnixra AI:\n${message.text?.substring(0, 150) || "Check this AI response"}\n\n${shareUrl}`;
-
       if (navigator.share) {
         try {
-          await navigator.share({
-            title: "Omnixra AI Response",
-            text: `${message.text?.substring(0, 150) || "Check this AI response"}`,
-            url: shareUrl
-          });
-        } catch (err) { console.error(err); }
+          await navigator.share({ title: "Omnixra AI Response", text: message.text?.substring(0, 150) || "", url: shareUrl });
+        } catch (err) {}
       } else {
         await navigator.clipboard.writeText(shareText);
         setShared(message.text);
@@ -141,13 +180,25 @@ function ChatPage() {
 
   return (
     <div className="chat-page">
+      {/* Header with hamburger */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[.06] bg-[#06070b] sticky top-0 z-30">
+        <button onClick={() => setShowHistory(true)} className="icon-button">
+          <Menu size={18} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-bold truncate">{isCompany ? "Company AI" : "My AI"}</div>
+          <div className="text-[10px] text-slate-500">Omnixra Assistant</div>
+        </div>
+      </div>
+
       <div className="chat-scroll">
         <div className="chat-container">
           <div className="chat-welcome">
             <div className="welcome-orb float"><Sparkles size={25} /></div>
-            <h1>What can Omnixra do for you?</h1>
-            <p>{user?.accountType === "company" ? "Post jobs, discover talent, and manage applications." : "Search opportunities, improve your career and more."}</p>
+            <h1>{isCompany ? "What kind of person are you hiring?" : "What can Omnixra do for you?"}</h1>
+            <p>{isCompany ? "Find talent, draft job posts, and manage candidates with AI." : "Search opportunities, improve your career and more."}</p>
           </div>
+
           <div className="space-y-7 mt-9">
             {messages.map((message, i) => (
               message.role === "assistant" || message.role === "ai" ? (
@@ -169,7 +220,20 @@ function ChatPage() {
                   </div>
                 </div>
               ) : (
-                <div key={i} className="flex justify-end fade-up"><div className="user-message">{message.text}</div></div>
+                <div key={i} className="flex justify-end fade-up">
+                  <div className="user-message">
+                    {message.text}
+                    {message.attachments?.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {message.attachments.map((a, j) => (
+                          <a key={j} href={a.url} target="_blank" rel="noreferrer" className="text-[10px] underline opacity-70">
+                            📎 {a.name || "attachment"}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )
             ))}
             {typing && <div className="flex gap-3 fade-up"><div className="ai-avatar-small"><Sparkles size={16} /></div><div className="typing-bubble"><span /><span /><span /></div></div>}
@@ -177,22 +241,49 @@ function ChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Composer */}
       <div className="chat-composer-area">
+        {chatAttachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 px-3 pb-2">
+            {chatAttachments.map((a, i) => (
+              <div key={i} className="text-[10px] px-2 py-1 rounded bg-indigo-500/20 text-indigo-300 flex items-center gap-1">
+                📎 {a.name}
+                <button onClick={() => setChatAttachments(prev => prev.filter((_, j) => j !== i))}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="suggestion-row">{suggestions.map(prompt => <button key={prompt} onClick={() => sendMessage(prompt)} className="suggestion-chip"><Sparkles size={11} />{prompt}</button>)}</div>
         <div className="chat-composer">
-          <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} placeholder="Ask Omnixra anything..." rows={2} />
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+            placeholder={isCompany ? "Ask about candidates, jobs, or hiring..." : "Ask Omnixra anything..."}
+            rows={2}
+          />
           <div className="composer-bottom">
             <div className="flex gap-1">
-  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingChat} className="composer-icon" title="Attach file">
-    <Paperclip size={16} />
-  </button>
-  <input ref={fileInputRef} type="file" className="hidden" onChange={handleChatFile} />
-  <button type="button" className="composer-icon" title="Voice (coming soon)"><Mic size={16} /></button>
-</div>
+              <button onClick={() => fileInputRef.current?.click()} disabled={uploadingChat} className="composer-icon" title="Attach file">
+                <Paperclip size={16} />
+              </button>
+              <input ref={fileInputRef} type="file" className="hidden" onChange={handleChatFile} />
+              <button className="composer-icon" title="Voice (coming soon)"><Mic size={16} /></button>
+            </div>
             <button onClick={() => sendMessage()} className="send-button"><Send size={16} /></button>
           </div>
         </div>
       </div>
+
+      {/* History sidebar */}
+      <ChatHistorySidebar
+        open={showHistory}
+        onClose={() => setShowHistory(false)}
+        onLoad={loadChat}
+        onNewChat={newChat}
+        currentChatId={chatId}
+      />
     </div>
   );
 }
