@@ -5,6 +5,7 @@ import api from "../api/axios";
 import JobCard from "../components/JobCard";
 import TalentCard from "../components/TalentCard";
 import ChatHistorySidebar from "../components/ChatHistorySidebar";
+import ChatChips from "../components/ChatChips";
 
 function ChatPage() {
   const { user } = useAuth();
@@ -224,8 +225,18 @@ function ChatPage() {
         setMessages(prev => [...prev, { role: "assistant", text: res.data.text, jobs: res.data.jobs }]);
       } else {
         const res = await api.post("/ai/chat", { messages: chatHistory, chatId });
-        setMessages(prev => [...prev, { role: "assistant", text: res.data.text, chatId: res.data.chatId }]);
-        if (res.data.chatId) setChatId(res.data.chatId);
+        const d = res.data;
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          text: d.text,
+          chips: d.chips || null,
+          tone: d.tone || "neutral",
+          jobs: d.jobs || null,
+          talent: d.talent || null,
+          profileSaveOffer: d.profileSaveOffer || null,
+          chatId: d.chatId,
+        }]);
+        if (d.chatId) setChatId(d.chatId);
       }
     } catch (err) {
       const errMsg = !navigator.onLine
@@ -358,6 +369,28 @@ function ChatPage() {
                   <div className="flex-1 max-w-3xl">
                     <div className="text-[11px] text-slate-600 mb-1.5">Omnixra AI</div>
                     <div className="ai-message-text">{message.text}</div>
+                    {message.chips && message.chips.length > 0 && (
+                      <ChatChips
+                        chips={message.chips}
+                        tone={message.tone}
+                        onPick={(chip) => sendMessage(chip)}
+                      />
+                    )}
+                    {message.profileSaveOffer && (
+                      <div className="mt-3 p-3 rounded-lg border border-indigo-500/30 bg-indigo-500/[.06]">
+                        <div className="text-xs text-indigo-200 mb-2">💾 {message.profileSaveOffer.text || "Save this info for next time?"}</div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => alert("Saved! (coming soon)")}
+                            className="text-[10px] px-3 py-1 rounded bg-indigo-500/30 hover:bg-indigo-500/50 text-white"
+                          >Save</button>
+                          <button
+                            onClick={() => {}}
+                            className="text-[10px] px-3 py-1 rounded bg-white/[.05] hover:bg-white/[.1] text-slate-300"
+                          >Not now</button>
+                        </div>
+                      </div>
+                    )}
                     <div className="message-actions">
                       <button className="feedback-active"><ThumbsUp size={13} /></button>
                       <button onClick={() => copyText(message.text)}>{copied === message.text ? <Check size={13} /> : <Copy size={13} />}</button>

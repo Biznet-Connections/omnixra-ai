@@ -1,5 +1,6 @@
 ﻿import express from "express";
 import { protect } from "../middleware/auth.js";
+import { searchJobs, countJobs, searchUsers, countUsers, enrichJobsWithMatch } from "../utils/aiTools.js";
 import { askChat, askOpenAIVision, transcribeAudio } from "../utils/aiProviders.js";
 import { askAI } from "../utils/aiService.js";
 import Job from "../models/Job.js";
@@ -150,62 +151,204 @@ router.post("/chat", protect, async (req, res) => {
     const currentDate = now.toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" });
     const currentYear = now.getFullYear();
 
-    // Detect user's dominant language from last message
-    const lastUserMsg = (messages[messages.length - 1]?.content || messages[messages.length - 1]?.text || "").toLowerCase();
-    const hasShona = /ndinoda|ndikubatsire|ndinodawo|mhoroi|ndapota|zvakanaka|basa|unoda|uri|ndiri|mudzimba|kutsvaira/i.test(lastUserMsg);
-    const hasNdebele = /ngicela|ngiyabonga|ngifuna|ngubani|sawubona|umsebenzi|ngiyafuna/i.test(lastUserMsg);
-    const languageHint = hasShona ? "The user is speaking Shona. Reply in Shona." : hasNdebele ? "The user is speaking Ndebele. Reply in Ndebele." : "Reply in the user's language.";
+    const lastMsg = messages[messages.length - 1];
+    const lastUserMsg = String(lastMsg?.content || lastMsg?.text || "");
+    const lower = lastUserMsg.toLowerCase();
+
+    // ── Tone detection ──
+    const hasEmoji = /[🌀-🧿☀-⛿✀-➿]/u.test(lastUserMsg);
+    const isCasual = /(yo|bro|man|hey|hi there|😂|😄|🤣|lol|haha|sup|whats up|what's up)/i.test(lower);
+    const isFormal = /(good morning|good afternoon|good evening|kindly|please may|i would like to|i am seeking)/i.test(lower);
+    const isUrgent = /(urgent|urgently|really need|desperate|asap|now please|any job|quick)/i.test(lower);
+    const hasShona = /(ndinoda|ndikubatsire|mhoroi|ndapota|zvakanaka|basa|unoda|ndiri|kutsvaira|mudzimba)/i.test(lower);
+    const hasNdebele = /(ngicela|ngiyabonga|ngifuna|sawubona|umsebenzi|ngiyafuna)/i.test(lower);
+
+    // ── Language hint ──
+    const languageHint = hasShona ? "User speaks Shona. Reply in Shona."
+                        : hasNdebele ? "User speaks Ndebele. Reply in Ndebele."
+                        : "Reply in the user's language (usually English with Zimbabwe context).";
+
+    // ── Tone hint ──
+    const toneHint = isUrgent ? "URGENT: user needs fast results. Skip questions, show jobs now."
+                   : isCasual ? "CASUAL: match the user's energy. Be friendly, use emoji if they did."
+                   : isFormal ? "FORMAL: reply professionally, no slang."
+                   : "Neutral: match user's tone naturally.";
 
     const isCompany = req.user.accountType === "company";
-    const systemPrompt = isCompany
-      ? `You are Omnixra AI, a friendly hiring assistant for Zimbabwe and Africa. Today is ${currentDate}, year ${currentYear}.
-You help companies find qualified candidates, draft job posts, and screen applicants.
-Be warm, efficient, and professional. Match the user's tone — casual if casual, formal if formal.
-${languageHint}
-When listing candidates, format as short summaries (name, headline, location, match %).
-When the user asks for candidates, always respond with concrete names from the platform when possible.`
-      : `You are Omnixra AI, a friendly employment assistant for Zimbabwe and Africa. Today is ${currentDate}, year ${currentYear}.
-You help jobseekers find jobs, improve CVs, and navigate employment.
-Be warm, supportive, and encouraging. Match the user's energy — casual if casual, formal if formal.
-${languageHint}
-Never use complex jargon. Treat every user with dignity regardless of education level.
-Always offer concrete next steps (jobs to apply to, CV tips, etc.).
-Never mention past years as if they were current.`;
+    const userCategory = req.user.category || "General";
+    const userLocation = req.user.location || "Zimbabwe";
+    const userSkills = (req.user.skills || []).join(", ") || "none set";
 
-    const formattedMessages = messages.map(m => ({
-      role: m.role === "ai" || m.role === "assistant" ? "assistant" : m.role,
-      content: m.content || m.text
-    }));
-
-    let aiResponse;
+    // ── Real DB stats to give the AI context ──
+    let dbContext = "";
     try {
-      aiResponse = await askAI([{ role: "system", content: systemPrompt }, ...formattedMessages]);
+      if (isCompany) {
+        const userCount = await countUsers({});
+        dbContext = `\nPlatform database: ${userCount} jobseekers available platform-wide.`;
+      } else {
+        const jobCount = await countJobs({});
+        dbContext = `\nPlatform database: ${jobCount} active jobs platform-wide.`;
+      }
+    } catch (e) {
+      dbContext = "";
+    }
+
+    const systemPrompt = isCompany
+      ? `You are Omnixra AI — a warm, adaptive hiring assistant for Zimbabwe and Africa.
+Today is ${currentDate}, year ${currentYear}.
+
+MISSION: Help companies find qualified candidates and draft job posts.
+Be a friend, not a form. Match the user's tone.
+
+TONE: ${toneHint}
+LANGUAGE: ${languageHint}
+
+CORE RULES:
+1. READ THE ROOM. Casual user = casual reply. Formal user = formal reply.
+2. DON'T PUSH A SCRIPT. Every turn is a decision.
+3. ASK CHIPS when there are clear options (use JSON format below).
+4. SKIP QUESTIONS you already have answers to.
+5. When user is ready for candidates, return a "tool_call" to fetch them.
+6. NEVER FABRICATE. If user asks "how many", return a tool_call to count.
+7. BE BRIEF. Zimbabwe users may have limited data.
+
+RESPONSE FORMAT (return valid JSON only):
+{
+  "message": "your text reply (can be casual, can have emoji)",
+  "chips": ["option1", "option2"] or null,
+  "tool_call": { "name": "search_users", "args": { "category": "...", "location": "..." } } or null,
+  "tone": "casual" | "formal" | "empathetic" | "neutral",
+  "profileSaveOffer": null
+}
+
+TOOLS AVAILABLE:
+- search_users({ category, location, skills }) → fetch candidates
+- count_users({ category, location, skills }) → count candidates
+- count_jobs({ category, location }) → count jobs
+- count_companies({ category, location }) → count companies
+${dbContext}`
+      : `You are Omnixra AI — a warm, adaptive employment assistant for Zimbabwe and Africa.
+Today is ${currentDate}, year ${currentYear}.
+
+MISSION: Help jobseekers find jobs, improve CVs, and grow careers.
+Be a friend, not a form. Match the user's tone.
+
+USER PROFILE:
+- Category: ${userCategory}
+- Location: ${userLocation}
+- Skills: ${userSkills}
+
+TONE: ${toneHint}
+LANGUAGE: ${languageHint}
+
+CORE RULES:
+1. READ THE ROOM. Casual user = casual reply. Formal user = formal reply.
+2. DON'T PUSH A SCRIPT. Every turn is a decision.
+3. ASK CHIPS when there are clear options.
+4. SKIP QUESTIONS you already have answers to.
+5. When user is ready for jobs, return a "tool_call" to search them.
+6. NEVER FABRICATE. If user asks "how many", return a tool_call to count.
+7. BE BRIEF. Short responses > long ones.
+8. NEVER dump 10+ jobs at once. Max 5 at a time.
+
+RESPONSE FORMAT (return valid JSON only):
+{
+  "message": "your text reply (can be casual, can have emoji)",
+  "chips": ["Harare", "Bulawayo", "Anywhere"] or null,
+  "tool_call": { "name": "search_jobs", "args": { "category": "General Worker", "location": "Harare" } } or null,
+  "tone": "casual" | "formal" | "empathetic" | "neutral",
+  "profileSaveOffer": null
+}
+
+TOOLS AVAILABLE:
+- search_jobs({ category, location }) → fetch jobs
+- count_jobs({ category, location }) → count jobs
+- count_users({ category, location }) → count candidates
+- count_companies({ category, location }) → count companies
+${dbContext}`;
+
+    const formattedMessages = [
+      { role: "system", content: systemPrompt },
+      ...messages.map(m => ({
+        role: m.role === "ai" || m.role === "assistant" ? "assistant" : m.role,
+        content: m.content || m.text || ""
+      }))
+    ];
+
+    let aiRaw;
+    try {
+      aiRaw = await askChat(formattedMessages, { temperature: 0.8, maxTokens: 800 });
     } catch (aiErr) {
       console.error("AI call failed:", aiErr.message);
-      return res.status(503).json({ message: "AI is having trouble right now. Please try again in a moment." });
+      return res.status(503).json({ message: "AI is having trouble right now. Please try again." });
     }
 
-    if (!aiResponse || typeof aiResponse !== "string" || !aiResponse.trim()) {
-      return res.status(503).json({ message: "AI returned an empty response. Please try again." });
+    let aiText = aiRaw.text || "";
+    // Strip code fences if present
+    aiText = aiText.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+
+    // Parse the JSON response
+    let parsed = null;
+    try {
+      parsed = JSON.parse(aiText);
+    } catch (e) {
+      // AI didn't return JSON — treat the whole thing as the message
+      parsed = { message: aiText, chips: null, tool_call: null, tone: "neutral", profileSaveOffer: null };
     }
 
-    // ── Save or update chat ──
-    const lastUserText = messages[messages.length - 1]?.content || messages[messages.length - 1]?.text || "";
+    const out = {
+      text: parsed.message || aiText,
+      chips: parsed.chips || null,
+      tone: parsed.tone || "neutral",
+      jobs: null,
+      talent: null,
+      profileSaveOffer: parsed.profileSaveOffer || null,
+    };
+
+    // ── Execute tool call if present ──
+    if (parsed.tool_call) {
+      try {
+        const { name, args = {} } = parsed.tool_call;
+        if (name === "search_jobs") {
+          const jobs = await searchJobs({ ...args, limit: 5 });
+          out.jobs = enrichJobsWithMatch(jobs, req.user);
+          out.text = out.text || `Found ${out.jobs.length} jobs matching your search.`;
+        } else if (name === "search_users") {
+          const users = await searchUsers({ ...args, limit: 5 });
+          out.talent = users;
+          out.text = out.text || `Found ${out.talent.length} candidates matching your search.`;
+        } else if (name === "count_jobs") {
+          const n = await countJobs(args);
+          out.text = `We have **${n}** jobs matching that` + (args.location ? ` in ${args.location}` : "") + ". Want to see the top matches?";
+        } else if (name === "count_users") {
+          const n = await countUsers(args);
+          out.text = `We have **${n}** candidates matching that` + (args.location ? ` in ${args.location}` : "") + ". Want to see them?";
+        } else if (name === "count_companies") {
+          const n = await countCompanies(args);
+          out.text = `We have **${n}** companies` + (args.location ? ` in ${args.location}` : "") + ".";
+        }
+      } catch (toolErr) {
+        console.error("[ai/chat] tool error:", toolErr.message);
+      }
+    }
+
+    // ── Save chat ──
+    const lastUserText = lastUserMsg;
     const newMsgs = messages.map(m => ({
       role: m.role === "user" ? "user" : "assistant",
       content: m.content || m.text || "",
     }));
-    newMsgs.push({ role: "assistant", content: aiResponse });
+    newMsgs.push({
+      role: "assistant",
+      content: out.text,
+      meta: { chips: out.chips, tone: out.tone },
+    });
 
     let chat;
-    if (chatId) {
-      chat = await Chat.findOne({ _id: chatId, user: req.user._id });
-    }
+    if (chatId) chat = await Chat.findOne({ _id: chatId, user: req.user._id });
     if (chat) {
       chat.messages = newMsgs;
-      if (!chat.title || chat.title === "New chat") {
-        chat.title = lastUserText.slice(0, 60) || "New chat";
-      }
+      if (!chat.title || chat.title === "New chat") chat.title = lastUserText.slice(0, 60) || "New chat";
       await chat.save();
     } else {
       chat = await Chat.create({
@@ -216,7 +359,7 @@ Never mention past years as if they were current.`;
       });
     }
 
-    res.json({ text: aiResponse, chatId: chat._id });
+    res.json({ ...out, chatId: chat._id });
   } catch (error) {
     console.error("[ai/chat] error:", error);
     res.status(500).json({ message: error.message });
