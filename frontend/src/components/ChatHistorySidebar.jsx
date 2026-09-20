@@ -57,8 +57,8 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
 
   return (
     <>
-      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed top-0 left-0 bottom-0 z-[61] w-80 max-w-[85vw] bg-[#0a0a14] border-r border-white/[.08] flex flex-col text-white">
+      <div className="fixed inset-0 z-[60] bg-black/50" onClick={onClose} />
+      <div className="fixed top-0 left-0 bottom-0 z-[61] w-80 max-w-[85vw] bg-[#0a0a14] border-r border-white/[.08] flex flex-col text-white shadow-2xl">
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[.06]">
           <h2 className="text-sm font-bold">Chat History</h2>
           <button onClick={onClose} className="icon-button"><X size={18} /></button>
