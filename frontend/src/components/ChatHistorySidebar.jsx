@@ -31,7 +31,16 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { if (open) load(); }, [open]);
+  useEffect(() => {
+    if (open) load();
+    if (typeof document !== "undefined") {
+      if (open) document.body.classList.add("sidebar-open");
+      else document.body.classList.remove("sidebar-open");
+    }
+    return () => {
+      if (typeof document !== "undefined") document.body.classList.remove("sidebar-open");
+    };
+  }, [open]);
 
   const handleDelete = async (id, e) => {
     e.stopPropagation();
@@ -48,7 +57,7 @@ export default function ChatHistorySidebar({ open, onClose, onLoad, onNewChat, c
 
   return (
     <>
-      <div className="fixed inset-0 z-[60] bg-black/60" onClick={onClose} />
+      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed top-0 left-0 bottom-0 z-[61] w-80 max-w-[85vw] bg-[#0a0a14] border-r border-white/[.08] flex flex-col text-white">
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[.06]">
           <h2 className="text-sm font-bold">Chat History</h2>

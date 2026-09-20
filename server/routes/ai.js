@@ -578,15 +578,30 @@ router.get("/chats", protect, async (req, res) => {
       .limit(50)
       .lean();
 
-    // Summary per chat
-    const list = chats.map(ch => ({
-      _id: ch._id,
-      title: ch.title || (ch.messages?.[0]?.content?.slice(0, 60)) || "Untitled",
-      messageCount: ch.messages?.length || 0,
-      updatedAt: ch.updatedAt,
-      createdAt: ch.createdAt,
-      preview: ch.messages?.[ch.messages.length - 1]?.content?.slice(0, 80) || "",
-    }));
+    // Summary per chat — handles legacy (message/response) AND new (messages[]) shape
+    const list = chats.map(ch => {
+      const hasNew = Array.isArray(ch.messages) && ch.messages.length > 0;
+      const firstUserMsg = hasNew
+        ? (ch.messages.find(m => m.role === "user")?.content || ch.messages[0]?.content || "")
+        : (ch.message || "");
+      const lastAssistant = hasNew
+        ? (ch.messages[ch.messages.length - 1]?.content || "")
+        : (ch.response || "");
+      const total = hasNew ? ch.messages.length : (ch.message ? 2 : 0);
+
+      const title = (ch.title && ch.title !== "New chat")
+        ? ch.title
+        : (firstUserMsg ? firstUserMsg.slice(0, 50) : "New chat");
+
+      return {
+        _id: ch._id,
+        title,
+        messageCount: total,
+        updatedAt: ch.updatedAt,
+        createdAt: ch.createdAt,
+        preview: lastAssistant.slice(0, 80),
+      };
+    });
 
     res.json({ chats: list, count: list.length });
   } catch (e) {
@@ -601,6 +616,15 @@ router.get("/chats/:id", protect, async (req, res) => {
     const Chat = (await import("../models/Chat.js")).default;
     const chat = await Chat.findOne({ _id: req.params.id, user: req.user._id }).lean();
     if (!chat) return res.status(404).json({ message: "Chat not found" });
+
+    // Normalize legacy chats (message/response) → messages[]
+    if (!Array.isArray(chat.messages) || chat.messages.length === 0) {
+      const normalized = [];
+      if (chat.message) normalized.push({ role: "user", content: chat.message, attachments: [] });
+      if (chat.response) normalized.push({ role: "assistant", content: chat.response, attachments: [] });
+      chat.messages = normalized;
+    }
+
     res.json({ chat });
   } catch (e) {
     console.error("[ai/chats/:id] error:", e);

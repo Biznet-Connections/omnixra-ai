@@ -6018,3 +6018,8 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
   color: #e9d5ff;
   font-weight: 700;
 }
+
+/* ── Hide bottom nav when sidebar open ── */
+body.sidebar-open .bottom-nav {
+  display: none !important;
+}

@@ -180,16 +180,18 @@ function ChatPage() {
 
   return (
     <div className="chat-page">
-      {/* Header with hamburger */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[.06] bg-[#06070b] sticky top-0 z-30">
-        <button onClick={() => setShowHistory(true)} className="icon-button">
-          <Menu size={18} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold truncate">{isCompany ? "Company AI" : "My AI"}</div>
-          <div className="text-[10px] text-slate-500">Omnixra Assistant</div>
-        </div>
-      </div>
+      {/* Floating hamburger — no header bar */}
+      <button
+        onClick={() => setShowHistory(true)}
+        className="fixed top-3 left-3 z-40 p-2 rounded-lg bg-white/[.04] hover:bg-white/[.08] backdrop-blur-sm border border-white/[.06] transition-colors"
+        aria-label="Open chat history"
+      >
+        <svg width="20" height="16" viewBox="0 0 20 16" fill="currentColor" className="text-white">
+          <rect x="0" y="0" width="20" height="2.2" rx="1" />
+          <rect x="0" y="6.9" width="14" height="2.2" rx="1" />
+          <rect x="0" y="13.8" width="8" height="2.2" rx="1" />
+        </svg>
+      </button>
 
       <div className="chat-scroll">
         <div className="chat-container">
