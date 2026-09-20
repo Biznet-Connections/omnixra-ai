@@ -50,6 +50,9 @@ const userSchema = new mongoose.Schema(
     verificationCodeExpires: { type: Date },
     resetCodeHash: { type: String },
     resetCodeExpires: { type: Date },
+    pendingEmail: { type: String, sparse: true },
+    pendingEmailCodeHash: { type: String },
+    pendingEmailCodeExpires: { type: Date },
 
     profilePicture: { type: String },
     profilePicLocked: { type: Boolean, default: false },

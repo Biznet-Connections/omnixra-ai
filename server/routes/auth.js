@@ -1,4 +1,5 @@
 import express from "express";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import crypto from "crypto";
@@ -561,6 +562,88 @@ router.put("/profile-picture", protect, async (req, res) => {
     ).select("-password");
     res.json(user);
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ── CHANGE EMAIL — step 1: send code to new email ──
+router.post("/change-email", protect, async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      return res.status(400).json({ message: "Valid new email required" });
+    }
+    const existing = await User.findOne({ email: newEmail.toLowerCase() });
+    if (existing) return res.status(400).json({ message: "Email already in use" });
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeHash = await bcrypt.hash(code, 10);
+
+    await User.findByIdAndUpdate(req.user._id, {
+      pendingEmail: newEmail.toLowerCase(),
+      pendingEmailCodeHash: codeHash,
+      pendingEmailCodeExpires: new Date(Date.now() + 15 * 60 * 1000),
+    });
+
+    const { sendVerificationCode } = await import("../utils/mailer.js");
+    await sendVerificationCode(newEmail, code);
+
+    res.json({ message: "Verification code sent to new email" });
+  } catch (error) {
+    console.error("[change-email] error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ── CHANGE EMAIL — step 2: verify code ──
+router.post("/verify-email-change", protect, async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ message: "Code required" });
+
+    const user = await User.findById(req.user._id);
+    if (!user.pendingEmail || !user.pendingEmailCodeHash) {
+      return res.status(400).json({ message: "No pending email change" });
+    }
+    if (new Date(user.pendingEmailCodeExpires) < new Date()) {
+      return res.status(400).json({ message: "Code expired" });
+    }
+    const ok = await bcrypt.compare(code, user.pendingEmailCodeHash);
+    if (!ok) return res.status(400).json({ message: "Invalid code" });
+
+    user.email = user.pendingEmail;
+    user.pendingEmail = undefined;
+    user.pendingEmailCodeHash = undefined;
+    user.pendingEmailCodeExpires = undefined;
+    await user.save();
+
+    res.json({ message: "Email updated", email: user.email });
+  } catch (error) {
+    console.error("[verify-email-change] error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ── CHANGE PASSWORD ──
+router.put("/change-password", protect, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Current and new password required" });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: "New password must be at least 8 characters" });
+    }
+    const user = await User.findById(req.user._id);
+    const ok = await user.matchPassword(currentPassword);
+    if (!ok) return res.status(400).json({ message: "Current password is incorrect" });
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: "Password updated" });
+  } catch (error) {
+    console.error("[change-password] error:", error);
     res.status(500).json({ message: error.message });
   }
 });
