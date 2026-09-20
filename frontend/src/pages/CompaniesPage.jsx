@@ -34,7 +34,7 @@ function writeCompaniesCache(payload) {
   } catch (e) {}
 }
 
-function CompaniesPage() {
+function CompaniesPage({ setPage }) {
   const { online } = useNetworkStatus();
   const cached = typeof window !== "undefined" ? readCompaniesCache() : null;
   const [companies, setCompanies] = useState(cached?.companies || cachedCompanies || []);
