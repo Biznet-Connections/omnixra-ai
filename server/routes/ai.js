@@ -293,6 +293,7 @@ ${dbContext}`;
     }
 
     let aiText = aiRaw.text || "";
+    console.log("[ai/chat] RAW:", aiText.slice(0, 500));
     // Strip code fences if present
     aiText = aiText.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```\s*$/i, "").trim();
 
