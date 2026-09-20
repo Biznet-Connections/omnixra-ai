@@ -325,7 +325,7 @@ function AppContent() {
         companyName={sessionStorage.getItem("company_posts_name")}
         setPage={navigate}
       />;
-      case "professionals": return <ProfessionalsPage setPage={navigate} />;
+      case "professionals": return <ProfessionalsPage setPage={navigate} setSelectedUserId={setSelectedUserId} />;
       case "profile": return <ProfilePage />;
       case "settings": return <SettingsPage setPage={navigate} />;
       case "my-posts": return <MyPostsPage setPage={navigate} />;

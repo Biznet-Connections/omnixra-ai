@@ -1,8 +1,28 @@
 import React, { useState } from "react";
 import { MapPin, MessageCircle, User, Sparkles, Check, Plus } from "lucide-react";
 
-function TalentCard({ talent, onViewProfile }) {
-  const [shortlisted, setShortlisted] = useState(false);
+function TalentCard({ talent, onViewProfile, onMessage, onAskAI }) {
+  const [shortlisted, setShortlisted] = useState(() => {
+    try {
+      const list = JSON.parse(localStorage.getItem("omnixra_shortlist") || "[]");
+      return list.includes(talent._id);
+    } catch { return false; }
+  });
+
+  const toggleShortlist = () => {
+    const next = !shortlisted;
+    setShortlisted(next);
+    try {
+      const list = JSON.parse(localStorage.getItem("omnixra_shortlist") || "[]");
+      if (next) {
+        if (!list.includes(talent._id)) list.push(talent._id);
+      } else {
+        const idx = list.indexOf(talent._id);
+        if (idx > -1) list.splice(idx, 1);
+      }
+      localStorage.setItem("omnixra_shortlist", JSON.stringify(list));
+    } catch {}
+  };
 
   return (
     <div className="talent-card">
@@ -31,23 +51,23 @@ function TalentCard({ talent, onViewProfile }) {
           <span key={skill} className="tag">{skill}</span>
         ))}
       </div>
-      <div className="flex gap-2 mt-4">
+      <div className="flex flex-wrap gap-2 mt-4">
         <button onClick={() => onViewProfile?.(talent)} className="outline-button flex-1">
           <User size={13} />
           View Profile
         </button>
-        <button className="connect-button">
+        <button onClick={() => onMessage?.(talent)} className="connect-button">
           <MessageCircle size={13} />
           Message
         </button>
         <button
-          onClick={() => setShortlisted(!shortlisted)}
+          onClick={toggleShortlist}
           className={`connect-button ${shortlisted ? "connected" : ""}`}
         >
           {shortlisted ? <Check size={14} /> : <Plus size={14} />}
           {shortlisted ? "Shortlisted" : "Shortlist"}
         </button>
-        <button className="outline-button text-indigo-400">
+        <button onClick={() => onAskAI?.(talent)} className="outline-button text-indigo-400">
           <Sparkles size={13} />
           Ask AI
         </button>

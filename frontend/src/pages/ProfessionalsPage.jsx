@@ -1,19 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { Search, Sparkles } from "lucide-react";
 import TalentCard from "../components/TalentCard";
+import PaidMessageModal from "../components/PaidMessageModal";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 
-function ProfessionalsPage({ setPage }) {
+function ProfessionalsPage({ setPage, setSelectedUserId }) {
   const { user } = useAuth();
   const [professionals, setProfessionals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dmTarget, setDmTarget] = useState(null);
 
   useEffect(() => {
     if (user?.accountType === "company") {
       api.post("/ai/talent", { query: "" })
         .then(res => {
-          setProfessionals(res.data.talent);
+          setProfessionals(res.data.talent || []);
           setLoading(false);
         })
         .catch(() => setLoading(false));
@@ -22,7 +24,20 @@ function ProfessionalsPage({ setPage }) {
     }
   }, [user]);
 
-  const handleSearchClick = () => {
+  const handleSearchClick = () => setPage("myai");
+
+  const handleViewProfile = (talent) => {
+    setSelectedUserId?.(talent._id);
+    setPage("user-profile");
+  };
+
+  const handleMessage = (talent) => {
+    setDmTarget(talent);
+  };
+
+  const handleAskAI = (talent) => {
+    const prompt = `Tell me about ${talent.name} — their background, skills, and whether they'd be a good fit for my company. Location: ${talent.location || "Zimbabwe"}, Skills: ${(talent.skills || []).join(", ") || "N/A"}`;
+    sessionStorage.setItem("ai_auto_prompt", prompt);
     setPage("myai");
   };
 
@@ -53,11 +68,29 @@ function ProfessionalsPage({ setPage }) {
         ) : (
           <div className="grid lg:grid-cols-2 gap-4 mt-7">
             {professionals.map(prof => (
-              <TalentCard key={prof._id} talent={prof} />
+              <TalentCard
+                key={prof._id}
+                talent={prof}
+                onViewProfile={handleViewProfile}
+                onMessage={handleMessage}
+                onAskAI={handleAskAI}
+              />
             ))}
           </div>
         )}
       </div>
+
+      {dmTarget && (
+        <PaidMessageModal
+          targetUser={dmTarget}
+          onClose={() => setDmTarget(null)}
+          onOpenChat={(convId) => {
+            setDmTarget(null);
+            localStorage.setItem("omnixra_open_conversation", convId);
+            setPage("inbox");
+          }}
+        />
+      )}
     </div>
   );
 }

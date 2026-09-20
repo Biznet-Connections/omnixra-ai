@@ -104,7 +104,14 @@ export default function MyJobPostsPage({ setPage }) {
               <div key={job._id} className="rounded-xl border border-white/[.06] bg-white/[.02] p-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
                     <div className="font-semibold text-sm truncate">{job.title}</div>
+                    {job.priorityUntil && new Date(job.priorityUntil) > new Date() && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold flex-shrink-0">
+                        🔥 FEATURED
+                      </span>
+                    )}
+                  </div>
                     <div className="flex flex-wrap gap-2 mt-2 text-[10px] text-slate-500">
                       <span className="flex items-center gap-1"><MapPin size={10} />{job.location}</span>
                       <span>{job.category}</span>
