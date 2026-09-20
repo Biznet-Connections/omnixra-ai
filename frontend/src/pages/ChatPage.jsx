@@ -215,29 +215,20 @@ function ChatPage() {
         .map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.text || "" }));
       chatHistory.push({ role: "user", content: text });
 
-      // Route based on intent
-      const lower = text.toLowerCase();
-      if (isCompany && (lower.includes("candidate") || lower.includes("hire") || lower.includes("find") || lower.includes("talent") || lower.includes("recruit"))) {
-        const res = await api.post("/ai/talent", { query: text });
-        setMessages(prev => [...prev, { role: "assistant", text: res.data.text, talent: res.data.talent, chatId: res.data.chatId }]);
-      } else if (!isCompany && (lower.includes("job") || lower.includes("work") || lower.includes("vacancy") || lower.includes("career") || lower.includes("basa") || lower.includes("umsebenzi"))) {
-        const res = await api.post("/ai/jobs", { query: text });
-        setMessages(prev => [...prev, { role: "assistant", text: res.data.text, jobs: res.data.jobs }]);
-      } else {
-        const res = await api.post("/ai/chat", { messages: chatHistory, chatId });
-        const d = res.data;
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          text: d.text,
-          chips: d.chips || null,
-          tone: d.tone || "neutral",
-          jobs: d.jobs || null,
-          talent: d.talent || null,
-          profileSaveOffer: d.profileSaveOffer || null,
-          chatId: d.chatId,
-        }]);
-        if (d.chatId) setChatId(d.chatId);
-      }
+      // ── Always use the adaptive /ai/chat endpoint ──
+      const res = await api.post("/ai/chat", { messages: chatHistory, chatId });
+      const d = res.data;
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        text: d.text,
+        chips: d.chips || null,
+        tone: d.tone || "neutral",
+        jobs: d.jobs || null,
+        talent: d.talent || null,
+        profileSaveOffer: d.profileSaveOffer || null,
+        chatId: d.chatId,
+      }]);
+      if (d.chatId) setChatId(d.chatId);
     } catch (err) {
       const errMsg = !navigator.onLine
         ? "You're offline. Check your internet connection and try again."
