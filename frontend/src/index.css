@@ -5310,14 +5310,6 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
 .skeleton-line.skeleton-body-2 { width: 78%; }
 .skeleton-line.skeleton-body-3 { width: 54%; }
 
-/* Deep-link highlight pulse (LinkedIn/Facebook style) */
-.post-card@keyframes postHighlightPulse {
-  0%   { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); background: transparent; }
-  15%  { box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.35); }
-  50%  { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
-  100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); background: transparent; }
-}
-
 /* ═══════════════════════════════════════════════════════════
    PHASE 7H — Skeleton + media placeholder animations
    ═══════════════════════════════════════════════════════════ */
