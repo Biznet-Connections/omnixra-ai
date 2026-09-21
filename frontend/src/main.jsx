@@ -19,6 +19,11 @@ const isNative =
     window.location.protocol === "capacitor:" ||
     window.location.protocol === "file:");
 
+// Tag the body so CSS can target native vs browser
+if (typeof document !== "undefined") {
+  document.body.classList.toggle("is-native", isNative);
+}
+
 // ── Native OAuth deep link handler ──
 // When the app is opened via omnixraapp://oauth?token=... (from Google),
 // forward the token into the app.
