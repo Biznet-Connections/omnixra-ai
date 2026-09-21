@@ -84,7 +84,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         el.classList.add("comment-highlight");
-        setTimeout(() => el.classList.remove("comment-highlight"), 3200);
+        setTimeout(() => el.classList.remove("comment-highlight"), 4200);
         console.log("🎯 [COMMENT DEEP LINK] Scrolled to comment", focusCommentId);
         return;
       }

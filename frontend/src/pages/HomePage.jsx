@@ -166,13 +166,18 @@ function HomePage({ setPage, setSelectedUserId, focusPostId, focusCommentId }) {
   }, [user?._id]);
 
 
-  // ── Deep-link: scroll to a specific post + optionally open its comment ──
+  // ── Deep-link: scroll to post ONCE per focusPostId + open comment if given ──
+  const consumedDeepLinkRef = useRef(null);
+
   useEffect(() => {
     if (!focusPostId) return;
+    const key = `${focusPostId}|${focusCommentId || ""}`;
+    if (consumedDeepLinkRef.current === key) return; // already consumed this link
+    consumedDeepLinkRef.current = key;
 
     let cancelled = false;
     let tries = 0;
-    const MAX_TRIES = 15; // ~3s
+    const MAX_TRIES = 15;
 
     const openCommentsIfNeeded = () => {
       if (focusCommentId) {
@@ -189,7 +194,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId, focusCommentId }) {
 
       let el = document.querySelector(`[data-post-id="${focusPostId}"]`);
 
-      // Post not in feed yet → fetch and prepend it
+      // First try — fetch the post if it's not in the feed
       if (!el && tries === 0) {
         try {
           const res = await api.get(`/posts/${focusPostId}`);
@@ -207,8 +212,8 @@ function HomePage({ setPage, setSelectedUserId, focusPostId, focusCommentId }) {
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         el.classList.add("post-highlight");
-        setTimeout(() => el.classList.remove("post-highlight"), 2600);
-        console.log("🎯 [DEEP LINK] Scrolled to post", focusPostId, "| comment:", focusCommentId);
+        setTimeout(() => el.classList.remove("post-highlight"), 4200);
+        console.log("🎯 [DEEP LINK] one-shot scroll to post", focusPostId);
         openCommentsIfNeeded();
         return;
       }
@@ -218,12 +223,14 @@ function HomePage({ setPage, setSelectedUserId, focusPostId, focusCommentId }) {
         setTimeout(tryScroll, 200);
       } else {
         console.warn("🎯 [DEEP LINK] Post not found after", MAX_TRIES, "tries");
+        // Reset so a retry is possible if feed changes
+        consumedDeepLinkRef.current = null;
       }
     };
 
     const t = setTimeout(tryScroll, 200);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [focusPostId, focusCommentId, posts.length, addPost]);
+  }, [focusPostId, focusCommentId, addPost]);
 
   const fetchUnreadCount = async () => {
     try {
