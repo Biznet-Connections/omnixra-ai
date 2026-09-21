@@ -5,6 +5,7 @@ import AuthScreen from "./components/AuthScreen";
 import BottomNav from "./components/BottomNav";
 import DesktopSidebar from "./components/DesktopSidebar";
 import HomePage from "./pages/HomePage";
+import NotificationsPage from "./pages/NotificationsPage";
 import AuthCallback from "./pages/AuthCallback";
 import VerifyEmailScreen from "./pages/VerifyEmailScreen";
 import CompanySetupScreen from "./pages/CompanySetupScreen";
@@ -78,6 +79,7 @@ function AppContent() {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [sharedChatId, setSharedChatId] = useState(null);
   const [focusPostId, setFocusPostId] = useState(null);
+  const [focusCommentId, setFocusCommentId] = useState(null);
   const [focusJobSlug, setFocusJobSlug] = useState(null);
   const [channelSlug, setChannelSlug] = useState(null);
   const [history, setHistory] = useState([]);
@@ -186,6 +188,57 @@ function AppContent() {
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, [history]);
+
+  // ── Global push-notification navigation handler ──
+  useEffect(() => {
+    const onPushNavigate = (e) => {
+      const d = e.detail || {};
+      console.log("[PUSH-NAV]", d);
+
+      // Preferred: deepLink string
+      if (d.deepLink) {
+        const dl = d.deepLink;
+        // /post/:id?comment=:cid
+        let m = dl.match(/^\/post\/([^?]+)(?:\?comment=([^&]+))?/);
+        if (m) {
+          setFocusPostId(m[1]);
+          setFocusCommentId(m[2] || null);
+          setPage("home");
+          return;
+        }
+        // /user/:id
+        m = dl.match(/^\/user\/([^/]+)/);
+        if (m) { setSelectedUserId(m[1]); setPage("user-profile"); return; }
+        // /inbox
+        if (dl.startsWith("/inbox")) { setPage("inbox"); return; }
+        // /jobs/:id
+        m = dl.match(/^\/job\/([^/]+)/);
+        if (m) { setFocusJobSlug(m[1]); setPage("jobs"); return; }
+        // /notifications
+        if (dl.startsWith("/notifications")) { setPage("notifications"); return; }
+        // fallback
+        setPage("home");
+        return;
+      }
+
+      // Legacy: data.page + data.postId
+      if (d.page === "home" && d.postId) {
+        setFocusPostId(d.postId);
+        setFocusCommentId(d.commentId || null);
+        setPage("home");
+      } else if (d.page === "inbox" || d.chatId) {
+        setPage("inbox");
+      } else if (d.page === "notifications") {
+        setPage("notifications");
+      } else if (d.page) {
+        setPage(d.page);
+      } else {
+        setPage("home");
+      }
+    };
+    window.addEventListener("push-navigate", onPushNavigate);
+    return () => window.removeEventListener("push-navigate", onPushNavigate);
+  }, []);
 
 
   // â”€â”€ Deep link: /post/{id} â†’ set focusPostId â”€â”€
@@ -310,7 +363,8 @@ function AppContent() {
   // â”€â”€ Main render helpers â”€â”€
   const renderPage = () => {
     switch (page) {
-      case "home": return <HomePage setPage={navigate} setSelectedUserId={setSelectedUserId} focusPostId={focusPostId} />;
+      case "home": return <HomePage setPage={navigate} setSelectedUserId={setSelectedUserId} focusPostId={focusPostId} focusCommentId={focusCommentId} />;
+      case "notifications": return <NotificationsPage setPage={navigate} onOpenPost={(postId, commentId) => { setFocusPostId(postId); setFocusCommentId(commentId || null); setPage("home"); }} />;
       case "discover": return <DiscoverPage setPage={navigate} setSelectedUserId={setSelectedUserId} />;
       case "channel": return <ChannelPage slug={channelSlug} setPage={navigate} />;
       case "premium": return <PremiumPage setPage={navigate} />;
@@ -361,7 +415,7 @@ function AppContent() {
       case "admin-analytics": return <AdminAnalytics setPage={navigate} />;
       case "admin-announcements": return <AdminAnnouncements setPage={navigate} />;
       case "admin-settings": return <AdminSettings setPage={navigate} />;
-      default: return <HomePage setPage={navigate} setSelectedUserId={setSelectedUserId} />;
+      default: return <HomePage setPage={navigate} setSelectedUserId={setSelectedUserId} focusPostId={focusPostId} focusCommentId={focusCommentId} />;
     }
   };
 

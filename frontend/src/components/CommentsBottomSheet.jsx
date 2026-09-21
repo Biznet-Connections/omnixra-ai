@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, Heart, Send } from "lucide-react";
 import api from "../api/axios";
 import { playSound } from "../utils/helpers";
 import { useSocket } from "../context/SocketContext";
+import MentionAutocomplete from "./MentionAutocomplete";
+import MentionRenderer from "./MentionRenderer";
 
 function CommentsBottomSheet({ post, onClose, onUpdate }) {
   const realId = post._originalId || post._id;
@@ -12,6 +14,47 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
   const [loading, setLoading] = useState(true);
   const [replyTo, setReplyTo] = useState(null);
   const [replyText, setReplyText] = useState("");
+
+  // Mention state
+  const [mention, setMention] = useState({ open: false, query: "", startIdx: -1 });
+  const [pendingMentions, setPendingMentions] = useState([]);  // array of {id, name}
+  const commentInputRef = useRef(null);
+
+  // Detect @ trigger in textarea
+  const handleCommentChange = (e) => {
+    const val = e.target.value;
+    setCommentText(val);
+    const cursor = e.target.selectionStart;
+    // Find @ before cursor with no space between @ and cursor
+    const before = val.slice(0, cursor);
+    const atMatch = before.match(/@([^\s@]{0,30})$/);
+    if (atMatch) {
+      setMention({ open: true, query: atMatch[1], startIdx: cursor - atMatch[1].length - 1 });
+    } else {
+      setMention(m => ({ ...m, open: false }));
+    }
+  };
+
+  const handleMentionSelect = (user) => {
+    const before = commentText.slice(0, mention.startIdx);
+    const after = commentText.slice(commentInputRef.current?.selectionStart || commentText.length);
+    const inserted = `@${user.name} `;
+    const next = before + inserted + after;
+    setCommentText(next);
+    setPendingMentions(prev => {
+      const exists = prev.find(m => m.id === user._id);
+      return exists ? prev : [...prev, { id: user._id, name: user.name }];
+    });
+    setMention({ open: false, query: "", startIdx: -1 });
+    // Refocus
+    setTimeout(() => {
+      if (commentInputRef.current) {
+        const pos = before.length + inserted.length;
+        commentInputRef.current.focus();
+        commentInputRef.current.setSelectionRange(pos, pos);
+      }
+    }, 0);
+  };
 
   const postAuthorId = (post.author?._id || post.author)?.toString();
 
@@ -56,9 +99,14 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
     onUpdate?.({ ...post, totalComments: (post.totalComments || 0) + 1 });
 
     try {
-      await api.post(`/posts/${realId}/comment`, { text });
+      // Only send mentions that actually still appear in the final text
+      const mentions = pendingMentions
+        .filter(m => text.includes(`@${m.name}`))
+        .map(m => m.id);
+      await api.post(`/posts/${realId}/comment`, { text, mentions });
       const res = await api.get(`/posts/${realId}/comments`);
       setComments(res.data.comments || []);
+      setPendingMentions([]);
     } catch (err) {
       console.error("Comment error:", err);
       setComments(prev => prev.filter(c => c._id !== tempId));
@@ -155,7 +203,13 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
                           <span className="comment-author-badge">Author</span>
                         )}
                       </div>
-                      <p className="comment-text">{c.text}</p>
+                      <p className="comment-text">
+                        <MentionRenderer
+                          text={c.text}
+                          mentions={c.mentions && Array.isArray(c.mentions) ? c.mentions.map(m => typeof m === "object" ? m : { id: m }) : []}
+                          onUserClick={(uid) => window.dispatchEvent(new CustomEvent("open-user", { detail: { userId: uid } }))}
+                        />
+                      </p>
                     </div>
                   </div>
                   <div className="comment-actions">
@@ -179,7 +233,9 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
                               <span className="comment-author-badge">Author</span>
                             )}
                           </div>
-                          <p className="comment-text">{r.text}</p>
+                          <p className="comment-text">
+                            <MentionRenderer text={r.text} mentions={[]} />
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -206,11 +262,22 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
         <div className="comments-sheet-input">
           <div className="flex gap-2">
             <input
+              ref={commentInputRef}
               value={commentText}
-              onChange={e => setCommentText(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleAddComment()}
+              onChange={handleCommentChange}
+              onKeyDown={e => {
+                if (mention.open && e.key === "Enter") { e.preventDefault(); return; }
+                if (e.key === "Escape" && mention.open) { setMention(m => ({ ...m, open: false })); return; }
+                if (e.key === "Enter") handleAddComment();
+              }}
               className="form-input flex-1"
-              placeholder="Add a comment..."
+              placeholder="Add a comment... type @ to mention"
+            />
+            <MentionAutocomplete
+              open={mention.open}
+              query={mention.query}
+              onSelect={handleMentionSelect}
+              onClose={() => setMention(m => ({ ...m, open: false }))}
             />
             <button onClick={handleAddComment} className="send-button">
               <Send size={16} />

@@ -79,10 +79,20 @@ export function NotificationProvider({ children }) {
       console.log("[PUSH] Notification tapped:", action.notification?.data);
       const data = action.notification?.data || {};
       try {
+        // Prefer explicit deepLink (set by createNotification)
+        if (data.deepLink) {
+          window.dispatchEvent(new CustomEvent("push-navigate", { detail: { deepLink: data.deepLink, data } }));
+          return;
+        }
+        // Legacy fallback
         if (data.postId) {
-          window.dispatchEvent(new CustomEvent("push-navigate", { detail: { page: "home", postId: data.postId } }));
-        } else if (data.chatId) {
-          window.dispatchEvent(new CustomEvent("push-navigate", { detail: { page: "inbox", chatId: data.chatId } }));
+          window.dispatchEvent(new CustomEvent("push-navigate", {
+            detail: { page: "home", postId: data.postId, commentId: data.commentId || null },
+          }));
+        } else if (data.chatId || data.conversationId) {
+          window.dispatchEvent(new CustomEvent("push-navigate", {
+            detail: { page: "inbox", chatId: data.chatId || data.conversationId },
+          }));
         } else {
           window.dispatchEvent(new CustomEvent("push-navigate", { detail: { page: "home" } }));
         }

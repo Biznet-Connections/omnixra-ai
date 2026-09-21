@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from "react";
-import { UserCheck, Newspaper, Briefcase, User, FileText, MessageCircle, Search, BarChart3, Inbox } from "lucide-react";
+import { UserCheck, Newspaper, Briefcase, User, FileText, MessageCircle, Search, BarChart3, Inbox, Bell } from "lucide-react";
 import PostCard from "../components/PostCard";
 import ProfileMenu from "../components/ProfileMenu";
 import LoadingDots from "../components/LoadingDots";
@@ -132,6 +132,24 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
     };
   }, [loadingMore]);
 
+  // Unread count for Notifications badge
+  const [notifUnread, setNotifUnread] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchUnread = async () => {
+      try {
+        const res = await api.get("/notifications/unread-count");
+        if (!cancelled) setNotifUnread(res.data?.count || 0);
+      } catch {}
+    };
+    fetchUnread();
+    const id = setInterval(fetchUnread, 60000);
+    const onRefresh = () => fetchUnread();
+    window.addEventListener("push-foreground", onRefresh);
+    return () => { cancelled = true; clearInterval(id); window.removeEventListener("push-foreground", onRefresh); };
+  }, []);
+
   // Unread count for Inbox badge
   useEffect(() => {
     fetchUnreadCount();
@@ -193,6 +211,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
         { icon: Briefcase, label: "My Jobs", action: () => setPage("my-job-posts") },
         { icon: FileText, label: "Applications", action: () => setPage("applications") },
         { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
+        { icon: Bell, label: "Alerts", action: () => setPage("notifications"), badge: notifUnread },
         { icon: BarChart3, label: "Dashboard", action: () => setPage("company-dashboard") },
       ]
     : [
@@ -200,6 +219,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
         { icon: Search, label: "Discover", action: () => setPage("discover") },
         { icon: UserCheck, label: "Following", action: () => setPage("following") },
         { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
+        { icon: Bell, label: "Alerts", action: () => setPage("notifications"), badge: notifUnread },
         { icon: Newspaper, label: "News", action: () => setPage("news") },
         { icon: Briefcase, label: "Applications", action: () => setPage("applications") },
         { icon: FileText, label: "My Posts", action: () => setPage("my-posts") },
