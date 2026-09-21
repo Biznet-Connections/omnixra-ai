@@ -113,7 +113,6 @@ function soundReceive() {
 
 const startRecording = async () => {
     soundMicStart();
-    playBeep(880, 0.12, 0.14); // start beep
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -165,7 +164,6 @@ const startRecording = async () => {
 
   const stopRecording = () => {
     soundMicStop();
-    playBeep(420, 0.15, 0.14); // stop beep
 
     if (recordTimerRef.current) clearInterval(recordTimerRef.current);
     if (levelRAFRef.current) cancelAnimationFrame(levelRAFRef.current);
@@ -179,7 +177,6 @@ const startRecording = async () => {
 
   const cancelRecording = () => {
     soundMicStop();
-    playBeep(300, 0.18, 0.12); // cancel beep
 
     audioChunksRef.current = [];
     stopRecording();
