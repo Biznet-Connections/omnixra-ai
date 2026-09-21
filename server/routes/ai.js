@@ -507,6 +507,50 @@ ${dbContext}`;
       });
     }
 
+    // ── Track follow-up state ──
+    try {
+      const DELAY_MS = parseInt(process.env.AI_FOLLOWUP_DELAY_MS || "18000000"); // 5h default
+      const freshState = {
+        lastChatAt: new Date(),
+        lastChatId: chat._id,
+      };
+
+      // Decide intent from what the AI just did
+      if (out.jobs && out.jobs.length > 0) {
+        freshState.lastIntent = "search_jobs";
+        freshState.lastCategory = out.jobs[0]?.category || null;
+        freshState.lastLocation = out.jobs[0]?.location || null;
+        freshState.lastJobsShown = out.jobs.map(j => j._id).filter(Boolean);
+        freshState.nudgesSentThisThread = 0; // reset on new activity
+      } else if (/cv|resume/i.test(String(req.body?.messages?.slice(-1)?.[0]?.content || ""))) {
+        freshState.lastIntent = "cv_help";
+      } else if (/stressed|sad|tired|😭|depressed/i.test(String(req.body?.messages?.slice(-1)?.[0]?.content || ""))) {
+        freshState.lastIntent = "venting";
+      } else {
+        freshState.lastIntent = "chitchat";
+      }
+
+      // Schedule next nudge (or clear it if chitchat/venting)
+      const shouldNudge =
+        freshState.lastIntent === "search_jobs" ||
+        freshState.lastIntent === "cv_help" ||
+        freshState.lastIntent === "venting";
+      freshState.nextNudgeAt = shouldNudge ? new Date(Date.now() + DELAY_MS) : null;
+
+      const update = {};
+      for (const [k, v] of Object.entries(freshState)) {
+        update[`aiFollowUpState.${k}`] = v;
+      }
+      // Reset nudge counter when user chats again
+      if (freshState.lastIntent === "search_jobs") {
+        update["aiFollowUpState.ignoredNudgesCount"] = 0;
+      }
+
+      await User.findByIdAndUpdate(req.user._id, { $set: update });
+    } catch (e) {
+      console.warn("[ai/chat] followup state update failed:", e.message);
+    }
+
     res.json({ ...out, chatId: chat._id });
   } catch (error) {
     console.error("[ai/chat] error:", error);

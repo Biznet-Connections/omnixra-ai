@@ -24,6 +24,7 @@ import messageRoutes from "./routes/messages.js";
 import boostRoutes from "./routes/boosts.js";
 import scrapedJobRoutes from "./routes/scrapedJobs.js";
 import remoteJobRoutes from "./routes/remoteJobs.js";
+import { startFollowUpScheduler } from "./utils/followUpScheduler.js";
 import videoRoutes from "./routes/video.js";
 import shareRoutes from "./routes/share.js";
 import seoRoutes from "./routes/seo.js";
@@ -489,6 +490,9 @@ server.listen(PORT, () => {
         generateDailyAIJobs().catch(err => console.error("AI jobs error:", err.message));
       }
     }, 60 * 60 * 1000);
+
+    // ── AI follow-up nudge scheduler (runs every 60s) ──
+    startFollowUpScheduler();
 
     // 🌍 Remote jobs scrapers — daily at 5am + catch-up on boot
     console.log("📅 Scheduling remote job scrapers: daily at 5am");

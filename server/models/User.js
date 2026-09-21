@@ -107,6 +107,22 @@ const userSchema = new mongoose.Schema(
         matchedAt: { type: Date, default: Date.now },
       },
     ],
+
+    // ── AI follow-up nudge state ──
+    aiFollowUpState: {
+      lastChatAt: { type: Date },
+      lastChatId: { type: mongoose.Schema.Types.ObjectId, ref: "Chat" },
+      lastIntent: { type: String, enum: ["search_jobs", "cv_help", "chitchat", "venting", "unknown", null], default: null },
+      lastCategory: { type: String },
+      lastLocation: { type: String },
+      lastJobsShown: [{ type: mongoose.Schema.Types.ObjectId, ref: "Job" }],
+      nudgesSentThisThread: { type: Number, default: 0 },
+      lastNudgeAt: { type: Date },
+      lastNudgeType: { type: String },
+      nextNudgeAt: { type: Date },
+      ignoredNudgesCount: { type: Number, default: 0 },
+      disabled: { type: Boolean, default: false },
+    },
   },
   { timestamps: true }
 );
