@@ -14,7 +14,7 @@ import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import CompanyHome from "../components/CompanyHome";
 
-function HomePage({ setPage, setSelectedUserId, focusPostId }) {
+function HomePage({ setPage, setSelectedUserId, focusPostId, focusCommentId }) {
   const {
     posts,
     loading,
@@ -25,6 +25,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
     loadMorePosts,
     removePost,
     updatePost,
+    addPost,
     healDiversity,
   } = usePosts();
 
@@ -165,36 +166,64 @@ function HomePage({ setPage, setSelectedUserId, focusPostId }) {
   }, [user?._id]);
 
 
-  // â”€â”€ Deep-link: scroll to a specific post after it loads â”€â”€
+  // ── Deep-link: scroll to a specific post + optionally open its comment ──
   useEffect(() => {
     if (!focusPostId) return;
 
     let cancelled = false;
     let tries = 0;
-    const MAX_TRIES = 15; // ~3 seconds max
+    const MAX_TRIES = 15; // ~3s
 
-    const tryScroll = () => {
+    const openCommentsIfNeeded = () => {
+      if (focusCommentId) {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("open-comments", {
+            detail: { postId: focusPostId, commentId: focusCommentId },
+          }));
+        }, 350);
+      }
+    };
+
+    const tryScroll = async () => {
       if (cancelled) return;
-      const el = document.querySelector(`[data-post-id="${focusPostId}"]`);
+
+      let el = document.querySelector(`[data-post-id="${focusPostId}"]`);
+
+      // Post not in feed yet → fetch and prepend it
+      if (!el && tries === 0) {
+        try {
+          const res = await api.get(`/posts/${focusPostId}`);
+          if (res.data && res.data._id) {
+            addPost(res.data);
+            await new Promise(r => setTimeout(r, 350));
+          }
+        } catch (e) {
+          console.warn("[deep-link] single post fetch failed:", e.message);
+        }
+      }
+
+      el = document.querySelector(`[data-post-id="${focusPostId}"]`);
+
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         el.classList.add("post-highlight");
         setTimeout(() => el.classList.remove("post-highlight"), 2600);
-        console.log("🎉“Œ [DEEP LINK] Scrolled to post", focusPostId);
+        console.log("🎯 [DEEP LINK] Scrolled to post", focusPostId, "| comment:", focusCommentId);
+        openCommentsIfNeeded();
         return;
       }
+
       tries++;
       if (tries < MAX_TRIES) {
         setTimeout(tryScroll, 200);
       } else {
-        console.warn("🎉“Œ [DEEP LINK] Post not found after", MAX_TRIES, "tries");
+        console.warn("🎯 [DEEP LINK] Post not found after", MAX_TRIES, "tries");
       }
     };
 
-    // Wait a tick for the feed to render
     const t = setTimeout(tryScroll, 200);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [focusPostId, posts.length]);
+  }, [focusPostId, focusCommentId, posts.length, addPost]);
 
   const fetchUnreadCount = async () => {
     try {

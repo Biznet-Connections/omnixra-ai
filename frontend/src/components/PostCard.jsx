@@ -51,7 +51,7 @@ function ShimmerImage({ src, alt = "" }) {
     </div>
   );
 }
-function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onViewProfile }) {
+function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onViewProfile, focusCommentId }) {
   const { user } = useAuth();
   const realId = post._originalId || post._id;
   const [liked, setLiked] = useState(() => {
@@ -63,6 +63,21 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   const [likeCount, setLikeCount] = useState(typeof post.likes === 'number' ? post.likes : 0);
   const [saved, setSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [targetCommentId, setTargetCommentId] = useState(null);
+
+  // Listen for open-comments event from HomePage deep link
+  useEffect(() => {
+    const onOpenComments = (e) => {
+      const d = e.detail || {};
+      const matches = String(d.postId) === String(post._id) || String(d.postId) === String(post._originalId);
+      if (matches) {
+        setShowComments(true);
+        setTargetCommentId(d.commentId || null);
+      }
+    };
+    window.addEventListener("open-comments", onOpenComments);
+    return () => window.removeEventListener("open-comments", onOpenComments);
+  }, [post._id, post._originalId]);
   const [copied, setCopied] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -426,7 +441,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
           </>
         )}
       </article>
-      {showComments && <CommentsBottomSheet post={post} onClose={() => setShowComments(false)} onUpdate={onUpdate} />}
+      {showComments && <CommentsBottomSheet post={post} onClose={() => { setShowComments(false); setTargetCommentId(null); }} onUpdate={onUpdate} focusCommentId={targetCommentId} />}
       {showBoost && <BoostModal post={post} onClose={() => setShowBoost(false)} />}
     </>
   );

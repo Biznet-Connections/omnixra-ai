@@ -6,7 +6,7 @@ import { useSocket } from "../context/SocketContext";
 import MentionAutocomplete from "./MentionAutocomplete";
 import MentionRenderer from "./MentionRenderer";
 
-function CommentsBottomSheet({ post, onClose, onUpdate }) {
+function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
   const realId = post._originalId || post._id;
   const { joinPost, leavePost } = useSocket();
   const [commentText, setCommentText] = useState("");
@@ -72,6 +72,25 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
   useEffect(() => {
     fetchComments();
   }, [realId]);
+
+  // Scroll + highlight target comment when sheet opens via deep link
+  useEffect(() => {
+    if (!focusCommentId || loading) return;
+    let tries = 0;
+    const tryScroll = () => {
+      const el = document.querySelector(`[data-comment-id="${focusCommentId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("comment-highlight");
+        setTimeout(() => el.classList.remove("comment-highlight"), 3200);
+        console.log("🎯 [COMMENT DEEP LINK] Scrolled to comment", focusCommentId);
+        return;
+      }
+      tries++;
+      if (tries < 20) setTimeout(tryScroll, 150);
+    };
+    setTimeout(tryScroll, 250);
+  }, [focusCommentId, loading, comments.length]);
 
   // Join the post room while the comments sheet is open (real-time comments)
   useEffect(() => {
@@ -189,7 +208,11 @@ function CommentsBottomSheet({ post, onClose, onUpdate }) {
           ) : (
             <div className="space-y-3">
               {comments.map((c, i) => (
-                <div key={c._id || i} className={`comment-thread ${c.pending ? "comment-pending" : ""}`}>
+                <div
+                  key={c._id || i}
+                  data-comment-id={c._id}
+                  className={`comment-thread ${c.pending ? "comment-pending" : ""}`}
+                >
                   <div className="comment-header">
                     <div className="avatar avatar-xs bg-gradient-to-br from-indigo-500 to-purple-600">
                       {c.user?.profilePicture ? (
