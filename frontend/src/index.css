@@ -6216,3 +6216,107 @@ body.sidebar-open .bottom-nav {
   82%  { background: rgba(139,92,246,.10); box-shadow: inset 0 0 0 1px rgba(139,92,246,.4); }
   100% { background: rgba(139,92,246,0); box-shadow: inset 0 0 0 0 rgba(139,92,246,0); }
 }
+
+/* ══════════════════════════════════════════════════════════
+   EMOJI PICKER
+══════════════════════════════════════════════════════════ */
+
+.emoji-picker {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  background: #0f1218;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.65);
+  z-index: 250;
+  overflow: hidden;
+  animation: emojiFade .15s ease-out;
+}
+.emoji-picker-right { left: auto; right: 0; }
+
+@keyframes emojiFade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.emoji-cat-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.015);
+}
+.emoji-cat-tab {
+  width: 36px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background .12s ease, transform .12s ease;
+  line-height: 1;
+}
+.emoji-cat-tab:hover { background: rgba(255,255,255,.05); }
+.emoji-cat-tab.active {
+  background: rgba(99,102,241,.18);
+  transform: scale(1.06);
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.emoji-btn {
+  border: 0;
+  background: transparent;
+  font-size: 20px;
+  padding: 6px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 1;
+  transition: background .1s ease, transform .1s ease;
+  text-align: center;
+}
+.emoji-btn:hover {
+  background: rgba(255,255,255,.06);
+  transform: scale(1.15);
+}
+.emoji-btn:active { transform: scale(0.95); }
+
+/* Emoji trigger button inside composer */
+.emoji-trigger-btn {
+  color: #64748b;
+  background: transparent;
+  border: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color .12s ease, background .12s ease;
+  flex-shrink: 0;
+}
+.emoji-trigger-btn:hover {
+  color: #a5b4fc;
+  background: rgba(255,255,255,.04);
+}
+.emoji-trigger-btn.active {
+  color: #a5b4fc;
+  background: rgba(99,102,241,.15);
+}
+
+.composer-emoji-wrap {
+  position: relative;
+  display: inline-block;
+}

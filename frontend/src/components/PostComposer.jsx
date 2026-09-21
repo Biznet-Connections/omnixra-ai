@@ -1,6 +1,7 @@
 ﻿import React, { useState } from "react";
-import { Image as ImageIcon, Video, X, Send, Sparkles, Globe, Users, Lock, Crop, Scissors, Radio, Paperclip, MapPin, FileText } from "lucide-react";
+import { Image as ImageIcon, Video, X, Send, Sparkles, Globe, Users, Lock, Crop, Scissors, Radio, Paperclip, MapPin, FileText, Smile } from "lucide-react";
 import api from "../api/axios";
+import EmojiPicker from "./EmojiPicker";
 import { useAuth } from "../context/AuthContext";
 import { usePosts } from "../context/PostsContext";
 import { playSound } from "../utils/helpers";
@@ -47,6 +48,22 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
   const { user } = useAuth();
   const { addPost, updatePost, removePost } = usePosts();
   const [text, setText] = useState("");
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const textAreaRef = React.useRef(null);
+
+  const insertEmoji = (emoji) => {
+    const el = textAreaRef.current;
+    if (!el) { setText((t) => t + emoji); return; }
+    const start = el.selectionStart ?? text.length;
+    const end = el.selectionEnd ?? text.length;
+    const next = text.slice(0, start) + emoji + text.slice(end);
+    setText(next);
+    setTimeout(() => {
+      el.focus();
+      const pos = start + emoji.length;
+      el.setSelectionRange(pos, pos);
+    }, 0);
+  };
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [videoBlob, setVideoBlob] = useState(null);
@@ -312,7 +329,7 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
                 </div>
               )}
 
-              <textarea value={text} onChange={e => setText(e.target.value)} className="form-textarea" rows={5} placeholder={isChannel ? "Share an update with your followers..." : "What is on your mind?"} />
+              <textarea ref={textAreaRef} value={text} onChange={e => setText(e.target.value)} className="form-textarea" rows={5} placeholder={isChannel ? "Share an update with your followers..." : "What is on your mind?"} />
 
               {imagePreview && !showCrop && (
                 <div className="post-image-container mt-3 relative">
@@ -356,6 +373,22 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
                 <button type="button" onClick={() => setShowLocationInput(!showLocationInput)} className={"outline-button " + (locationName ? "category-active" : "")}>
                   <MapPin size={16} /> {locationName || "Location"}
                 </button>
+                <div className="composer-emoji-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setEmojiOpen(v => !v)}
+                    className={`outline-button ${emojiOpen ? "category-active" : ""}`}
+                    title="Add emoji"
+                  >
+                    <Smile size={16} /> Emoji
+                  </button>
+                  <EmojiPicker
+                    open={emojiOpen}
+                    onSelect={insertEmoji}
+                    onClose={() => setEmojiOpen(false)}
+                    anchor="left"
+                  />
+                </div>
                 {!isChannel && <button onClick={enhanceWithAI} disabled={enhancing} className="outline-button text-indigo-400"><Sparkles size={16} /> {enhancing ? "Enhancing..." : "AI Enhance"}</button>}
                 <button onClick={handleSubmit} disabled={posting} className="primary-button ml-auto">
                   {posting ? (uploadProgress > 0 && uploadProgress < 100 ? "Uploading " + uploadProgress + "%" : "Posting...") : "Post"}

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Paperclip, Mic, ThumbsUp, ThumbsDown, Copy, Check, Share2, Menu, X, Loader2 } from "lucide-react";
+import { Sparkles, Send, Paperclip, Mic, ThumbsUp, ThumbsDown, Copy, Check, Share2, Menu, X, Loader2, Smile } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import JobCard from "../components/JobCard";
 import TalentCard from "../components/TalentCard";
 import ChatHistorySidebar from "../components/ChatHistorySidebar";
+import EmojiPicker from "../components/EmojiPicker";
 import ChatChips from "../components/ChatChips";
 
 function ChatPage() {
@@ -20,6 +21,22 @@ function ChatPage() {
     },
   ]);
   const [input, setInput] = useState("");
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const composerTextareaRef = React.useRef(null);
+
+  const insertEmojiIntoChat = (emoji) => {
+    const el = composerTextareaRef.current;
+    if (!el) { setInput((t) => t + emoji); return; }
+    const start = el.selectionStart ?? input.length;
+    const end = el.selectionEnd ?? input.length;
+    const next = input.slice(0, start) + emoji + input.slice(end);
+    setInput(next);
+    setTimeout(() => {
+      el.focus();
+      const pos = start + emoji.length;
+      el.setSelectionRange(pos, pos);
+    }, 0);
+  };
   const [typing, setTyping] = useState(false);
   const [copied, setCopied] = useState(null);
   const [shared, setShared] = useState(null);
@@ -472,6 +489,7 @@ function ChatPage() {
         ) : (
           <div className="chat-composer">
             <textarea
+              ref={composerTextareaRef}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
@@ -485,6 +503,22 @@ function ChatPage() {
                 </button>
                 <input ref={fileInputRef} type="file" className="hidden" onChange={handleChatFile} />
                 <button onClick={startRecording} className="composer-icon" title="Voice message"><Mic size={16} /></button>
+                <div className="composer-emoji-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setEmojiOpen(v => !v)}
+                    className={`composer-icon ${emojiOpen ? "active" : ""}`}
+                    title="Add emoji"
+                  >
+                    <Smile size={16} />
+                  </button>
+                  <EmojiPicker
+                    open={emojiOpen}
+                    onSelect={insertEmojiIntoChat}
+                    onClose={() => setEmojiOpen(false)}
+                    anchor="left"
+                  />
+                </div>
               </div>
               <button onClick={() => sendMessage()} className="send-button"><Send size={16} /></button>
             </div>

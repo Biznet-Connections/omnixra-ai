@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Heart, Send, Trash2 } from "lucide-react";
+import { X, Heart, Send, Trash2, Smile } from "lucide-react";
 import api from "../api/axios";
 import { playSound } from "../utils/helpers";
 import { useSocket } from "../context/SocketContext";
 import { useAuth } from "../context/AuthContext";
 import MentionAutocomplete from "./MentionAutocomplete";
+import EmojiPicker from "./EmojiPicker";
 import MentionRenderer from "./MentionRenderer";
 
 function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
@@ -21,6 +22,47 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
   const [mention, setMention] = useState({ open: false, query: "", startIdx: -1 });
   const [pendingMentions, setPendingMentions] = useState([]);  // array of {id, name}
   const commentInputRef = useRef(null);
+
+  // Emoji picker state
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const replyInputRef = useRef(null);
+  const [replyEmojiOpen, setReplyEmojiOpen] = useState(false);
+
+  const insertEmojiIntoComment = (emoji) => {
+    const el = commentInputRef.current;
+    const text = commentText;
+    if (!el) {
+      setCommentText(text + emoji);
+      return;
+    }
+    const start = el.selectionStart ?? text.length;
+    const end = el.selectionEnd ?? text.length;
+    const next = text.slice(0, start) + emoji + text.slice(end);
+    setCommentText(next);
+    setTimeout(() => {
+      el.focus();
+      const pos = start + emoji.length;
+      el.setSelectionRange(pos, pos);
+    }, 0);
+  };
+
+  const insertEmojiIntoReply = (emoji) => {
+    const el = replyInputRef.current;
+    const text = replyText;
+    if (!el) {
+      setReplyText(text + emoji);
+      return;
+    }
+    const start = el.selectionStart ?? text.length;
+    const end = el.selectionEnd ?? text.length;
+    const next = text.slice(0, start) + emoji + text.slice(end);
+    setReplyText(next);
+    setTimeout(() => {
+      el.focus();
+      const pos = start + emoji.length;
+      el.setSelectionRange(pos, pos);
+    }, 0);
+  };
 
   // Detect @ trigger in textarea
   const handleCommentChange = (e) => {
@@ -331,14 +373,31 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
                   )}
 
                   {replyTo === c._id && (
-                    <div className="flex gap-2 mt-2">
+                    <div className="flex gap-2 mt-2 items-center">
                       <input
+                        ref={replyInputRef}
                         value={replyText}
                         onChange={e => setReplyText(e.target.value)}
                         onKeyDown={e => e.key === "Enter" && handleReply(c._id)}
                         className="form-input flex-1"
                         placeholder="Reply..."
                       />
+                      <div className="composer-emoji-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setReplyEmojiOpen(v => !v)}
+                          className={`emoji-trigger-btn ${replyEmojiOpen ? "active" : ""}`}
+                          title="Add emoji"
+                        >
+                          <Smile size={16} />
+                        </button>
+                        <EmojiPicker
+                          open={replyEmojiOpen}
+                          onSelect={(e) => insertEmojiIntoReply(e)}
+                          onClose={() => setReplyEmojiOpen(false)}
+                          anchor="right"
+                        />
+                      </div>
                       <button onClick={() => handleReply(c._id)} className="primary-button">Reply</button>
                     </div>
                   )}
@@ -349,7 +408,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
         </div>
 
         <div className="comments-sheet-input">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <input
               ref={commentInputRef}
               value={commentText}
@@ -362,16 +421,32 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
               className="form-input flex-1"
               placeholder="Add a comment... type @ to mention"
             />
-            <MentionAutocomplete
-              open={mention.open}
-              query={mention.query}
-              onSelect={handleMentionSelect}
-              onClose={() => setMention(m => ({ ...m, open: false }))}
-            />
+            <div className="composer-emoji-wrap">
+              <button
+                type="button"
+                onClick={() => setEmojiOpen(v => !v)}
+                className={`emoji-trigger-btn ${emojiOpen ? "active" : ""}`}
+                title="Add emoji"
+              >
+                <Smile size={18} />
+              </button>
+              <EmojiPicker
+                open={emojiOpen}
+                onSelect={(e) => insertEmojiIntoComment(e)}
+                onClose={() => setEmojiOpen(false)}
+                anchor="right"
+              />
+            </div>
             <button onClick={handleAddComment} className="send-button">
               <Send size={16} />
             </button>
           </div>
+          <MentionAutocomplete
+            open={mention.open}
+            query={mention.query}
+            onSelect={handleMentionSelect}
+            onClose={() => setMention(m => ({ ...m, open: false }))}
+          />
         </div>
       </div>
     </div>
