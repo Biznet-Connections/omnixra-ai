@@ -42,6 +42,7 @@ import AdminSettings from "./pages/AdminSettings";
 import PostComposer from "./components/PostComposer";
 import { useAuth } from "./context/AuthContext";
 import { PostsProvider } from "./context/PostsContext";
+import { FollowingProvider } from "./context/FollowingContext";
 import { SocketProvider } from "./context/SocketContext";
 import InAppNotificationBanner from "./components/InAppNotificationBanner";
 import ExpiryBanner from "./components/ExpiryBanner";
@@ -460,11 +461,13 @@ const isAdminPage = page === "admin" || page === "admin-login" || page.startsWit
 
 export default function App() {
   return (
-    <PostsProvider>
-      <SocketProvider>
-        <AppContent />
-      </SocketProvider>
-    </PostsProvider>
+    <FollowingProvider>
+      <PostsProvider>
+        <SocketProvider>
+          <AppContent />
+        </SocketProvider>
+      </PostsProvider>
+    </FollowingProvider>
   );
 }
 

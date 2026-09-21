@@ -2,6 +2,7 @@
 import { Heart, MessageCircle, Share2, Bookmark, Ellipsis, Check, Trash2, UserPlus, Building2, Lock, Pencil, Rocket, Download, FileText, MapPin } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import { useFollowing } from "../context/FollowingContext";
 import CommentsBottomSheet from "./CommentsBottomSheet";
 import BoostModal from "./BoostModal";
 import ModernVideoPlayer from "./ModernVideoPlayer";
@@ -10,13 +11,6 @@ import AIAvatar from "./AIAvatar";
 import { timeAgo, playSound } from "../utils/helpers";
 import { sharePost } from "../utils/share";
 
-function logLike(msg) {
-  fetch("/api/posts/debug/log", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: "[LIKE] " + msg })
-  }).catch(() => {});
-}
 
 
 function ShimmerImage({ src, alt = "" }) {
@@ -86,10 +80,17 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   const [editText, setEditText] = useState(post.text || "");
   const [editError, setEditError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const { isFollowing, follow, unfollow } = useFollowing();
   const [following, setFollowing] = useState(() => {
     const followingList = JSON.parse(localStorage.getItem("omnixra_following") || "[]");
     return followingList.includes(post.author?._id);
   });
+
+  // Keep local state in sync with the global following list
+  useEffect(() => {
+    if (!post.author?._id) return;
+    setFollowing(isFollowing(post.author._id));
+  }, [isFollowing, post.author?._id]);
 
   const [showBoost, setShowBoost] = useState(false);
 
@@ -119,7 +120,6 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   const isPending = post.pending;
 
   const handleLike = async () => {
-    logLike("called. postId=" + post._id + " liked=" + liked + " count=" + likeCount + " pending=" + isLikePending);
     if (isLikePending || isPending) {
       logLike("BLOCKED (pending)");
       return;
@@ -213,25 +213,22 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
 
   const handleFollow = async () => {
     if (isPending) return;
+    if (!post.author?._id) return;
     playSound("follow");
 
-    const newFollowing = !following;
-    setFollowing(newFollowing);
-
-    const list = JSON.parse(localStorage.getItem("omnixra_following") || "[]");
-    if (newFollowing) {
-      if (!list.includes(post.author?._id)) list.push(post.author?._id);
-    } else {
-      const idx = list.indexOf(post.author?._id);
-      if (idx > -1) list.splice(idx, 1);
-    }
-    localStorage.setItem("omnixra_following", JSON.stringify(list));
+    const currentlyFollowing = isFollowing(post.author._id);
+    setFollowing(!currentlyFollowing); // instant UI flip
 
     try {
-      await api.put(`/posts/follow-user/${post.author?._id}`);
+      if (currentlyFollowing) {
+        await unfollow(post.author._id);
+      } else {
+        await follow(post.author._id);
+      }
     } catch (err) {
-      console.error(err);
-      setFollowing(!newFollowing);
+      // Revert on failure
+      setFollowing(currentlyFollowing);
+      console.error("follow error:", err);
     }
   };
 
@@ -418,7 +415,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
         {!isPending && !isEditing && (
           <>
             <div className="post-action-row mt-3">
-              <button onClick={handleLike} disabled={isLikePending} className={`post-action-icon ${liked ? "post-action-liked" : ""}`}>
+              <button onClick={handleLike} className={`post-action-icon ${liked ? "post-action-liked" : ""}`}>
                 <Heart size={20} fill={liked ? "currentColor" : "none"} />
               </button>
               <button onClick={() => setShowComments(true)} className="post-action-icon"><MessageCircle size={20} /></button>

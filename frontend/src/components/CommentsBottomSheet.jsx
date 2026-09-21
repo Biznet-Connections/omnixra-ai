@@ -166,9 +166,16 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
       const mentions = pendingMentions
         .filter(m => text.includes(`@${m.name}`))
         .map(m => m.id);
-      await api.post(`/posts/${realId}/comment`, { text, mentions });
-      const res = await api.get(`/posts/${realId}/comments`);
-      setComments(res.data.comments || []);
+      const res = await api.post(`/posts/${realId}/comment`, { text, mentions });
+
+      // Use the POST response directly — no refetch
+      if (Array.isArray(res.data?.comments)) {
+        setComments(res.data.comments);
+      }
+      // Trust the server's count for the parent
+      if (typeof res.data?.totalComments === "number") {
+        onUpdate?.({ ...post, totalComments: res.data.totalComments });
+      }
       setPendingMentions([]);
     } catch (err) {
       console.error("Comment error:", err);

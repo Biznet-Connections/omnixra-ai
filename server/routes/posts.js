@@ -737,6 +737,18 @@ router.put("/follow-user/:userId", protect, async (req, res) => {
 // REACT to a post (channel posts primarily)
 // Body: { emoji }   Toggle: same emoji removes, different replaces
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// GET current user's following list
+router.get("/following/list", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("followingUsers").lean();
+    const following = user?.followingUsers || [];
+    res.json({ following });
+  } catch (e) {
+    console.error("[following/list]", e.message);
+    res.status(500).json({ message: e.message });
+  }
+});
+
 router.put("/:id/react", protect, async (req, res) => {
   try {
     const { emoji } = req.body || {};
