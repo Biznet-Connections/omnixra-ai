@@ -60,7 +60,30 @@ function ChatPage() {
   const levelRAFRef = useRef(null);
   const MAX_SECONDS = 60;
 
-  const startRecording = async () => {
+  // Play a short beep using Web Audio (no asset needed, works in APK offline)
+function playBeep(freq = 880, duration = 0.14, volume = 0.13) {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+    setTimeout(() => ctx.close && ctx.close(), (duration + 0.05) * 1000);
+  } catch (e) {
+    console.warn("[beep] failed:", e.message);
+  }
+}
+
+const startRecording = async () => {
+    playBeep(880, 0.12, 0.14); // start beep
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
@@ -110,6 +133,8 @@ function ChatPage() {
   };
 
   const stopRecording = () => {
+    playBeep(420, 0.15, 0.14); // stop beep
+
     if (recordTimerRef.current) clearInterval(recordTimerRef.current);
     if (levelRAFRef.current) cancelAnimationFrame(levelRAFRef.current);
     if (analyserRef.current) { try { analyserRef.current.disconnect(); } catch(e){} }
@@ -121,6 +146,8 @@ function ChatPage() {
   };
 
   const cancelRecording = () => {
+    playBeep(300, 0.18, 0.12); // cancel beep
+
     audioChunksRef.current = [];
     stopRecording();
     if (mediaRecorderRef.current?.stream) {
@@ -235,12 +262,30 @@ function ChatPage() {
       // ── Always use the adaptive /ai/chat endpoint ──
       const res = await api.post("/ai/chat", { messages: chatHistory, chatId });
       const d = res.data;
+
+      // ── Job dedup: if we just showed the same jobs in the last 1-2 turns, don't repeat them ──
+      let jobs = d.jobs || null;
+      if (Array.isArray(jobs) && jobs.length > 0) {
+        const recentAiJobs = messages
+          .filter(m => m.role === "assistant" && Array.isArray(m.jobs) && m.jobs.length > 0)
+          .slice(-2); // last 2 job messages
+        const lastIds = recentAiJobs.length
+          ? recentAiJobs[recentAiJobs.length - 1].jobs.map(j => String(j._id || j.slug || j.company || j.title))
+          : [];
+        const newIds = jobs.map(j => String(j._id || j.slug || j.company || j.title));
+        const same = lastIds.length === newIds.length && lastIds.every(id => newIds.includes(id));
+        if (same) {
+          console.log("[chat] dedup — same job batch as last turn, dropping");
+          jobs = null;
+        }
+      }
+
       setMessages(prev => [...prev, {
         role: "assistant",
         text: d.text,
         chips: d.chips || null,
         tone: d.tone || "neutral",
-        jobs: d.jobs || null,
+        jobs: jobs,
         talent: d.talent || null,
         profileSaveOffer: d.profileSaveOffer || null,
         chatId: d.chatId,
