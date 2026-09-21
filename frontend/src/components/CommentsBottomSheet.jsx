@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Heart, Send } from "lucide-react";
+import { X, Heart, Send, Trash2 } from "lucide-react";
 import api from "../api/axios";
 import { playSound } from "../utils/helpers";
 import { useSocket } from "../context/SocketContext";
+import { useAuth } from "../context/AuthContext";
 import MentionAutocomplete from "./MentionAutocomplete";
 import MentionRenderer from "./MentionRenderer";
 
 function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
   const realId = post._originalId || post._id;
   const { joinPost, leavePost } = useSocket();
+  const { user } = useAuth();
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -187,6 +189,45 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
   const isPostAuthor = (userId) =>
     userId && postAuthorId && userId.toString() === postAuthorId;
 
+  const currentUserId = user?._id?.toString();
+
+  const canDeleteComment = (c) => {
+    if (!currentUserId) return false;
+    const owner = (c.user?._id || c.user)?.toString();
+    return currentUserId === owner || currentUserId === postAuthorId;
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm("Delete this comment?")) return;
+    const backup = comments;
+    // Optimistic remove
+    setComments(prev => prev.filter(c => c._id !== commentId));
+    onUpdate?.({ ...post, totalComments: Math.max(0, (post.totalComments || 1) - 1) });
+    try {
+      await api.delete(`/posts/${realId}/comment/${commentId}`);
+    } catch (err) {
+      console.error("Delete comment error:", err);
+      setComments(backup);
+      onUpdate?.({ ...post, totalComments: (post.totalComments || 0) + 1 });
+    }
+  };
+
+  const handleDeleteReply = async (commentId, replyId) => {
+    if (!window.confirm("Delete this reply?")) return;
+    const backup = comments;
+    setComments(prev => prev.map(c =>
+      c._id === commentId
+        ? { ...c, replies: (c.replies || []).filter(r => r._id !== replyId) }
+        : c
+    ));
+    try {
+      await api.delete(`/posts/${realId}/comment/${commentId}/reply/${replyId}`);
+    } catch (err) {
+      console.error("Delete reply error:", err);
+      setComments(backup);
+    }
+  };
+
   return (
     <div className="comments-bottom-sheet-backdrop" onClick={onClose}>
       <div className="comments-bottom-sheet" onClick={e => e.stopPropagation()}>
@@ -243,24 +284,49 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
                     <button onClick={() => setReplyTo(replyTo === c._id ? null : c._id)} className="comment-action-btn">
                       Reply
                     </button>
+                    {canDeleteComment(c) && !c.pending && (
+                      <button
+                        onClick={() => handleDeleteComment(c._id)}
+                        className="comment-action-btn comment-delete-btn"
+                        title="Delete comment"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
                     {c.pending && <span className="comment-pending-label">Sending...</span>}
                   </div>
 
                   {c.replies?.length > 0 && (
                     <div className="comment-replies">
-                      {c.replies.map((r, j) => (
-                        <div key={r._id || j} className={r.pending ? "comment-pending" : ""}>
+                      {c.replies.map((r, j) => {
+                        const canDelReply = currentUserId && (
+                          currentUserId === (r.user?._id || r.user)?.toString() ||
+                          currentUserId === postAuthorId ||
+                          currentUserId === (c.user?._id || c.user)?.toString()
+                        );
+                        return (
+                        <div key={r._id || j} className={r.pending ? "comment-pending" : ""} data-comment-id={r._id}>
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="comment-name">{r.user?.name || "User"}</span>
                             {isPostAuthor(r.user?._id) && (
                               <span className="comment-author-badge">Author</span>
+                            )}
+                            {canDelReply && !r.pending && (
+                              <button
+                                onClick={() => handleDeleteReply(c._id, r._id)}
+                                className="comment-action-btn comment-delete-btn ml-auto"
+                                title="Delete reply"
+                              >
+                                <Trash2 size={11} />
+                              </button>
                             )}
                           </div>
                           <p className="comment-text">
                             <MentionRenderer text={r.text} mentions={[]} />
                           </p>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 

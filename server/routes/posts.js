@@ -8,6 +8,7 @@ import { emitPostLiked, emitPostCommented } from "../socket.js";
 import { notifyPostAuthor, notifyNewFollower } from "../utils/notify.js";
 import { notifyComment, notifyMention } from "../utils/createNotification.js";
 import Channel from "../models/Channel.js";
+import Notification from "../models/Notification.js";
 
 const router = express.Router();
 
@@ -540,6 +541,82 @@ router.post("/:id/comment/:commentId/reply", protect, async (req, res) => {
       .populate("comments.replies.user", "name profilePicture profilePicLocked")
       .lean();
     res.json({ comments: populated.comments || [] });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// DELETE A COMMENT
+router.delete("/:id/comment/:commentId", protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Post not found" });
+
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+    const actorId = req.user._id?.toString();
+    const commentOwnerId = comment.user?.toString();
+    const postOwnerId = post.author?.toString();
+
+    // Authorization: comment author OR post author
+    if (actorId !== commentOwnerId && actorId !== postOwnerId) {
+      return res.status(403).json({ message: "Not authorized to delete this comment" });
+    }
+
+    comment.deleteOne();
+    await post.save();
+
+    // Clean up related notifications (comment + any mentions that referenced this comment)
+    try {
+      await Notification.deleteMany({ comment: comment._id });
+    } catch (e) { console.warn("notif cleanup failed:", e.message); }
+
+    // Real-time emit
+    try {
+      const populated = await Post.findById(post._id)
+        .populate("comments.user", "name profilePicture profilePicLocked")
+        .populate("comments.replies.user", "name profilePicture profilePicLocked")
+        .lean();
+      emitPostCommented(post._id.toString(), populated.comments || [], post.comments.length);
+    } catch (e) { console.warn("emit failed:", e.message); }
+
+    res.json({ ok: true, commentId: comment._id, totalComments: post.comments.length });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// DELETE A REPLY
+router.delete("/:id/comment/:commentId/reply/:replyId", protect, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Post not found" });
+
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+    const reply = comment.replies.id(req.params.replyId);
+    if (!reply) return res.status(404).json({ message: "Reply not found" });
+
+    const actorId = req.user._id?.toString();
+    const replyOwnerId = reply.user?.toString();
+    const commentOwnerId = comment.user?.toString();
+    const postOwnerId = post.author?.toString();
+
+    if (actorId !== replyOwnerId && actorId !== commentOwnerId && actorId !== postOwnerId) {
+      return res.status(403).json({ message: "Not authorized to delete this reply" });
+    }
+
+    reply.deleteOne();
+    await post.save();
+
+    const populated = await Post.findById(post._id)
+      .populate("comments.user", "name profilePicture profilePicLocked")
+      .populate("comments.replies.user", "name profilePicture profilePicLocked")
+      .lean();
+
+    res.json({ ok: true, replyId: req.params.replyId, comments: populated.comments || [] });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

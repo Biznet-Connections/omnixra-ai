@@ -6198,3 +6198,11 @@ body.sidebar-open .bottom-nav {
   0%, 25% { background: rgba(99,102,241,.18); }
   100% { background: transparent; }
 }
+
+.comment-delete-btn {
+  color: #64748b;
+  transition: color .15s ease;
+}
+.comment-delete-btn:hover {
+  color: #ef4444;
+}
