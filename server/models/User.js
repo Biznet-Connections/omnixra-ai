@@ -90,6 +90,11 @@ const userSchema = new mongoose.Schema(
       jobAlerts: { type: Boolean, default: true },
       news: { type: Boolean, default: true },
       social: { type: Boolean, default: true },
+      mentions: { type: Boolean, default: true },
+      comments: { type: Boolean, default: true },
+      likes: { type: Boolean, default: true },
+      follows: { type: Boolean, default: true },
+      messages: { type: Boolean, default: true },
     },
     notificationLog: {
       news: { type: Date },

@@ -6,6 +6,7 @@ import { cacheShort, invalidateFeedCache, invalidatePostCache } from "../middlew
 import { uploadToR2, isBase64Image, parseBase64Image, buildPublicUrl } from "../utils/r2.js";
 import { emitPostLiked, emitPostCommented } from "../socket.js";
 import { notifyPostAuthor, notifyNewFollower } from "../utils/notify.js";
+import { notifyComment, notifyMention } from "../utils/createNotification.js";
 import Channel from "../models/Channel.js";
 
 const router = express.Router();
@@ -448,32 +449,63 @@ router.post("/:id/comment", protect, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: "Post not found" });
-    post.comments.push({ user: req.user._id, text: req.body.text, likes: 0, replies: [] });
-    // Ensure likes is a number in case legacy array snuck in
+
+    const text = String(req.body.text || "").slice(0, 2000);
+    const mentions = Array.isArray(req.body.mentions) ? req.body.mentions.map(String) : [];
+
+    const newComment = {
+      user: req.user._id,
+      text,
+      likes: 0,
+      replies: [],
+      mentions: mentions,  // structured — survives username changes
+    };
+    post.comments.push(newComment);
     if (Array.isArray(post.likes)) post.likes = post.likes.length;
     await post.save();
-    
+
+    // Get the just-created comment's _id (last item)
+    const createdComment = post.comments[post.comments.length - 1];
+
     const populated = await Post.findById(post._id)
       .populate("comments.user", "name profilePicture profilePicLocked")
       .populate("comments.replies.user", "name profilePicture profilePicLocked")
       .lean();
 
-    // â”€â”€ Scoped real-time emit â”€â”€
+    // ── Scoped real-time emit ──
     try {
       emitPostCommented(post._id.toString(), populated.comments || [], post.comments.length);
     } catch (e) { console.warn("emitPostCommented failed:", e.message); }
 
-    // Push notification to post author
-    try {
-      const authorId = post.author?.toString();
-      const actorId = req.user._id?.toString();
-      if (authorId && authorId !== actorId) {
-        notifyPostAuthor(authorId, req.user.name || "Someone", "comment", {
-          postId: post._id.toString(),
-          preview: (req.body.text || "").slice(0, 80),
-        }).catch(() => {});
-      }
-    } catch (e) {}
+    const actor = { _id: req.user._id, name: req.user.name, profilePicture: req.user.profilePicture };
+    const postAuthorId = post.author?.toString();
+    const actorId = req.user._id?.toString();
+    const preview = text.slice(0, 80);
+
+    // ── Notify post author (if not self) ──
+    if (postAuthorId && postAuthorId !== actorId) {
+      notifyComment({
+        recipientId: postAuthorId,
+        actorUser: actor,
+        post: post._id,
+        commentId: createdComment._id,
+        preview,
+      }).catch((e) => console.warn("notifyComment failed:", e.message));
+    }
+
+    // ── Notify each mentioned user (deduped, skip self + skip post author — they got comment notif already) ──
+    const uniqueMentions = [...new Set(mentions.map(String))];
+    for (const mentionedId of uniqueMentions) {
+      if (mentionedId === actorId) continue;               // don't notify self
+      if (mentionedId === postAuthorId) continue;          // author already got comment notif
+      notifyMention({
+        recipientId: mentionedId,
+        actorUser: actor,
+        post: post._id,
+        commentId: createdComment._id,
+        preview: text,
+      }).catch((e) => console.warn("notifyMention failed:", e.message));
+    }
 
     res.json({ comments: populated.comments || [], totalComments: post.comments.length });
   } catch (error) {

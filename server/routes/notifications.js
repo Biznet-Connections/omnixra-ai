@@ -2,6 +2,7 @@ import express from "express";
 import { protect } from "../middleware/auth.js";
 import User from "../models/User.js";
 import { isFirebaseReady, sendPushToUser } from "../utils/fcm.js";
+import Notification from "../models/Notification.js";
 
 const router = express.Router();
 
@@ -125,6 +126,76 @@ router.post('/test-news', protect, async (req, res) => {
     res.json({ ok: true, message: 'News push helper is inside server.js; trigger manually by restarting the server', postId: newsPost._id });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// ── List my notifications (paginated) ──
+router.get("/", protect, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
+    const filter = { user: req.user._id };
+    if (req.query.unread === "1") filter.read = false;
+
+    const [items, total, unreadCount] = await Promise.all([
+      Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Notification.countDocuments(filter),
+      Notification.countDocuments({ user: req.user._id, read: false }),
+    ]);
+
+    res.json({ items, total, unreadCount, page, hasMore: page * limit < total });
+  } catch (e) {
+    console.error("[notifications list]", e.message);
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── Unread count (for badge) ──
+router.get("/unread-count", protect, async (req, res) => {
+  try {
+    const count = await Notification.countDocuments({ user: req.user._id, read: false });
+    res.json({ count });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── Mark single as read ──
+router.patch("/:id/read", protect, async (req, res) => {
+  try {
+    const n = await Notification.findOneAndUpdate(
+      { _id: req.params.id, user: req.user._id },
+      { read: true, readAt: new Date() },
+      { new: true }
+    );
+    if (!n) return res.status(404).json({ message: "Not found" });
+    res.json({ ok: true, notification: n });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── Mark all as read ──
+router.post("/read-all", protect, async (req, res) => {
+  try {
+    const r = await Notification.updateMany(
+      { user: req.user._id, read: false },
+      { read: true, readAt: new Date() }
+    );
+    res.json({ ok: true, updated: r.modifiedCount });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── Delete a notification ──
+router.delete("/:id", protect, async (req, res) => {
+  try {
+    const r = await Notification.deleteOne({ _id: req.params.id, user: req.user._id });
+    res.json({ ok: true, deleted: r.deletedCount });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
   }
 });
 
