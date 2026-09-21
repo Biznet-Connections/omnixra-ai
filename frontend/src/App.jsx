@@ -79,6 +79,7 @@ function AppContent() {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [sharedChatId, setSharedChatId] = useState(null);
   const [focusPostId, setFocusPostId] = useState(null);
+  const [myAiChatId, setMyAiChatId] = useState(null);
   const [focusCommentId, setFocusCommentId] = useState(null);
   const [focusJobSlug, setFocusJobSlug] = useState(null);
   const [channelSlug, setChannelSlug] = useState(null);
@@ -216,8 +217,22 @@ function AppContent() {
         if (m) { setFocusJobSlug(m[1]); setPage("jobs"); return; }
         // /notifications
         if (dl.startsWith("/notifications")) { setPage("notifications"); return; }
+        // /myai?chatId=X
+        if (dl.startsWith("/myai")) {
+          const m = dl.match(/chatId=([^&]+)/);
+          if (m) setMyAiChatId(m[1]);
+          setPage("myai");
+          return;
+        }
         // fallback
         setPage("home");
+        return;
+      }
+
+      // Legacy: ai_followup deep link
+      if (d.type === "ai_followup" && d.chatId) {
+        setMyAiChatId(d.chatId);
+        setPage("myai");
         return;
       }
 
@@ -371,7 +386,7 @@ function AppContent() {
       case "post-job": return <PostJobPage setPage={navigate} />;
       case "payment-complete": return <PaymentCompletePage setPage={navigate} />;
       case "auth-callback": return <AuthCallback setPage={navigate} />;
-      case "myai": return <ChatPage />;
+      case "myai": return <ChatPage initialChatId={myAiChatId} />;
       case "jobs": return <JobsPage focusJobSlug={focusJobSlug} />;
       case "companies": return <CompaniesPage setPage={navigate} />;
       case "company-posts": return <CompanyPostsPage

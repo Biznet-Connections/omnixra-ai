@@ -8,7 +8,7 @@ import ChatHistorySidebar from "../components/ChatHistorySidebar";
 import EmojiPicker from "../components/EmojiPicker";
 import ChatChips from "../components/ChatChips";
 
-function ChatPage() {
+function ChatPage({ initialChatId }) {
   const { user } = useAuth();
   const isCompany = user?.accountType === "company";
 
@@ -43,6 +43,19 @@ function ChatPage() {
   const [chatAttachments, setChatAttachments] = useState([]);
   const [uploadingChat, setUploadingChat] = useState(false);
   const [chatId, setChatId] = useState(null);
+
+  // Auto-load a specific chat if deep-linked from a push notification
+  useEffect(() => {
+    if (!initialChatId) return;
+    console.log("[chat] deep-link: loading chat", initialChatId);
+    // Trigger the existing loadChat function after mount
+    const t = setTimeout(() => {
+      if (typeof loadChat === "function") {
+        loadChat(initialChatId).catch(e => console.warn("[chat] loadChat failed:", e.message));
+      }
+    }, 150);
+    return () => clearTimeout(t);
+  }, [initialChatId]);
   const [showHistory, setShowHistory] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
