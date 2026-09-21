@@ -42,16 +42,16 @@ export async function askDeepSeek(messages, opts = {}) {
   return res.data?.choices?.[0]?.message?.content || "";
 }
 
-// ── Chat priority: OpenAI first, DeepSeek fallback ──
+// ── Chat priority: DeepSeek first, OpenAI fallback ──
 export async function askChat(messages, opts = {}) {
   try {
-    const text = await askOpenAI(messages, opts);
-    if (text && text.trim()) return { text, provider: "openai" };
-    throw new Error("Empty OpenAI response");
-  } catch (e) {
-    console.warn("[ai] OpenAI failed, trying DeepSeek:", e.message);
     const text = await askDeepSeek(messages, opts);
-    return { text, provider: "deepseek" };
+    if (text && text.trim()) return { text, provider: "deepseek" };
+    throw new Error("Empty DeepSeek response");
+  } catch (e) {
+    console.warn("[ai] DeepSeek failed, trying OpenAI:", e.message);
+    const text = await askOpenAI(messages, opts);
+    return { text, provider: "openai" };
   }
 }
 
