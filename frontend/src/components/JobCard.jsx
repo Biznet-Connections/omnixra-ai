@@ -116,6 +116,22 @@ function JobCard({ job, tab = "omnixra" }) {
     setShowPushCV(true);
   };
 
+  const handleRemotePushCV = async () => {
+    if (!hasTier(user, "starter")) {
+      setLockedFeature("Push CV");
+      setShowLocked(true);
+      return;
+    }
+    try {
+      if (job.applicationUrl) {
+        window.open(job.applicationUrl, "_blank");
+      }
+      setSaved(true);
+    } catch (e) {
+      console.error("Remote push CV failed:", e);
+    }
+  };
+
   return (
     <>
       <div className="job-card compact-card">
@@ -144,6 +160,11 @@ function JobCard({ job, tab = "omnixra" }) {
                 {job.source === "jsearch" && (
                   <div className="text-[9px] text-slate-500/70 mt-0.5 italic">via JSearch</div>
                 )}
+                {["remoteok","jobicy","himalayas","remotive","arbeitnow"].includes(job.source) && (
+                  <div className="text-[9px] text-emerald-400/80 mt-0.5 italic">
+                    🌍 Remote · via {job.source.charAt(0).toUpperCase() + job.source.slice(1)}
+                  </div>
+                )}
               </div>
               <div className={`match-badge ${matchColor}`}>{match}% Match</div>
             </div>
@@ -165,6 +186,9 @@ function JobCard({ job, tab = "omnixra" }) {
           <button onClick={handleShare} className="outline-button"><Share2 size={13} />Share</button>
           {tab === "omnixra" && (
             <button onClick={handlePushCV} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
+          )}
+          {tab === "remote" && (
+            <button onClick={handleRemotePushCV} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
           )}
         </div>
       </div>

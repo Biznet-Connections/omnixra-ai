@@ -39,7 +39,6 @@ function JobsPage({ focusJobSlug }) {
   const [omnixraJobs, setOmnixraJobs] = useState([]);
   const [scrapedJobs, setScrapedJobs] = useState([]);
   const [remoteJobs, setRemoteJobs] = useState([]);
-  const [remoteComingSoon, setRemoteComingSoon] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState({});
   const [hasMore, setHasMore] = useState({ omnixra: true, scraped: true, remote: true });
@@ -108,22 +107,16 @@ function JobsPage({ focusJobSlug }) {
     if (tabLoading.remote) return;
     setTabLoading(prev => ({ ...prev, remote: true }));
     try {
-      const res = await api.get(`/remote-jobs?page=${page}&q=${encodeURIComponent(user?.category || "remote")}`);
+      const res = await api.get(`/remote-jobs?page=${page}`);
       const data = res.data;
-      if (data.comingSoon) {
-        setRemoteComingSoon(true);
-        setRemoteJobs([]);
-        setCounts(prev => ({ ...prev, remote: 0 }));
+      if (page === 1) {
+        setRemoteJobs(data.jobs || []);
+        setCounts(prev => ({ ...prev, remote: data.total || 0 }));
       } else {
-        if (page === 1) {
-          setRemoteJobs(data.jobs || []);
-          setCounts(prev => ({ ...prev, remote: data.total || 0 }));
-        } else {
-          setRemoteJobs(prev => [...prev, ...(data.jobs || [])]);
-        }
-        setHasMore(prev => ({ ...prev, remote: data.hasMore || false }));
-        setPages(prev => ({ ...prev, remote: page + 1 }));
+        setRemoteJobs(prev => [...prev, ...(data.jobs || [])]);
       }
+      setHasMore(prev => ({ ...prev, remote: data.hasMore || false }));
+      setPages(prev => ({ ...prev, remote: page + 1 }));
     } catch (err) {
       console.error("Remote fetch error:", err);
     } finally {
@@ -135,7 +128,7 @@ function JobsPage({ focusJobSlug }) {
     setActiveTab(tab);
     markTabSeen(tab);
     if (tab === "scraped" && scrapedJobs.length === 0) fetchScraped(1);
-    if (tab === "remote" && remoteJobs.length === 0 && !remoteComingSoon) fetchRemote(1);
+    if (tab === "remote" && remoteJobs.length === 0) fetchRemote(1);
   };
 
   // Infinite scroll for the active tab
@@ -204,12 +197,6 @@ function JobsPage({ focusJobSlug }) {
             <span className="text-xs text-slate-600 mt-4">
               {activeTab === "omnixra" ? "Loading jobs for you..." : activeTab === "scraped" ? "Loading jobs from other sites..." : "Loading remote jobs..."}
             </span>
-          </div>
-        ) : remoteComingSoon && activeTab === "remote" ? (
-          <div className="empty-state mt-7">
-            <div className="empty-icon">🌍</div>
-            <h2 className="text-sm font-semibold mt-4">Remote jobs coming soon</h2>
-            <p className="text-xs text-slate-700 mt-2">We're integrating global remote jobs from JSearch API. Check back soon!</p>
           </div>
         ) : currentJobs.length === 0 ? (
           <div className="empty-state mt-7">

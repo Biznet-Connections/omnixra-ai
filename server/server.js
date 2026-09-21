@@ -489,5 +489,33 @@ server.listen(PORT, () => {
         generateDailyAIJobs().catch(err => console.error("AI jobs error:", err.message));
       }
     }, 60 * 60 * 1000);
+
+    // 🌍 Remote jobs scrapers — daily at 5am + catch-up on boot
+    console.log("📅 Scheduling remote job scrapers: daily at 5am");
+    setTimeout(async () => {
+      try {
+        const { default: RemoteJob } = await import("./models/RemoteJob.js");
+        const latest = await RemoteJob.findOne().sort({ dateScraped: -1 }).lean();
+        const hours = latest ? (Date.now() - new Date(latest.dateScraped).getTime()) / 3600000 : 999;
+        if (hours > 24) {
+          console.log(`🌍 Remote jobs stale (${Math.round(hours)}h) — running catch-up scrape`);
+          const { runAllRemoteScrapers } = await import("./scraper/runRemoteScrapers.js");
+          const result = await runAllRemoteScrapers();
+          console.log(`🌍 Remote catch-up done: ${result.totalNew} new, ${result.totalUpdated} updated`);
+        }
+      } catch (e) { console.error("🌍 Remote catch-up error:", e.message); }
+    }, 30 * 1000);
+
+    setInterval(async () => {
+      const hour = new Date().getHours();
+      if (hour === 5) {
+        try {
+          console.log(`🌍 Daily remote job scrape at ${hour}:00`);
+          const { runAllRemoteScrapers } = await import("./scraper/runRemoteScrapers.js");
+          const result = await runAllRemoteScrapers();
+          console.log(`🌍 Remote scrape done: ${result.totalNew} new, ${result.totalUpdated} updated`);
+        } catch (e) { console.error("🌍 Remote scraper error:", e.message); }
+      }
+    }, 60 * 60 * 1000);
   });
 });

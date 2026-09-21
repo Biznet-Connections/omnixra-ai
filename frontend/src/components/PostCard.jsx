@@ -281,7 +281,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
                   {isCompany && <span className="company-badge"><Building2 size={10} /> Company</span>}
                 </div>
                 <div className="text-[10px] text-slate-600 mt-1">
-                  {timeAgo(post.createdAt)} · 🌍 {post.edited && <span className="text-slate-500 ml-1">(edited)</span>}
+                  {timeAgo(post.createdAt)} · 🌍 {post.edited && <span className="text-slate-500 ml-1">(edited)</span>}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -362,7 +362,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
             )}
             {post.failed && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-white px-4">
-                <div style={{ fontSize: 13, marginBottom: 6, fontWeight: 600 }}>⚠️ ï¸ Video upload failed</div>
+                <div style={{ fontSize: 13, marginBottom: 6, fontWeight: 600 }}>⚠️ ï¸ Video upload failed</div>
                 <div style={{ fontSize: 11, opacity: 0.8, textAlign: "center" }}>{post.errorMessage || "Please try again."}</div>
               </div>
             )}

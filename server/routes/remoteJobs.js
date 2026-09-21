@@ -1,31 +1,50 @@
 import express from "express";
-import { searchJSearch } from "../scraper/sources/jsearch.js";
+import RemoteJob from "../models/RemoteJob.js";
 
 const router = express.Router();
 
-// GET remote jobs (via JSearch API)
+// GET remote jobs (paginated) from local RemoteJob collection
 router.get("/", async (req, res) => {
   try {
-    const query = req.query.q || "remote developer";
     const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    const q = (req.query.q || "").trim();
 
-    // If API key is missing, return coming soon
-    if (!process.env.JSEARCH_API_KEY || process.env.JSEARCH_API_KEY.trim() === "") {
-      return res.json({
-        jobs: [],
-        hasMore: false,
-        total: 0,
-        page,
-        comingSoon: true,
-        message: "Remote jobs coming soon. Add JSEARCH_API_KEY to enable."
-      });
+    const filter = { active: true };
+    if (q && q.toLowerCase() !== "remote") {
+      filter.$or = [
+        { title: new RegExp(q, "i") },
+        { company: new RegExp(q, "i") },
+        { category: new RegExp(q, "i") },
+        { tags: new RegExp(q, "i") },
+      ];
     }
 
-    const result = await searchJSearch(query, page);
-    res.json(result);
+    const total = await RemoteJob.countDocuments(filter);
+    const jobs = await RemoteJob.find(filter)
+      .sort({ postedDate: -1, dateScraped: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Map applyUrl for JobCard compatibility
+    const mapped = jobs.map(j => ({
+      ...j,
+      applicationUrl: j.applicationUrl || j.applyUrl,
+      deadline: null,
+    }));
+
+    res.json({
+      jobs: mapped,
+      hasMore: page * limit < total,
+      total,
+      page,
+      comingSoon: total === 0,
+    });
   } catch (error) {
     console.error("Remote jobs error:", error.message);
-    res.status(500).json({ message: error.message, jobs: [], hasMore: false });
+    res.status(500).json({ message: error.message, jobs: [], hasMore: false, total: 0 });
   }
 });
 
