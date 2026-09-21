@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import api from "../api/axios";
 import { useAuth } from "./AuthContext";
 
@@ -24,9 +24,6 @@ export function FollowingProvider({ children }) {
   const { user } = useAuth();
   const [ids, setIds] = useState(() => readLocal());
   const [ready, setReady] = useState(false);
-  const idsRef = useRef(ids);
-  useEffect(() => { idsRef.current = ids; }, [ids]);
-
   // Hydrate from backend on login (source of truth)
   useEffect(() => {
     let cancelled = false;
@@ -49,10 +46,11 @@ export function FollowingProvider({ children }) {
     return () => { cancelled = true; };
   }, [user?._id]);
 
+  // Reactive: depends on `ids` so every consumer re-renders on change
   const isFollowing = useCallback((userId) => {
     if (!userId) return false;
-    return idsRef.current.includes(String(userId));
-  }, []);
+    return ids.includes(String(userId));
+  }, [ids]);
 
   const follow = useCallback(async (userId) => {
     const id = String(userId);

@@ -81,16 +81,9 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   const [editError, setEditError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const { isFollowing, follow, unfollow } = useFollowing();
-  const [following, setFollowing] = useState(() => {
-    const followingList = JSON.parse(localStorage.getItem("omnixra_following") || "[]");
-    return followingList.includes(post.author?._id);
-  });
-
-  // Keep local state in sync with the global following list
-  useEffect(() => {
-    if (!post.author?._id) return;
-    setFollowing(isFollowing(post.author._id));
-  }, [isFollowing, post.author?._id]);
+  // Derived directly from global context — NO local state. Every PostCard
+  // re-renders instantly when the global following list changes.
+  const following = isFollowing(post.author?._id);
 
   const [showBoost, setShowBoost] = useState(false);
 
@@ -216,18 +209,14 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
     if (!post.author?._id) return;
     playSound("follow");
 
-    const currentlyFollowing = isFollowing(post.author._id);
-    setFollowing(!currentlyFollowing); // instant UI flip
-
     try {
-      if (currentlyFollowing) {
+      if (following) {
         await unfollow(post.author._id);
       } else {
         await follow(post.author._id);
       }
+      // No setState — the context optimistic update already flipped it
     } catch (err) {
-      // Revert on failure
-      setFollowing(currentlyFollowing);
       console.error("follow error:", err);
     }
   };

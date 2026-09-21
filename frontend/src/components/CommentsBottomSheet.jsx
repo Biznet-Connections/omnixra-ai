@@ -159,7 +159,10 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
       pending: true
     };
     setComments(prev => [...prev, optimistic]);
-    onUpdate?.({ ...post, totalComments: (post.totalComments || 0) + 1 });
+
+    // Instant: bump parent count NOW (optimistic)
+    const nextCount = (post.totalComments || 0) + 1;
+    onUpdate?.({ ...post, totalComments: nextCount });
 
     try {
       // Only send mentions that actually still appear in the final text
