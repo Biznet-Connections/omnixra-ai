@@ -11,28 +11,30 @@ router.post("/register-token", protect, async (req, res) => {
     const { token, platform } = req.body || {};
     if (!token) return res.status(400).json({ message: "token required" });
 
-    const user = await User.findById(req.user._id);
+    // Atomic update — avoids VersionError race when device registers twice quickly.
+    // 1. Pull any existing entry for this token (dedupe)
+    // 2. Push the fresh entry
+    // 3. Slice to last 5
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $pull: { fcmTokens: { token } } },
+      { new: true }
+    );
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (!user.fcmTokens) user.fcmTokens = [];
-
-    // Remove duplicates (same token)
-    user.fcmTokens = user.fcmTokens.filter((t) => (t && t.token) !== token);
-
-    user.fcmTokens.push({
-      token,
-      platform: platform || "android",
-      createdAt: new Date(),
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: {
+        fcmTokens: {
+          $each: [{ token, platform: platform || "android", createdAt: new Date() }],
+          $slice: -5,
+        },
+      },
     });
 
-    // Cap to last 5 devices
-    if (user.fcmTokens.length > 5) {
-      user.fcmTokens = user.fcmTokens.slice(-5);
-    }
-
-    await user.save();
-    console.log("Token registered for user", String(user._id), "-", user.fcmTokens.length, "total");
-    res.json({ success: true, count: user.fcmTokens.length });
+    const fresh = await User.findById(req.user._id).select("fcmTokens").lean();
+    const count = (fresh?.fcmTokens || []).length;
+    console.log("Token registered for user", String(req.user._id), "-", count, "total");
+    res.json({ success: true, count });
   } catch (err) {
     console.error("Register token error:", err);
     res.status(500).json({ message: err.message });
