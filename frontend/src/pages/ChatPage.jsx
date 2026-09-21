@@ -60,28 +60,59 @@ function ChatPage() {
   const levelRAFRef = useRef(null);
   const MAX_SECONDS = 60;
 
-  // Play a short beep using Web Audio (no asset needed, works in APK offline)
-function playBeep(freq = 880, duration = 0.14, volume = 0.13) {
+  // ── Web Audio sound engine — no assets, works offline in APK ──
+let _audioCtx = null;
+function getAudioCtx() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
+    if (!Ctx) return null;
+    if (!_audioCtx) _audioCtx = new Ctx();
+    if (_audioCtx.state === "suspended") _audioCtx.resume().catch(() => {});
+    return _audioCtx;
+  } catch { return null; }
+}
+
+function playTone({ freq = 880, duration = 0.12, volume = 0.13, type = "sine" }) {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  try {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(volume, ctx.currentTime + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
     osc.connect(gain).connect(ctx.destination);
     osc.start();
-    osc.stop(ctx.currentTime + duration);
-    setTimeout(() => ctx.close && ctx.close(), (duration + 0.05) * 1000);
-  } catch (e) {
-    console.warn("[beep] failed:", e.message);
-  }
+    osc.stop(ctx.currentTime + duration + 0.02);
+  } catch {}
+}
+
+// Start recording — rising pop
+function soundMicStart() {
+  playTone({ freq: 700, duration: 0.09, volume: 0.12, type: "sine" });
+  setTimeout(() => playTone({ freq: 1050, duration: 0.10, volume: 0.13, type: "sine" }), 60);
+}
+
+// Stop recording — falling pop
+function soundMicStop() {
+  playTone({ freq: 950, duration: 0.08, volume: 0.11, type: "sine" });
+  setTimeout(() => playTone({ freq: 620, duration: 0.10, volume: 0.12, type: "sine" }), 55);
+}
+
+// Message sent — soft ding
+function soundSend() {
+  playTone({ freq: 1200, duration: 0.08, volume: 0.09, type: "triangle" });
+}
+
+// AI reply — softer low ding
+function soundReceive() {
+  playTone({ freq: 880, duration: 0.11, volume: 0.08, type: "sine" });
 }
 
 const startRecording = async () => {
+    soundMicStart();
     playBeep(880, 0.12, 0.14); // start beep
 
     try {
@@ -133,6 +164,7 @@ const startRecording = async () => {
   };
 
   const stopRecording = () => {
+    soundMicStop();
     playBeep(420, 0.15, 0.14); // stop beep
 
     if (recordTimerRef.current) clearInterval(recordTimerRef.current);
@@ -146,6 +178,7 @@ const startRecording = async () => {
   };
 
   const cancelRecording = () => {
+    soundMicStop();
     playBeep(300, 0.18, 0.12); // cancel beep
 
     audioChunksRef.current = [];
@@ -228,6 +261,7 @@ const startRecording = async () => {
 
     const userMsg = { role: "user", text, attachments: chatAttachments };
     setMessages(prev => [...prev, userMsg]);
+    soundSend();
     setInput("");
     const capturedAttachments = [...chatAttachments];
     setChatAttachments([]);
@@ -290,6 +324,7 @@ const startRecording = async () => {
         profileSaveOffer: d.profileSaveOffer || null,
         chatId: d.chatId,
       }]);
+      soundReceive();
       if (d.chatId) setChatId(d.chatId);
     } catch (err) {
       const errMsg = !navigator.onLine
