@@ -1648,6 +1648,10 @@ input::placeholder, textarea::placeholder { color: #3d4350; }
   body:not(.is-native) .chat-page {
     padding-bottom: calc(var(--bottom-nav-height) - 32px);
   }
+  /* APK only — lift composer up so it sits flush above nav */
+  body.is-native .chat-page {
+    padding-bottom: calc(var(--bottom-nav-height) + 32px);
+  }
   .card-actions {
     gap: 5px;
   }
