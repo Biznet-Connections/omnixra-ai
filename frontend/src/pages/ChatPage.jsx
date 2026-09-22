@@ -497,8 +497,8 @@ const startRecording = async () => {
                         {shared === message.text ? <Check size={13} /> : <Share2 size={13} />}
                       </button>
                     </div>
-                    {message.jobs && <div className="mt-5 space-y-3">{message.jobs.map(job => <JobCard key={job._id || job.company} job={job} />)}</div>}
-                    {message.talent && <div className="mt-5 space-y-3">{message.talent.map(t => <TalentCard key={t._id} talent={t} />)}</div>}
+                    {message.jobs && <div className="mt-5 space-y-5">{message.jobs.map(job => <JobCard key={job._id || job.company} job={job} />)}</div>}
+                    {message.talent && <div className="mt-5 space-y-5">{message.talent.map(t => <TalentCard key={t._id} talent={t} />)}</div>}
                   </div>
                 </div>
               ) : (
@@ -536,7 +536,21 @@ const startRecording = async () => {
             ))}
           </div>
         )}
-        <div className="suggestion-row">{suggestions.map(prompt => <button key={prompt} onClick={() => sendMessage(prompt)} className="suggestion-chip"><Sparkles size={11} />{prompt}</button>)}</div>
+        {(() => {
+          // Only show default chips if the last AI message didn't already show custom chips
+          const lastAi = [...messages].reverse().find(m => m.role === "assistant");
+          const hasAiChips = lastAi && Array.isArray(lastAi.chips) && lastAi.chips.length > 0;
+          if (hasAiChips) return null;
+          return (
+            <div className="suggestion-row">
+              {suggestions.map(prompt => (
+                <button key={prompt} onClick={() => sendMessage(prompt)} className="suggestion-chip">
+                  <Sparkles size={11} />{prompt}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
         {(isRecording || transcribing) ? (
           <div className="chat-composer flex items-center gap-2 px-3 py-2">
             {transcribing ? (
