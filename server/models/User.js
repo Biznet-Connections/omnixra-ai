@@ -92,6 +92,9 @@ const userSchema = new mongoose.Schema(
     cvUpdatedAt: { type: Date },
     yearsExperience: { type: Number },
     experienceLevel: { type: String, enum: ["entry", "mid", "senior", null], default: null },
+    availability: { type: String, enum: ["full-time", "part-time", "either", null], default: null },
+    expectedSalary: { type: String, default: null },
+    aiQualifiersAsked: [{ type: String }],   // ["cv","experience","availability","salary"] — remember what we've asked
 
     notificationPrefs: {
       jobAlerts: { type: Boolean, default: true },

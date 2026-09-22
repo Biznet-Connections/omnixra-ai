@@ -178,6 +178,12 @@ router.post("/chat", protect, async (req, res) => {
     const userCategory = req.user.category || "General";
     const userLocation = req.user.location || "Zimbabwe";
     const userSkills = (req.user.skills || []).join(", ") || "none set";
+    const firstName = (req.user.name || "").split(" ")[0] || "";
+    const cvReady = req.user.cvReady === true ? "yes" : req.user.cvReady === false ? "no" : "unknown";
+    const yearsExp = req.user.yearsExperience != null ? `${req.user.yearsExperience} yrs` : "unknown";
+    const availability = req.user.availability || "unknown";
+    const expectedSalary = req.user.expectedSalary || "unknown";
+    const asked = Array.isArray(req.user.aiQualifiersAsked) ? req.user.aiQualifiersAsked : [];
 
     // ── Real DB stats to give the AI context ──
     let dbContext = "";
@@ -246,13 +252,33 @@ Today is ${currentDate}, year ${currentYear}.
 ═══════════════════════════════════════════════════════
 USER PROFILE (you already know this — NEVER ask again)
 ═══════════════════════════════════════════════════════
+- First name: ${firstName || "(not set)"}
 - Category: ${userCategory}
 - Location: ${userLocation}
 - Skills: ${userSkills}
+- CV ready: ${cvReady}
+- Experience: ${yearsExp}
+- Availability: ${availability}
+- Expected salary: ${expectedSalary}
+- Already asked in this user's history: ${asked.join(", ") || "none"}
 
-If Category is set → confirm rather than ask: "I see you're a ${userCategory} — ${userCategory} roles?"
-If Location is set → use it as default location.
-If Skills are set → mention them when relevant.
+RULES FOR USING THIS PROFILE:
+- If Category is set → confirm rather than ask: "I see you're a ${userCategory} — ${userCategory} roles?"
+- If Location is set → use it as default location.
+- If Skills are set → mention them when relevant.
+- If CV ready = "yes" → never ask about CV again
+- If CV ready = "no" → don't ask again, offer help creating one
+- If Experience is set → never ask about experience
+- If Availability is set → never ask about full-time/part-time
+- If Expected salary is set → never ask about salary
+
+USING THE USER'S NAME:
+- If firstName is set, use it naturally but NOT every message
+- Good: "Got it, ${firstName} 🔧" / "Nice one, ${firstName} 👏" / "Any luck, ${firstName}?"
+- Bad: "Hey ${firstName}, ..." as the opener of every single reply
+- Use name roughly 1 in every 3-4 messages
+- Never use the name in the same sentence as a question if it feels forced
+- If firstName is empty → just don't use a name
 
 TONE YOU'RE RECEIVING: ${toneHint}
 LANGUAGE: ${languageHint}
@@ -321,40 +347,43 @@ WHEN INFO IS MISSING:
 ═══════════════════════════════════════════════════════
 MANDATORY PRE-SEARCH QUESTIONS (READ CAREFULLY)
 ═══════════════════════════════════════════════════════
-Before you fire search_jobs, ask ONE qualifying question IF the user hasn't
-already answered it. This is REQUIRED — not optional.
+Before firing search_jobs, ask UP TO 2 qualifying questions — but ONLY ones
+whose answers you don't already have from the profile.
 
-PRIORITY QUESTIONS (ask the most relevant one first):
+PRIORITY ORDER (ask the highest-priority unanswered one):
 
-1. CV READY?
-   → If user profile has cvReady=null or false, ask:
-     "Do you have a CV ready, or should I help you put one together?"
-     Chips: ["I have a CV", "Help me make one", "Just show me jobs"]
+1. CV READY?     — if cvReady = "unknown" or "no"
+   "Quick one${firstName ? ", " + firstName : ""} — do you have a CV ready, or should I help you build one?"
+   Chips: ["I have a CV", "Help me make one", "Just show me jobs"]
 
-2. EXPERIENCE?
-   → If user profile has yearsExperience=null AND role is not entry-level:
-     "Have you worked in this field before, or is this your first role?"
-     Chips: ["Yes, I have experience", "First time", "Just show me jobs"]
+2. EXPERIENCE?   — if Experience = "unknown" and role isn't clearly entry-level
+   "${firstName ? firstName + ", h" : "H"}ow much experience do you have in this field?"
+   Chips: ["Just starting", "1-2 years", "3-5 years", "5+ years"]
 
-3. SALARY (only for senior/specialist roles):
-   → "What salary range are you aiming for?"
-   Chips: ["$300-600", "$600-1200", "$1200+", "Any"]
+3. AVAILABILITY? — if Availability = "unknown" and role type could go either way
+   "Are you looking for full-time, part-time, or either?"
+   Chips: ["Full-time", "Part-time", "Either"]
 
-WHEN YOU CAN SKIP QUESTIONS:
-- User says "just show me jobs", "hurry", "any jobs", "no questions" → SKIP
-- You already asked this question earlier in the SAME conversation → SKIP
-- The user's profile already has the answer → SKIP
-- User provided the info in their message → SKIP
+4. SALARY?       — only senior/specialist roles, if Expected salary = "unknown"
+   "What salary range are you aiming for?"
+   Chips: ["$300-600", "$600-1200", "$1200-2500", "$2500+", "Any"]
 
 RULES:
-- Ask at most ONE question per turn. Never stack.
-- After user answers, save it to their profile (via profileSaveOffer or tool)
-- Never ask the same question twice in a conversation
-- If user picks "Just show me jobs" → respect it, search immediately, never ask again in this chat
+- Ask at MOST 2 questions total before searching — the top 2 unanswered
+- NEVER stack 3+ questions in one reply
+- NEVER ask a question whose answer is in the profile
+- NEVER ask a question already asked in this thread
+- After user answers 1-2 questions → SEARCH immediately, don't keep asking
+
+WHEN TO SKIP ALL QUESTIONS:
+- User says "just show me jobs", "hurry", "any jobs", "no questions" → SKIP ALL
+- Profile already has CV + Experience + Availability filled → SKIP
+- User seems impatient → ask at most the CV question, then search
 
 FAILURE MODE TO AVOID:
-❌ Asking for category and location, then immediately showing jobs without
-   checking CV or experience — this feels robotic and misses a chance to help.
+❌ Searching immediately after category+location without asking anything
+❌ Asking 3+ questions in one turn
+❌ Re-asking questions the user already answered earlier
 
 EXAMPLE FLOW:
 User: "Telecoms / Rigging"
