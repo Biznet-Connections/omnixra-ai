@@ -140,7 +140,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
       const res = await api.put(`/posts/${realId}/like`, { action });
       const serverLikes = typeof res.data.likes === 'number' ? res.data.likes : likeCount;
       setLikeCount(serverLikes);
-      onUpdate?.({ ...post, likes: serverLikes });
+      onUpdate?.(post._id || post._originalId, { likes: serverLikes });
     } catch (err) {
       console.error(err);
       setLiked(!newLiked);
@@ -186,7 +186,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
     setEditError("");
     try {
       const res = await api.put(`/posts/${realId}/edit`, { text: editText.trim() });
-      onUpdate?.(res.data);
+      onUpdate?.(post._id || post._originalId, res.data);
       setIsEditing(false);
       setShowMenu(false);
       setEditError("");

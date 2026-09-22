@@ -162,7 +162,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
 
     // Instant: bump parent count NOW (optimistic)
     const nextCount = (post.totalComments || 0) + 1;
-    onUpdate?.({ ...post, totalComments: nextCount });
+    onUpdate?.(post._id || post._originalId, { totalComments: nextCount });
 
     try {
       // Only send mentions that actually still appear in the final text
@@ -177,13 +177,13 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
       }
       // Trust the server's count for the parent
       if (typeof res.data?.totalComments === "number") {
-        onUpdate?.({ ...post, totalComments: res.data.totalComments });
+        onUpdate?.(post._id || post._originalId, { totalComments: res.data.totalComments });
       }
       setPendingMentions([]);
     } catch (err) {
       console.error("Comment error:", err);
       setComments(prev => prev.filter(c => c._id !== tempId));
-      onUpdate?.({ ...post, totalComments: Math.max(0, (post.totalComments || 1) - 1) });
+      onUpdate?.(post._id || post._originalId, { totalComments: Math.max(0, (post.totalComments || 1) - 1) });
     }
   };
 
@@ -254,13 +254,13 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
     const backup = comments;
     // Optimistic remove
     setComments(prev => prev.filter(c => c._id !== commentId));
-    onUpdate?.({ ...post, totalComments: Math.max(0, (post.totalComments || 1) - 1) });
+    onUpdate?.(post._id || post._originalId, { totalComments: Math.max(0, (post.totalComments || 1) - 1) });
     try {
       await api.delete(`/posts/${realId}/comment/${commentId}`);
     } catch (err) {
       console.error("Delete comment error:", err);
       setComments(backup);
-      onUpdate?.({ ...post, totalComments: (post.totalComments || 0) + 1 });
+      onUpdate?.(post._id || post._originalId, { totalComments: (post.totalComments || 0) + 1 });
     }
   };
 
