@@ -86,6 +86,13 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
+    // ── CV / work experience tracking (for AI qualifying questions) ──
+    cvReady: { type: Boolean, default: null },   // null = unknown, true/false = known
+    cvUrl: { type: String },
+    cvUpdatedAt: { type: Date },
+    yearsExperience: { type: Number },
+    experienceLevel: { type: String, enum: ["entry", "mid", "senior", null], default: null },
+
     notificationPrefs: {
       jobAlerts: { type: Boolean, default: true },
       news: { type: Boolean, default: true },

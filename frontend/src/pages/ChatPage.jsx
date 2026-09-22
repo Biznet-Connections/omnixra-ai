@@ -467,13 +467,6 @@ const startRecording = async () => {
                   <div className="flex-1 max-w-3xl">
                     <div className="text-[11px] text-slate-600 mb-1.5">Omnixra AI</div>
                     <div className="ai-message-text">{message.text}</div>
-                    {message.chips && message.chips.length > 0 && (
-                      <ChatChips
-                        chips={message.chips}
-                        tone={message.tone}
-                        onPick={(chip) => sendMessage(chip)}
-                      />
-                    )}
                     {message.profileSaveOffer && (
                       <div className="mt-3 p-3 rounded-lg border border-indigo-500/30 bg-indigo-500/[.06]">
                         <div className="text-xs text-indigo-200 mb-2">💾 {message.profileSaveOffer.text || "Save this info for next time?"}</div>
@@ -499,6 +492,15 @@ const startRecording = async () => {
                     </div>
                     {message.jobs && <div className="mt-5 space-y-5">{message.jobs.map(job => <JobCard key={job._id || job.company} job={job} />)}</div>}
                     {message.talent && <div className="mt-5 space-y-5">{message.talent.map(t => <TalentCard key={t._id} talent={t} />)}</div>}
+                    {message.chips && message.chips.length > 0 && (
+                      <div className="mt-5">
+                        <ChatChips
+                          chips={message.chips}
+                          tone={message.tone}
+                          onPick={(chip) => sendMessage(chip)}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
