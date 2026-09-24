@@ -8,6 +8,7 @@ import ApplyComposerPage from "../pages/ApplyComposerPage";
 import PushCVModal from "./PushCVModal";
 import LockedFeatureModal from "./LockedFeatureModal";
 import PaymentModal from "./PaymentModal";
+import JobDescriptionBody from "./JobDescriptionBody";
 import { openGmailCompose, buildApplicationEmail } from "../utils/gmailCompose";
 import { hasTier } from "../utils/tierHelpers";
 import { shareJob } from "../utils/share";
@@ -256,13 +257,10 @@ function JobCard({ job, tab = "omnixra" }) {
               {job.closingDate && !job.deadline && <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-400">📅 Closes {new Date(job.closingDate).toLocaleDateString()}</span>}
             </div>
 
-            {/* Full description */}
+            {/* Full description — collapsible sections */}
             {job.description && (
               <div className="mb-4">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Job Description</div>
-                <p className="text-sm text-slate-300 leading-7 whitespace-pre-wrap max-h-96 overflow-y-auto pr-2">
-                  {job.description}
-                </p>
+                <JobDescriptionBody description={job.description} />
               </div>
             )}
 
@@ -287,13 +285,7 @@ function JobCard({ job, tab = "omnixra" }) {
             )}
 
             {/* Source attribution */}
-            {job.source && job.source !== "omnixra" && (
-              <p className="text-xs text-slate-500 mt-3 italic">
-                Source: {typeof job.source === "string" ? job.source : "External"}
-              </p>
-            )}
-
-            {/* Actions */}
+{/* Actions */}
             <div className="flex gap-2 mt-5 flex-wrap">
               <button
                 onClick={() => { setShowDetail(false); handleApplyClick(); }}

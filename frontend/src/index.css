@@ -6391,7 +6391,65 @@ body.sidebar-open .bottom-nav {
   /* Default aspect for 2+ images */
   aspect-ratio: 1 / 1;
   max-height: 640px;
+
+  /* ── Old WebView fallback (Android ≤ 8, some Capacitor builds) ── */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+
+  /* Explicit column count as fallback for WebViews that ignore aspect-ratio */
+  grid-auto-rows: minmax(100px, 1fr);
+  width: 100%;
+  max-width: 100%;
 }
+
+/* If CSS grid is not supported, use flexbox fallback */
+@supports not (display: grid) {
+  .post-media-grid {
+    display: flex;
+    flex-wrap: wrap;
+    aspect-ratio: auto;
+  }
+  .post-media-grid > .media-cell {
+    flex: 1 1 33%;
+    min-width: 100px;
+    max-height: 260px;
+    margin: 2px;
+  }
+  .post-media-grid.media-2 > .media-cell { flex-basis: 49%; }
+  .post-media-grid.media-1 > .media-cell { flex-basis: 100%; max-height: 540px; }
+}
+
+/* ── Compose grid thumbnails — same WebView protection ── */
+.composer-image-grid {
+  -webkit-backface-visibility: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Explicit pixel height for media cells — fights WebView layout bugs */
+.post-media-grid .media-cell {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: #1a1d24;
+  cursor: pointer;
+  min-width: 0;
+  min-height: 0;
+  /* Force a sane height for WebViews that ignore aspect-ratio */
+  height: 100%;
+}
+
+/* For WebView only — pin the container height and let cells flow */
+.post-media-grid.media-2 { min-height: 280px; }
+.post-media-grid.media-3 { min-height: 380px; }
+.post-media-grid.media-4 { min-height: 380px; }
+.post-media-grid.media-5,
+.post-media-grid.media-6 { min-height: 340px; }
+.post-media-grid.media-7,
+.post-media-grid.media-8,
+.post-media-grid.media-9,
+.post-media-grid.media-10 { min-height: 420px; }
 
 /* Single image — full natural width, capped height */
 .post-media-grid.media-1 {
@@ -6674,7 +6732,65 @@ body.sidebar-open .bottom-nav {
   /* Default aspect for 2+ images */
   aspect-ratio: 1 / 1;
   max-height: 640px;
+
+  /* ── Old WebView fallback (Android ≤ 8, some Capacitor builds) ── */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+
+  /* Explicit column count as fallback for WebViews that ignore aspect-ratio */
+  grid-auto-rows: minmax(100px, 1fr);
+  width: 100%;
+  max-width: 100%;
 }
+
+/* If CSS grid is not supported, use flexbox fallback */
+@supports not (display: grid) {
+  .post-media-grid {
+    display: flex;
+    flex-wrap: wrap;
+    aspect-ratio: auto;
+  }
+  .post-media-grid > .media-cell {
+    flex: 1 1 33%;
+    min-width: 100px;
+    max-height: 260px;
+    margin: 2px;
+  }
+  .post-media-grid.media-2 > .media-cell { flex-basis: 49%; }
+  .post-media-grid.media-1 > .media-cell { flex-basis: 100%; max-height: 540px; }
+}
+
+/* ── Compose grid thumbnails — same WebView protection ── */
+.composer-image-grid {
+  -webkit-backface-visibility: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Explicit pixel height for media cells — fights WebView layout bugs */
+.post-media-grid .media-cell {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: #1a1d24;
+  cursor: pointer;
+  min-width: 0;
+  min-height: 0;
+  /* Force a sane height for WebViews that ignore aspect-ratio */
+  height: 100%;
+}
+
+/* For WebView only — pin the container height and let cells flow */
+.post-media-grid.media-2 { min-height: 280px; }
+.post-media-grid.media-3 { min-height: 380px; }
+.post-media-grid.media-4 { min-height: 380px; }
+.post-media-grid.media-5,
+.post-media-grid.media-6 { min-height: 340px; }
+.post-media-grid.media-7,
+.post-media-grid.media-8,
+.post-media-grid.media-9,
+.post-media-grid.media-10 { min-height: 420px; }
 
 /* Single image — full natural width, capped height */
 .post-media-grid.media-1 {
@@ -6885,4 +7001,127 @@ body.sidebar-open .bottom-nav {
 .image-carousel-dot.active {
   background: #fff;
   transform: scale(1.3);
+}
+
+/* ══════════════════════════════════════════════════════════
+   JOB DESCRIPTION BODY — collapsible sections + bullets
+══════════════════════════════════════════════════════════ */
+.job-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.job-desc-section {
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 10px;
+  background: rgba(255,255,255,.015);
+  overflow: hidden;
+}
+.job-desc-section.open {
+  background: rgba(255,255,255,.025);
+}
+
+.job-desc-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 14px;
+  background: transparent;
+  border: 0;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.job-desc-heading:hover {
+  background: rgba(255,255,255,.03);
+}
+.job-desc-heading-icon {
+  display: flex;
+  align-items: center;
+  color: #818cf8;
+  flex-shrink: 0;
+}
+.job-desc-heading-text {
+  flex: 1;
+  color: #e2e8f0;
+}
+.job-desc-heading-count {
+  font-size: 10.5px;
+  color: #64748b;
+  background: rgba(255,255,255,.06);
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.job-desc-body {
+  padding: 0 14px 12px;
+  animation: descFade .15s ease-out;
+}
+@keyframes descFade {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.job-desc-p {
+  font-size: 13px;
+  line-height: 1.75;
+  color: #cbd5e1;
+  margin: 8px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.job-desc-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.job-desc-list li {
+  position: relative;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+.job-desc-list li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5, #8b5cf6);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   JOB DEEP-LINK HIGHLIGHT — purple pulse, 4s
+══════════════════════════════════════════════════════════ */
+.job-highlight {
+  animation: jobGlowPulse 4s ease-out;
+  border-radius: 14px;
+  position: relative;
+  z-index: 5;
+}
+
+@keyframes jobGlowPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(139,92,246,0); }
+  8%   { box-shadow: 0 0 0 5px rgba(139,92,246,.85), 0 0 50px 10px rgba(139,92,246,.5); }
+  22%  { box-shadow: 0 0 0 2px rgba(139,92,246,.5), 0 0 30px 4px rgba(139,92,246,.3); }
+  36%  { box-shadow: 0 0 0 5px rgba(139,92,246,.85), 0 0 50px 10px rgba(139,92,246,.5); }
+  50%  { box-shadow: 0 0 0 2px rgba(139,92,246,.5), 0 0 30px 4px rgba(139,92,246,.3); }
+  64%  { box-shadow: 0 0 0 5px rgba(139,92,246,.85), 0 0 50px 10px rgba(139,92,246,.5); }
+  82%  { box-shadow: 0 0 0 3px rgba(139,92,246,.6), 0 0 25px 4px rgba(139,92,246,.35); }
+  100% { box-shadow: 0 0 0 0 rgba(139,92,246,0); }
 }

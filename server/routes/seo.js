@@ -5,6 +5,9 @@ import Company from "../models/Company.js";
 import { slugify } from "../utils/slugify.js";
 
 const router = express.Router();
+
+// ── Bot detection for OG previews ──
+const BOT_UA_REGEX = /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|telegrambot|linkedinbot|slackbot|discordbot|googlebot|bingbot|embedly|quora link preview|pinterest|outbrain|vkshare|w3c_validator/i;
 const BASE_URL = "https://omnixra-ai.com";
 
 // ── ROBOTS.TXT ──
@@ -69,6 +72,125 @@ router.get("/sitemap.xml", async (req, res) => {
   } catch (error) {
     console.error("Sitemap error:", error);
     res.status(500).send("Error generating sitemap");
+  }
+});
+
+// ── JOB PREVIEW (OpenGraph rich card) ──
+router.get("/jobs/:slug", async (req, res) => {
+  try {
+    const slug = req.params.slug;
+
+    // Try Job model first (Omnixra jobs)
+    let job = null;
+    try {
+      const Job = (await import("../models/Job.js")).default;
+      job = await Job.findOne({ slug }).lean();
+    } catch (e) {}
+
+    // Fallback to ScrapedJob
+    if (!job) {
+      try {
+        const ScrapedJob = (await import("../models/ScrapedJob.js")).default;
+        job = await ScrapedJob.findOne({ slug }).lean();
+      } catch (e) {}
+    }
+
+    if (!job) {
+      // Not found — send to jobs page
+      return res.redirect("/jobs");
+    }
+
+    // Build title
+    const title = job.title
+      ? `${job.title}${job.company && job.company !== "Unknown Company" ? " at " + job.company : ""} | Omnixra AI`
+      : "Job on Omnixra AI";
+
+    // Build description
+    const metaBits = [];
+    if (job.company && job.company !== "Unknown Company") metaBits.push(job.company);
+    if (job.location) metaBits.push(job.location);
+    if (job.salary) metaBits.push(job.salary);
+    if (job.type) metaBits.push(job.type);
+
+    let description = metaBits.join(" · ");
+    if (job.description) {
+      // Clean the description for OG
+      let clean = String(job.description)
+        // Strip leading "Expires: <date>" metadata
+        .replace(/^\s*Expires[:\s]+[\d\w\s]+?(?=[A-Z]|$)/i, "")
+        // Strip any trailing date-only fragments like "Sep 2026" that leak
+        .replace(/^\s*[A-Z][a-z]{2}\s+\d{4}\s+/i, "")
+        // Remove "job Description" label
+        .replace(/\bjob\s*Description\b/gi, "")
+        // Fix jammed uppercase: "FUNDVACANCY" → "FUND VACANCY"
+        .replace(/([A-Z]{2,})([A-Z][a-z])/g, "$1 $2")
+        // Fix ALL-CAPS jammed sequences before common job-posting keywords
+        .replace(/(VACANCY|NOTICE|APPLICATION|APPLICATIONS|POSITION|POSITIONS|OPPORTUNITY|CANDIDATES|QUALIFICATIONS|REQUIREMENTS|RESPONSIBILITIES|DEPARTMENT|MINISTRY|AUTHORITY|COMMISSION|CANDIDATE)/g, " $1")
+        .replace(/\s{2,}/g, " ")
+        // Remove separator bars
+        .replace(/[─]{3,}/g, " ")
+        // Collapse whitespace
+        .replace(/\s+/g, " ")
+        .trim();
+
+      // Second pass — remove any "Expires: date" that survived mid-text
+      clean = clean.replace(/Expires[:\s]+[\d\w\s]{3,20}(?=\s[A-Z])/gi, "").trim();
+      if (clean) {
+        description += (description ? " — " : "") + clean.slice(0, 200) + (clean.length > 200 ? "…" : "");
+      }
+    }
+    if (!description) description = "Apply on Omnixra AI — Zimbabwe's employment intelligence platform.";
+
+    // Image — use a branded OG fallback for now
+    const image = job.companyLogo || `${BASE_URL}/og-jobs-default.png`;
+    const url = `${BASE_URL}/jobs/${slug}`;
+
+    // Escape HTML in title/description
+    const esc = (t) => String(t || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+    // ── Non-bot browsers: serve the React app directly, let the client route ──
+    const ua = req.headers["user-agent"] || "";
+    const isBot = BOT_UA_REGEX.test(ua);
+
+    if (!isBot) {
+      // Serve the React shell — the app will read window.location.pathname
+      const path = await import("path");
+      const { fileURLToPath } = await import("url");
+      const __dirname = path.dirname(fileURLToPath(import.meta.url));
+      const indexPath = path.join(__dirname, "..", "..", "frontend", "dist", "index.html");
+      return res.sendFile(indexPath);
+    }
+
+    // ── Bots: serve rich OG HTML ──
+    const html = `<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8" />
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(description)}" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="${esc(title)}" />
+<meta property="og:description" content="${esc(description)}" />
+<meta property="og:image" content="${esc(image)}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:url" content="${esc(url)}" />
+<meta property="og:site_name" content="Omnixra AI" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${esc(title)}" />
+<meta name="twitter:description" content="${esc(description)}" />
+<meta name="twitter:image" content="${esc(image)}" />
+<link rel="canonical" href="${esc(url)}" />
+</head><body></body></html>`;
+
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.set("Cache-Control", "public, max-age=300");
+    res.send(html);
+  } catch (error) {
+    console.error("Job preview error:", error.message);
+    res.redirect("/jobs");
   }
 });
 

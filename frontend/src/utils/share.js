@@ -109,9 +109,61 @@ export async function shareJob(job) {
   const slug = job?.slug || job?._id;
   const url = slug ? "https://omnixra-ai.com/jobs/" + slug : "https://omnixra-ai.com/jobs";
   const title = job?.title ? job.title + (job.company ? " at " + job.company : "") : "Job on Omnixra";
-  const text = job?.location
-    ? job.location + (job.salary ? " · " + job.salary : "") + " — via Omnixra AI"
-    : "Check out this job on Omnixra AI";
+
+  // Build a rich multi-line share text
+  const lines = [];
+
+  // Line 1: Title
+  if (job?.title) lines.push(`📋 ${job.title}`);
+  // Line 2: Company
+  if (job?.company && job.company !== "Unknown Company") lines.push(`🏢 ${job.company}`);
+  // Line 3: Location · Type · Salary
+  const metaBits = [];
+  if (job?.location) metaBits.push(`📍 ${job.location}`);
+  if (job?.type) metaBits.push(`⏱ ${job.type}`);
+  if (job?.salary) metaBits.push(`💰 ${job.salary}`);
+  if (metaBits.length) lines.push(metaBits.join("  ·  "));
+
+  // Line 4: Deadline
+  const deadline = job?.closingDate || job?.deadline;
+  if (deadline) {
+    const d = new Date(deadline);
+    if (!isNaN(d)) lines.push(`📅 Closes ${d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`);
+  }
+
+  // Short summary — first 180 chars of description, cleaned
+  if (job?.description) {
+    let summary = String(job.description);
+    // Strip leading "Expires: <date>" metadata
+    summary = summary.replace(/^\s*Expires[:\s]+[\d\w\s]+?(?=[A-Z]|$)/i, "");
+    // Strip trailing date-only fragments like "Sep 2026"
+    summary = summary.replace(/^\s*[A-Z][a-z]{2}\s+\d{4}\s+/i, "");
+    // Remove "job Description" label
+    summary = summary.replace(/\bjob\s*Description\b/gi, "");
+    // Fix jammed uppercase
+    summary = summary.replace(/([A-Z]{2,})([A-Z][a-z])/g, "$1 $2");
+    // Fix ALL-CAPS jammed sequences before common job-posting keywords
+    summary = summary.replace(/(VACANCY|NOTICE|APPLICATION|APPLICATIONS|POSITION|POSITIONS|OPPORTUNITY|CANDIDATES|QUALIFICATIONS|REQUIREMENTS|RESPONSIBILITIES|DEPARTMENT|MINISTRY|AUTHORITY|COMMISSION)/g, " $1");
+    summary = summary.replace(/\s{2,}/g, " ");
+    // Remove separator bars
+    summary = summary.replace(/[─]{3,}/g, " ");
+    // Collapse whitespace
+    summary = summary.replace(/\s+/g, " ").trim();
+    // Second pass cleanup
+    summary = summary.replace(/Expires[:\s]+[\d\w\s]{3,20}(?=\s[A-Z])/gi, "").trim();
+
+    if (summary) {
+      lines.push("");
+      lines.push(summary.slice(0, 180) + (summary.length > 180 ? "…" : ""));
+    }
+  }
+
+  // Source attribution — URL lives in the `url` field only, NOT here
+  // (otherwise WhatsApp/Telegram render it twice)
+  lines.push("");
+  lines.push("— via Omnixra AI 🇿🇼");
+
+  const text = lines.join("\n");
 
   if (isNative()) {
     try {

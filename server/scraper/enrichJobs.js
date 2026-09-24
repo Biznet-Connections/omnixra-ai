@@ -3,6 +3,7 @@ import * as cheerio from "cheerio";
 import pLimit from "p-limit";
 import ScrapedJob from "../models/ScrapedJob.js";
 import { aiExtractJobFields } from "./aiExtract.js";
+import { upsertCompanyFromScraped } from "../utils/upsertCompanyFromScraped.js";
 
 // Limit to 5 concurrent requests
 const limit = pLimit(5);
@@ -321,6 +322,20 @@ export async function enrichJobs({ onlyMissing = true, limit_count = 30, force =
             } catch (e) {
               console.warn(`  ⚠️ AI extract failed for ${job.title}:`, e.message);
             }
+          }
+
+          // Auto-save the company in the Company collection (for future linking)
+          try {
+            if (job.company && job.company !== "Unknown Company") {
+              const cid = await upsertCompanyFromScraped({
+                name: job.company,
+                location: job.location,
+                sourceUrl: job.sourceUrl,
+              });
+              if (cid) job.companyId = cid;
+            }
+          } catch (e) {
+            console.warn("[enrich] upsertCompany failed:", e.message);
           }
 
           job.lastChecked = new Date();

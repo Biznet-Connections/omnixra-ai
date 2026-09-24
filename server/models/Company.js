@@ -8,7 +8,11 @@ const companySchema = new mongoose.Schema(
     category: { type: String },
     industry: { type: String },
     verified: { type: Boolean, default: false },
-    source: { type: String, enum: ["seed", "signup"], default: "seed" }
+    source: { type: String, enum: ["seed", "signup", "scraped"], default: "seed" },
+    normalizedName: { type: String, index: true },
+    autoAdded: { type: Boolean, default: false },
+    sourceUrl: { type: String },
+    claimedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );

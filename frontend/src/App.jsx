@@ -72,6 +72,7 @@ function AppContent() {
     if (path.startsWith("/admin")) return "admin";
     if (path.startsWith("/shared-ai/")) return "shared-ai";
     if (path.startsWith("/job/")) return "jobs";
+    if (path.startsWith("/jobs/") && path.length > "/jobs/".length) return "jobs";
     if (path.startsWith("/premium")) return "premium";
     if (path.startsWith("/payment-complete")) return "payment-complete";
     return "home";
@@ -291,6 +292,10 @@ function AppContent() {
       setPage("home");
     } else if (path.startsWith("/job/")) {
       const slug = path.split("/job/")[1];
+      setFocusJobSlug(slug);
+      setPage("jobs");
+    } else if (path.startsWith("/jobs/") && path.length > "/jobs/".length) {
+      const slug = path.split("/jobs/")[1];
       setFocusJobSlug(slug);
       setPage("jobs");
     } else if (path.startsWith("/c/")) {

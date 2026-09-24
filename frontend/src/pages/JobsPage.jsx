@@ -69,6 +69,49 @@ function JobsPage({ focusJobSlug }) {
     fetchOmnixra(1);
   }, [user?.category]);
 
+  // ── Deep-link: auto-open a job from /job/<slug> URL ──
+  useEffect(() => {
+    if (!focusJobSlug) return;
+    let tries = 0;
+    const MAX_TRIES = 30;
+
+    const tryFind = () => {
+      // Look for a job with this slug across all loaded tabs
+      const all = [...omnixraJobs, ...scrapedJobs, ...remoteJobs];
+      const match = all.find(j => j.slug === focusJobSlug || String(j._id) === focusJobSlug);
+
+      if (match) {
+        // Determine which tab this job belongs to + switch to it
+        let targetTab = "omnixra";
+        if (scrapedJobs.some(j => j._id === match._id)) targetTab = "scraped";
+        else if (remoteJobs.some(j => j._id === match._id)) targetTab = "remote";
+
+        setActiveTab(targetTab);
+
+        // Scroll to and highlight the job card
+        setTimeout(() => {
+          const el = document.querySelector(`[data-job-slug="${focusJobSlug}"]`);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.add("job-highlight");
+            setTimeout(() => el.classList.remove("job-highlight"), 4200);
+          }
+        }, 250);
+        return;
+      }
+
+      tries++;
+      if (tries < MAX_TRIES) {
+        setTimeout(tryFind, 200);
+      } else {
+        console.warn("[JobsPage] focusJobSlug not found after", MAX_TRIES, "tries");
+      }
+    };
+
+    const t = setTimeout(tryFind, 300);
+    return () => clearTimeout(t);
+  }, [focusJobSlug, omnixraJobs.length, scrapedJobs.length, remoteJobs.length]);
+
   const fetchOmnixra = async (page = 1) => {
     setTabLoading(prev => ({ ...prev, omnixra: true }));
     try {
@@ -153,7 +196,7 @@ function JobsPage({ focusJobSlug }) {
 
   const tabs = [
     { id: "omnixra", icon: Sparkles, label: "Omnixra Jobs", count: getUnreadCount("omnixra", omnixraJobs), color: "#8b5cf6" },
-    { id: "scraped", icon: Globe, label: "Other Sites", count: getUnreadCount("scraped", scrapedJobs), color: "#06b6d4" },
+    { id: "scraped", icon: Globe, label: "Local Jobs", count: getUnreadCount("scraped", scrapedJobs), color: "#06b6d4" },
     { id: "remote", icon: Compass, label: "Remote", count: getUnreadCount("remote", remoteJobs), color: "#10b981" }
   ];
 
@@ -208,7 +251,7 @@ function JobsPage({ focusJobSlug }) {
           <>
             <div className="grid lg:grid-cols-2 gap-4 mt-7">
               {currentJobs.map((job, idx) => (
-                <div key={`${activeTab}_${job._id || idx}_${idx}`} id={`job-${job.slug || job._id || idx}`}>
+                <div key={`${activeTab}_${job._id || idx}_${idx}`} id={`job-${job.slug || job._id || idx}`} data-job-slug={job.slug || job._id || idx}>
                   <JobCard job={job} tab={activeTab} />
                 </div>
               ))}
