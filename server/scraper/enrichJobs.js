@@ -74,21 +74,94 @@ async function fetchJobDetails(job) {
     const url = job.sourceUrl;
 
     if (url.includes("ihararejobs.com")) {
-      // iHarare detail page extraction
-      const mainContent = $(".job-description, .job-details, article, main").first();
-      details.description = mainContent.find("p").map((_, el) => $(el).text().trim()).get().join("\n\n").substring(0, 5000);
-      
-      mainContent.find("li").each((_, el) => {
-        const text = $(el).text().trim();
-        if (text.toLowerCase().includes("requirement") || text.toLowerCase().includes("qualif")) {
-          details.requirements.push(text);
-        } else if (text.toLowerCase().includes("responsib") || text.toLowerCase().includes("duties")) {
-          details.responsibilities.push(text);
+      // ── iHarare: proper extraction using .single-candidate-widget structure ──
+
+      // 1. COMPANY — from the employer link in the h4 area
+      const employerLink = $("h4 a[href*='/employers/'], .job-details-meta a[href*='/employers/']").first();
+      if (employerLink.length) {
+        const text = employerLink.text().trim().replace(/\s+/g, " ");
+        if (text && text.length >= 2 && text.length <= 80) {
+          details.company = text;
+        }
+      }
+
+      // 2. HEADER DESCRIPTION — from the initial job-details-meta paragraph
+      const headerMeta = $(".job-details-meta").first().find("p").first().text().trim();
+      const headerBits = [];
+      if (headerMeta) headerBits.push(headerMeta);
+
+      // 3. ALL .single-candidate-widget SECTIONS — duties, quals, how-to-apply
+      const widgets = $(".single-candidate-widget");
+      const widgetBlocks = [];
+
+      widgets.each((idx, widget) => {
+        const heading = $(widget).find("h3").first().text().trim();
+        const headingLower = heading.toLowerCase();
+        const paragraphs = $(widget).find("p").toArray()
+          .map((el) => $(el).text().trim())
+          .filter((s) => s.length > 0);
+
+        // Detect heading type
+        const isDuties = headingLower.includes("duties") || headingLower.includes("responsib");
+        console.log(`    [w${idx}] h="${heading}" | p=${paragraphs.length} | duties=${isDuties} | hasBullet=${paragraphs.some(p => p.includes("\u2022"))}`);
+        const isQuals = headingLower.includes("qualif") || headingLower.includes("experience") || headingLower.includes("requirement");
+        const isHowTo = headingLower.includes("how to apply") || headingLower.includes("application");
+
+        // Parse bullets — the source uses <br>• text<br> format inside <p>
+        const parseBullets = (text) => {
+          return text
+            .split(/•/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 3 && s.length < 400);
+        };
+
+        paragraphs.forEach((p) => {
+          if (isDuties) {
+            parseBullets(p).forEach((item) => details.responsibilities.push(item));
+          } else if (isQuals) {
+            parseBullets(p).forEach((item) => details.requirements.push(item));
+            // Try closing date in quals/experience paragraph
+            const dm = p.match(/closing date[^.]*?(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4})/i);
+            if (dm && !details.closingDate) {
+              const d = new Date(dm[1].replace(/(\d+)(st|nd|rd|th)/, "$1"));
+              if (!isNaN(d)) details.closingDate = d;
+            }
+          } else if (isHowTo) {
+            details.howToApply = (details.howToApply ? details.howToApply + "\n\n" : "") + p;
+          }
+        });
+
+        // Add entire widget to the full description
+        if (heading || paragraphs.length) {
+          widgetBlocks.push(`${heading}\n${paragraphs.join("\n\n")}`);
         }
       });
 
+      // 4. ASSEMBLE FULL DESCRIPTION
+      const allParts = [...headerBits, ...widgetBlocks].filter(Boolean);
+      details.description = allParts.join("\n\n──────────\n\n").substring(0, 8000);
+
+      // 5. CLOSING DATE FALLBACK — from meta "Expires: 21 Sep 2026" or body text
+      if (!details.closingDate) {
+        const metaExpires = response.data.match(/Expires[:\s]+(\d{1,2}\s+\w+\s+\d{4})/i);
+        if (metaExpires) {
+          const d = new Date(metaExpires[1]);
+          if (!isNaN(d)) details.closingDate = d;
+        }
+      }
+
+      // 6. APPLICATION EMAIL (if visible on page — Cloudflare hides as [email protected] usually)
       const emailMatch = response.data.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
       if (emailMatch) details.applicationEmail = emailMatch[0];
+
+      // 7. EMPLOYMENT TYPE
+      if (/full\s*time/i.test(response.data)) details.employmentType = "Full-time";
+      else if (/part\s*time/i.test(response.data)) details.employmentType = "Part-time";
+
+      // 8. DEDUPE — avoid duplicate items across widget loops
+      details.requirements = [...new Set(details.requirements)];
+      details.responsibilities = [...new Set(details.responsibilities)];
+      console.log(`  🔍 iHarare extractor: desc=${details.description.length}c, req=${details.requirements.length}, resp=${details.responsibilities.length}, company="${details.company}"`);
     } else if (url.includes("vacancymail.co.zw")) {
       // VacancyMail detail page
       const body = $(".job-description, .job-details, .content, article, main").first();
@@ -162,25 +235,39 @@ async function fetchJobDetails(job) {
   }
 }
 
-export async function enrichJobs({ onlyMissing = true, limit_count = 30 } = {}) {
+export async function enrichJobs({ onlyMissing = true, limit_count = 30, force = false, source = null } = {}) {
   const startTime = Date.now();
   console.log("╔══════════════════════════════════════════════════╗");
   console.log("║  🔍 ENRICHING JOB DETAILS                        ║");
   console.log("╚══════════════════════════════════════════════════╝");
 
   try {
-    // Find jobs to enrich
-    const query = onlyMissing
-      ? {
-          $or: [
-            { description: { $exists: false } },
-            { description: "" },
-            { description: { $regex: /^\s*$/ } },
-            { $expr: { $lt: [{ $strLenCP: { $ifNull: ["$description", ""] } }, 300] } }
-          ]
-        }
-      : {};
-    const jobsToEnrich = await ScrapedJob.find(query).limit(limit_count);
+    // Build query
+    let query;
+    if (force) {
+      // Force mode — enrich everything (or filter by source)
+      query = source ? { source } : {};
+    } else if (onlyMissing) {
+      query = {
+        $or: [
+          { description: { $exists: false } },
+          { description: "" },
+          { description: { $regex: /^\s*$/ } },
+          { $expr: { $lt: [{ $strLenCP: { $ifNull: ["$description", ""] } }, 300] } },
+          { company: "Unknown Company" },
+          { company: /POSTS?|Positions?/i },
+          { company: /^DEPARTMENT OF/i },
+          { lastChecked: { $lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+        ],
+      };
+    } else {
+      query = source ? { source } : {};
+    }
+
+    // Sort by lastChecked ascending so oldest-stale jobs get priority
+    const jobsToEnrich = await ScrapedJob.find(query)
+      .sort({ lastChecked: 1, dateScraped: 1 })
+      .limit(limit_count);
     console.log(`📋 Found ${jobsToEnrich.length} jobs to enrich`);
 
     let enriched = 0;
