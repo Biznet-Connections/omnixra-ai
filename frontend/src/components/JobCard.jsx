@@ -51,10 +51,7 @@ function JobCard({ job, tab = "omnixra" }) {
   };
 
   const handleApplyClick = async () => {
-    if (tab === "scraped" && job.applicationUrl) {
-      window.open(job.applicationUrl, "_blank");
-      return;
-    }
+    // Unified apply flow for all tabs — opens the ApplyMethodModal
     try {
       const res = await api.get(`/jobs/${job._id}/applicants`).catch(() => null);
       if (res?.data?.count) setApplicantCount(res.data.count);
@@ -113,6 +110,7 @@ function JobCard({ job, tab = "omnixra" }) {
       setShowLocked(true);
       return;
     }
+    // For scraped jobs — open the same PushCVModal (it handles email/external)
     setShowPushCV(true);
   };
 
@@ -184,9 +182,7 @@ function JobCard({ job, tab = "omnixra" }) {
             <Bookmark size={15} fill={saved ? "currentColor" : "none"} />
           </button>
           <button onClick={handleShare} className="outline-button"><Share2 size={13} />Share</button>
-          {tab === "omnixra" && (
-            <button onClick={handlePushCV} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
-          )}
+          <button onClick={handlePushCV} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
           {tab === "remote" && (
             <button onClick={handleRemotePushCV} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
           )}
@@ -242,19 +238,75 @@ function JobCard({ job, tab = "omnixra" }) {
         <div className="modal-backdrop" onClick={() => setShowDetail(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold">{job.title}</h2>
-              <button onClick={() => setShowDetail(false)} className="icon-button">&#10005;</button>
+              <h2 className="text-lg font-bold pr-4">{job.title}</h2>
+              <button onClick={() => setShowDetail(false)} className="icon-button flex-shrink-0">&#10005;</button>
             </div>
-            <div className="text-sm text-slate-500 mb-3">{job.company} &middot; {job.location}</div>
-            <div className="flex flex-wrap gap-3 mb-4 text-xs text-slate-400">
-              {job.salary && <span>&#128176; {job.salary}</span>}
-              {job.type && <span>&#128336; {job.type}</span>}
-              {job.deadline && <span>&#128197; {new Date(job.deadline).toLocaleDateString()}</span>}
+
+            {/* Company + location */}
+            <div className="text-sm text-slate-400 mb-3">
+              <span className="font-medium text-slate-200">{job.company || "Unknown Company"}</span>
+              {job.location && <> &middot; {job.location}</>}
             </div>
-            <p className="text-sm text-slate-300 leading-7">{job.description}</p>
-            {job.source && job.source !== "omnixra" && <p className="text-xs text-slate-500 mt-3">Source: {job.source}</p>}
-            <div className="flex gap-2 mt-5">
-              <button onClick={() => { setShowDetail(false); handleApplyClick(); }} className="apply-button flex-1">Apply Now</button>
+
+            {/* Meta chips */}
+            <div className="flex flex-wrap gap-2 mb-4 text-xs">
+              {job.salary && <span className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400">💰 {job.salary}</span>}
+              {job.type && <span className="px-2 py-1 rounded bg-indigo-500/10 text-indigo-300">⏱ {job.type}</span>}
+              {job.deadline && <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-400">📅 Closes {new Date(job.deadline).toLocaleDateString()}</span>}
+              {job.closingDate && !job.deadline && <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-400">📅 Closes {new Date(job.closingDate).toLocaleDateString()}</span>}
+            </div>
+
+            {/* Full description */}
+            {job.description && (
+              <div className="mb-4">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Job Description</div>
+                <p className="text-sm text-slate-300 leading-7 whitespace-pre-wrap max-h-96 overflow-y-auto pr-2">
+                  {job.description}
+                </p>
+              </div>
+            )}
+
+            {/* Requirements */}
+            {Array.isArray(job.requirements) && job.requirements.length > 0 && (
+              <div className="mb-4">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Requirements</div>
+                <ul className="text-sm text-slate-300 leading-7 list-disc pl-5 space-y-1">
+                  {job.requirements.slice(0, 20).map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {/* Responsibilities */}
+            {Array.isArray(job.responsibilities) && job.responsibilities.length > 0 && (
+              <div className="mb-4">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Responsibilities</div>
+                <ul className="text-sm text-slate-300 leading-7 list-disc pl-5 space-y-1">
+                  {job.responsibilities.slice(0, 20).map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {/* Source attribution */}
+            {job.source && job.source !== "omnixra" && (
+              <p className="text-xs text-slate-500 mt-3 italic">
+                Source: {typeof job.source === "string" ? job.source : "External"}
+              </p>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2 mt-5 flex-wrap">
+              <button
+                onClick={() => { setShowDetail(false); handleApplyClick(); }}
+                className="apply-button flex-1 min-w-[140px]"
+              >
+                Apply Now
+              </button>
+              <button
+                onClick={() => { setShowDetail(false); handlePushCV(); }}
+                className="outline-button text-amber-400"
+              >
+                <Rocket size={13} /> Push CV
+              </button>
               <button onClick={handleShare} className="outline-button">Share</button>
             </div>
           </div>

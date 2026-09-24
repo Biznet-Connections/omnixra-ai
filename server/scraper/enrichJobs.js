@@ -2,9 +2,41 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import pLimit from "p-limit";
 import ScrapedJob from "../models/ScrapedJob.js";
+import { aiExtractJobFields } from "./aiExtract.js";
 
 // Limit to 5 concurrent requests
 const limit = pLimit(5);
+
+// Extract company name from <title> patterns:
+//   "Job Title - Company Name | Site"
+//   "Job Title | Company Name - Site"
+//   "Company Name is hiring Job Title"
+function extractCompanyFromTitle(titleStr) {
+  if (!titleStr) return null;
+  // Strip site suffix
+  let t = titleStr.replace(/\s*[|\-–—]\s*(Vacancy\s*Mail|iHarare(\s*Jobs)?|ZimboJobs|Zimbabwe).*$/i, "").trim();
+
+  // "Title - Company"
+  let m = t.match(/^.+?\s+[-–—]\s+(.+)$/);
+  if (m) {
+    const candidate = m[1].replace(/\s+/g, " ").trim();
+    if (candidate.length >= 3 && candidate.length <= 80) return candidate;
+  }
+
+  // "Company is hiring ..."
+  m = titleStr.match(/^(.+?)\s+(?:is|are)\s+hiring/i);
+  if (m) return m[1].replace(/\s+/g, " ").trim();
+
+  // "Company seeks/requires ..."
+  m = titleStr.match(/^(.+?)\s+(?:seeks|requires|invites)/i);
+  if (m) return m[1].replace(/\s+/g, " ").trim();
+
+  // "at Company Name"
+  m = titleStr.match(/\bat\s+([A-Z][A-Za-z0-9&\s\.\-]{2,60})$/);
+  if (m) return m[1].trim();
+
+  return null;
+}
 
 // Extract full details from a job's detail page
 async function fetchJobDetails(job) {
@@ -22,8 +54,22 @@ async function fetchJobDetails(job) {
       salary: "",
       closingDate: null,
       applicationEmail: "",
-      employmentType: ""
+      employmentType: "",
+      company: null
     };
+
+    // Company extraction from <title> — fallback when listing has "Unknown Company"
+    try {
+      const titleMatch = response.data.match(/<title>([^<]+)<\/title>/i);
+      if (titleMatch) {
+        const extracted = extractCompanyFromTitle(titleMatch[1].trim());
+        if (extracted) {
+          details.company = extracted;
+        }
+      }
+    } catch (e) {
+      // silent
+    }
 
     const url = job.sourceUrl;
 
@@ -151,12 +197,89 @@ export async function enrichJobs({ onlyMissing = true, limit_count = 30 } = {}) 
           if (details.closingDate) job.closingDate = details.closingDate;
           if (details.applicationEmail) job.applicationEmail = details.applicationEmail;
           if (details.employmentType) job.employmentType = details.employmentType;
+          // Only overwrite company if we don't have one OR it's "Unknown Company"
+          if (details.company && (!job.company || job.company === "Unknown Company" || job.company.trim() === "")) {
+            console.log(`  🏢 Company fixed (regex): "${job.company}" → "${details.company}"`);
+            job.company = details.company;
+          }
+
+          // ── AI EXTRACTION — when company is bad OR missing fields ──
+          const companyBad =
+            !job.company ||
+            job.company === "Unknown Company" ||
+            /\b(POSTS?|Positions?)\b/i.test(job.company) ||
+            /^DEPARTMENT OF/i.test(job.company) ||
+            job.company.length < 2;
+
+          const needsAI = companyBad || !job.category || job.category === "General" || !job.closingDate;
+
+          if (needsAI) {
+            try {
+              const ai = await aiExtractJobFields({
+                title: job.title,
+                location: job.location,
+                source: job.source,
+                description: (details.description || job.description || ""),
+              });
+              if (ai) {
+                if (ai.company && companyBad) {
+                  console.log(`  🤖 AI company: "${job.company}" → "${ai.company}"`);
+                  job.company = ai.company;
+                }
+                if (ai.category && (!job.category || job.category === "General")) job.category = ai.category;
+                if (ai.closingDate && !job.closingDate) job.closingDate = ai.closingDate;
+                if (ai.salary && !job.salary) job.salary = ai.salary;
+                if (ai.applicationEmail && !job.applicationEmail) job.applicationEmail = ai.applicationEmail;
+              }
+            } catch (e) {
+              console.warn(`  ⚠️ AI extract failed for ${job.title}:`, e.message);
+            }
+          }
+
           job.lastChecked = new Date();
           await job.save();
           enriched++;
           console.log(`  ✅ ${job.title.substring(0, 50)}`);
         } else {
-          failed++;
+          // Detail fetch failed (404, timeout) — run AI extraction on partial data anyway
+          try {
+            const companyBad =
+              !job.company ||
+              job.company === "Unknown Company" ||
+              /\b(POSTS?|Positions?)\b/i.test(job.company) ||
+              /^DEPARTMENT OF/i.test(job.company) ||
+              (job.company || "").length < 2;
+            const needsAI = companyBad || !job.category || job.category === "General" || !job.closingDate;
+            if (needsAI) {
+              const ai = await aiExtractJobFields({
+                title: job.title,
+                location: job.location,
+                source: job.source,
+                description: job.description || "",
+              });
+              if (ai) {
+                if (ai.company && companyBad) {
+                  console.log(`  🤖 AI company (no detail): "${job.company}" → "${ai.company}"`);
+                  job.company = ai.company;
+                }
+                if (ai.category && (!job.category || job.category === "General")) job.category = ai.category;
+                if (ai.closingDate && !job.closingDate) job.closingDate = ai.closingDate;
+                if (ai.salary && !job.salary) job.salary = ai.salary;
+                if (ai.applicationEmail && !job.applicationEmail) job.applicationEmail = ai.applicationEmail;
+                job.lastChecked = new Date();
+                await job.save();
+                enriched++;
+              } else {
+                failed++;
+              }
+            } else {
+              job.lastChecked = new Date();
+              await job.save();
+            }
+          } catch (e) {
+            console.warn(`  ⚠️ AI fallback failed for ${job.title}:`, e.message);
+            failed++;
+          }
         }
       }))
     );

@@ -36,14 +36,37 @@ export async function scrapeIharareJobs(maxPages = 3) {
         const locMatch = containerText.match(/(HARARE|Bulawayo|Mutare|Gweru|Kwekwe|Masvingo|Midlands|Mwenezi|Zvishavane|Chinhoyi|Marondera|Norton|Bindura|Hwange|Victoria Falls|Chiredzi|Shurugwi|Nyazura|Chirundu)/i);
         if (locMatch) location = locMatch[1];
 
-        // Company
+        // Company extraction (multi-strategy)
         let company = "Unknown Company";
-        const companyMatch = containerText.match(/([A-Z][A-Za-z\s&\(\)\/\.\,\-]{2,60}(?:Pvt|Ltd|Limited|Corp|Organization|International|University|Ministry|Foundation|Council|Hospital|Bank|Insurance))/);
-        if (companyMatch) company = companyMatch[1].replace(/\s+/g, " ").trim().substring(0, 80);
 
+        // Strategy 1: class-based selectors
+        const classCompany = $(el).find(".company, .employer, .company-name, .job-company, .job-listing-company").text().trim();
+        if (classCompany) company = classCompany;
+
+        // Strategy 2: "Title - Company" from h3/h2
         if (company === "Unknown Company") {
-          const knownMatch = containerText.match(/(UNOPS|FAO|Old Mutual|Plan International|CIMAS|Midlands State University|UNICEF|WHO|UNDP|Food and Agriculture Organization)/i);
+          const cardTitle = $(el).find("h3, h2, .job-title, .job-listing-title, a").first().text().trim();
+          const dashMatch = cardTitle.match(/^.+?\s+[-–—]\s+(.+)$/);
+          if (dashMatch) company = dashMatch[1].trim();
+        }
+
+        // Strategy 3: known organizations list (higher priority than regex)
+        if (company === "Unknown Company") {
+          const knownMatch = containerText.match(/(UNOPS|FAO|Old Mutual|Plan International|CIMAS|Midlands State University|UNICEF|WHO|UNDP|Food and Agriculture Organization|First Mutual|Econet|Delta Corporation|Innscor|TelOne|NetOne|ZESA|ZIMRA)/i);
           if (knownMatch) company = knownMatch[1];
+        }
+
+        // Strategy 4: regex with broader suffixes — strip title first
+        if (company === "Unknown Company") {
+          const stripped = containerText.replace(title || "", "").trim();
+          const companyMatch = stripped.match(/([A-Z][A-Za-z\s&\(\)\/\.\,\-]{2,60}(?:Pvt|Ltd|Limited|Corp|Organization|International|University|Ministry|Foundation|Council|Hospital|Bank|Insurance|Pharmacies|Pharmacy|Holdings|Group|Services|Trust))/);
+          if (companyMatch) company = companyMatch[1].replace(/\s+/g, " ").trim().substring(0, 80);
+        }
+
+        // Final cleanup: strip title prefix
+        if (title && company.toLowerCase().startsWith(title.toLowerCase().substring(0, 20))) {
+          const cleaned = company.substring(title.length).trim();
+          if (cleaned) company = cleaned;
         }
 
         // Link

@@ -55,6 +55,17 @@ export async function runScraper() {
     }
   }
 
+  // ── Auto-enrich freshly scraped jobs missing company/details ──
+  let enrichResult = { enriched: 0, failed: 0 };
+  try {
+    const { enrichJobs } = await import("./enrichJobs.js");
+    console.log("\n🔎 Auto-enriching jobs missing company/details...");
+    enrichResult = await enrichJobs({ onlyMissing: true, limit_count: 40 });
+    console.log(`🔎 Enrichment: ${enrichResult.enriched} fixed, ${enrichResult.failed} failed`);
+  } catch (e) {
+    console.warn("Auto-enrich failed:", e.message);
+  }
+
   const totalInDb = await ScrapedJob.countDocuments({});
   const time = Date.now() - startTime;
   console.log("\n╔══════════════════════════════════════════════════╗");
@@ -65,5 +76,5 @@ export async function runScraper() {
   console.log(`║  Time: ${time}ms${' '.repeat(40 - String(time).length)}║`);
   console.log("╚══════════════════════════════════════════════════╝\n");
 
-  return { saved, duplicates, total: totalInDb };
+  return { saved, duplicates, total: totalInDb, enriched: enrichResult.enriched, enrichFailed: enrichResult.failed };
 }

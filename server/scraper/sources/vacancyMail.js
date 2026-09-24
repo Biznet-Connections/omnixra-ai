@@ -26,18 +26,30 @@ export async function scrapeVacancyMail(maxPages = 3) {
         if (seenTitles.has(title.toLowerCase())) return;
         seenTitles.add(title.toLowerCase());
 
-        // Company
+        // Company extraction (multi-strategy)
         let company = $el.find(".company, .employer, .job-company, .company-name, .job-employer").text().trim();
+
+        // Strategy 1: "Job Title - Company Name" from h3/h2
         if (!company || company === "Unknown Company") {
-          const listingText = $el.text() || "";
-          const match = listingText.match(/([A-Z][A-Za-z0-9&\s]{2,40}?(?:Investment|Investments|Limited|Pvt Ltd|Holdings|Corporation|Group|Tradings))/);
+          const cardTitle = $el.find("h3, h2, .job-title, .job-listing-title, a").first().text().trim();
+          const dashMatch = cardTitle.match(/^.+?\s+[-–—]\s+(.+)$/);
+          if (dashMatch) company = dashMatch[1].trim();
+        }
+
+        // Strategy 2: regex for company suffixes on the listing text (stripping title first)
+        if (!company || company === "Unknown Company") {
+          const listingText = ($el.text() || "").replace(title || "", "").trim();
+          const match = listingText.match(/([A-Z][A-Za-z0-9&\s\.\-]{2,60}?(?:Investment|Investments|Limited|Ltd|Pvt|Holdings|Corporation|Group|Pharmacy|Pharmacies|Services|Health|Trust|Foundation|Council|Hospital|Bank|Insurance|Company|Enterprises))/);
           if (match) company = match[1].replace(/\s+/g, " ").trim();
         }
-        if (!company) company = "Unknown Company";
+
+        if (!company || company === "Unknown Company") company = "Unknown Company";
         company = company.replace(/\s+/g, " ").trim().substring(0, 80);
-        if (company.toLowerCase().startsWith(title.toLowerCase().substring(0, 20))) {
-          company = company.substring(title.length).trim();
-          if (!company) company = "Unknown Company";
+
+        // Final cleanup: if company starts with the job title, strip it
+        if (title && company.toLowerCase().startsWith(title.toLowerCase().substring(0, 20))) {
+          const cleaned = company.substring(title.length).trim();
+          if (cleaned) company = cleaned;
         }
 
         // Location
