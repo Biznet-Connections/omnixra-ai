@@ -4,6 +4,7 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useFollowing } from "../context/FollowingContext";
 import CommentsBottomSheet from "./CommentsBottomSheet";
+import ImageCarousel from "./ImageCarousel";
 import BoostModal from "./BoostModal";
 import ModernVideoPlayer from "./ModernVideoPlayer";
 import VerifiedBadge from "./VerifiedBadge";
@@ -57,6 +58,8 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   const [likeCount, setLikeCount] = useState(typeof post.likes === 'number' ? post.likes : 0);
   const [saved, setSaved] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [carouselOpen, setCarouselOpen] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
   const [targetCommentId, setTargetCommentId] = useState(null);
 
   // Listen for open-comments event from HomePage deep link
@@ -336,7 +339,54 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
           </p>
         )}
 
-        {post.image ? <ShimmerImage src={post.image} alt="Post" /> : post.hasImage ? <PostImage postId={realId} /> : null}
+        {(() => {
+          // Facebook-style multi-image grid
+          const imgs = (Array.isArray(post.images) && post.images.length > 0)
+            ? post.images
+            : (post.image ? [post.image] : []);
+
+          if (imgs.length === 0) {
+            return post.hasImage ? <PostImage postId={realId} /> : null;
+          }
+
+          if (imgs.length === 1) {
+            return <ShimmerImage src={imgs[0]} alt="Post" />;
+          }
+
+          // Multi-image grid
+          const visible = imgs.slice(0, 9);
+          const extra = imgs.length > 9 ? imgs.length - 9 : 0;
+          const gridClass = `post-media-grid media-${Math.min(imgs.length, 10)}`;
+
+          const openCarousel = (i) => {
+            setCarouselIndex(i);
+            setCarouselOpen(true);
+          };
+
+          return (
+            <>
+              <div className={gridClass}>
+                {visible.map((src, i) => (
+                  <div
+                    key={i}
+                    className={`media-cell ${extra > 0 && i === visible.length - 1 ? "media-more-overlay" : ""}`}
+                    data-extra={extra > 0 && i === visible.length - 1 ? `+${extra}` : undefined}
+                    onClick={() => openCarousel(i)}
+                  >
+                    <img src={src} alt={`Post image ${i + 1}`} loading="lazy" decoding="async" />
+                  </div>
+                ))}
+              </div>
+              {carouselOpen && (
+                <ImageCarousel
+                  images={imgs}
+                  startIndex={carouselIndex}
+                  onClose={() => setCarouselOpen(false)}
+                />
+              )}
+            </>
+          );
+        })()}
         {post.video ? (
           <ModernVideoPlayer
             src={post.video}

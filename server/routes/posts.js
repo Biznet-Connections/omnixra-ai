@@ -97,7 +97,7 @@ router.get("/", cacheShort(30, 60), async (req, res) => {
     const posts = await Post.find(query)
       .sort({ createdAt: -1, _id: -1 })
       .limit(limit + 1)
-      .select("text image video mediaType authorType author likes comments shares createdAt visibility edited")
+      .select("text image images video mediaType authorType author likes comments shares createdAt visibility edited")
       .lean();
 
     const hasMore = posts.length > limit;
@@ -120,6 +120,7 @@ router.get("/", cacheShort(30, 60), async (req, res) => {
         _id: post._id,
         text: post.text,
         image: post.image || null,
+        images: Array.isArray(post.images) ? post.images : [],
         video: post.video || null,
         thumbnailUrl: post.thumbnailUrl || null,
         trimStart: post.trimStart || 0,
@@ -181,7 +182,7 @@ router.get("/random", async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(randomSkip)
       .limit(limit)
-      .select("text image video mediaType authorType author likes comments shares createdAt visibility edited")
+      .select("text image images video mediaType authorType author likes comments shares createdAt visibility edited")
       .lean();
 
     // Hydrate authors
@@ -198,6 +199,7 @@ router.get("/random", async (req, res) => {
         _id: post._id,
         text: post.text,
         image: post.image || null,
+        images: Array.isArray(post.images) ? post.images : [],
         video: post.video || null,
         thumbnailUrl: post.thumbnailUrl || null,
         trimStart: post.trimStart || 0,
@@ -316,7 +318,7 @@ router.get("/:id", async (req, res) => {
 // CREATE POST
 router.post("/", protect, async (req, res) => {
   try {
-    const { text, image, video, videoKey, thumbnailUrl, trimStart, trimEnd, visibility, channelId } = req.body;
+    const { text, image, images, video, videoKey, thumbnailUrl, trimStart, trimEnd, visibility, channelId } = req.body;
 
     // ðŸ” DEBUG â€” confirm what actually arrives from PostComposer
     console.log("ðŸ“ [POST /posts] body received:", {
@@ -334,6 +336,63 @@ router.post("/", protect, async (req, res) => {
 
     // Upload image to R2 if it's base64
     let imageUrl = image;
+    let imageUrls = [];
+
+    // Multi-image upload (parallel with concurrency 3)
+    if (Array.isArray(images) && images.length > 0) {
+      console.log(`[multi-image] START — count: ${images.length}`);
+      const limited = images.slice(0, 10);
+      const CONCURRENCY = 3;
+      const queue = [...limited];
+      const results = new Array(limited.length);
+
+      async function uploadOne(idx, data) {
+        try {
+          // Already a URL
+          if (typeof data === "string" && data.startsWith("http")) {
+            results[idx] = data;
+            console.log(`[multi-image ${idx}] already URL`);
+            return;
+          }
+          // Base64 data URL — parse and upload buffer like single-image path does
+          if (typeof data === "string" && data.startsWith("data:")) {
+            const parsed = parseBase64Image(data);
+            if (!parsed) {
+              console.warn(`[multi-image ${idx}] parseBase64Image failed`);
+              results[idx] = null;
+              return;
+            }
+            const up = await uploadToR2(parsed.buffer, parsed.mimetype, "posts");
+            results[idx] = (typeof up === "string") ? up : (up?.url || null);
+            console.log(`[multi-image ${idx}] uploaded →`, results[idx]?.slice(0, 80));
+            return;
+          }
+          console.warn(`[multi-image ${idx}] unknown format — skipping`);
+          results[idx] = null;
+        } catch (e) {
+          console.warn(`[multi-image ${idx}] failed:`, e.message);
+          results[idx] = null;
+        }
+      }
+
+      // Worker pool
+      const workers = Array.from({ length: CONCURRENCY }).map(async () => {
+        while (queue.length) {
+          const item = queue.shift();
+          if (!item) continue;
+          await uploadOne(item.idx, item.data);
+        }
+      });
+
+      limited.forEach((data, idx) => queue.push({ idx, data }));
+      await Promise.all(workers);
+      imageUrls = results.filter(Boolean);
+      console.log(`[multi-image] DONE — uploaded ${imageUrls.length}/${limited.length}`);
+    } else {
+      if (images !== undefined) {
+        console.log(`[multi-image] SKIP — images is not array or empty. typeof: ${typeof images}, isArray: ${Array.isArray(images)}`);
+      }
+    }
     if (image && isBase64Image(image)) {
       const parsed = parseBase64Image(image);
       if (parsed) {
@@ -368,7 +427,8 @@ router.post("/", protect, async (req, res) => {
     const post = await Post.create({
       author: req.user._id,
       authorType: req.user.accountType,
-      text, image: imageUrl, video: videoUrl, thumbnailUrl: thumbnailUrl || null, channelId: channelId || null,
+      text, image: imageUrl,
+      images: imageUrls, video: videoUrl, thumbnailUrl: thumbnailUrl || null, channelId: channelId || null,
       trimStart: Number(trimStart) || 0,
       trimEnd: Number(trimEnd) || 0,
       visibility: visibility || "public",

@@ -66,6 +66,8 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
   };
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [images, setImages] = useState([]);          // array of { file, preview } for multi-image
+  const MAX_IMAGES = 10;
   const [videoBlob, setVideoBlob] = useState(null);
   const [videoPreview, setVideoPreview] = useState(null);
   const [videoSize, setVideoSize] = useState(0);
@@ -111,6 +113,36 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleMultiImageChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const remaining = MAX_IMAGES - images.length;
+    const toAdd = files.slice(0, remaining);
+    if (files.length > remaining) {
+      setError(`Max ${MAX_IMAGES} images per post.`);
+    }
+    const readers = toAdd.map((file) => {
+      if (file.size > 25 * 1024 * 1024) {
+        setError(`${file.name} is too large (max 25MB).`);
+        return null;
+      }
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve({ file, preview: reader.result });
+        reader.readAsDataURL(file);
+      });
+    });
+    Promise.all(readers).then((loaded) => {
+      const valid = loaded.filter(Boolean);
+      setImages((prev) => [...prev, ...valid]);
+    });
+    e.target.value = ""; // reset input so same file can be re-picked
+  };
+
+  const removeImage = (idx) => {
+    setImages((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleImageChange = (e) => {
@@ -173,20 +205,9 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
     if (!text.trim()) { setError("Write something first."); return; }
     setEnhancing(true);
     try {
-      const res = await api.post("/ai/chat", {
-        messages: [
-          { role: "system", content: "Enhance the user post. Return ONLY the enhanced text. No prefixes, no quotes, no explanations." },
-          { role: "user", content: "Enhance this post: " + JSON.stringify(text) }
-        ]
-      });
-      let enhancedText = res.data.text || "";
-      enhancedText = enhancedText
-        .replace(/Certainly! Here is an enhanced version of (the |your )?post:?/gi, "")
-        .replace(/Certainly! Here is an enhanced version:?/gi, "")
-        .replace(/Here is an enhanced version of (the |your )?post:?/gi, "")
-        .replace(/Here is an enhanced version:?/gi, "")
-        .replace(/Here is an enhanced version:?/gi, "")
-        .trim();
+      const res = await api.post("/ai/enhance", { text });
+      const enhancedText = (res.data?.text || "").trim();
+      if (!enhancedText) { setError("Could not enhance."); return; }
       setText(enhancedText);
     } catch (err) {
       setError("Could not enhance.");
@@ -196,7 +217,7 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
   };
 
   const handleSubmit = async () => {
-    if (!text.trim() && !image && !videoBlob) {
+    if (!text.trim() && !image && !videoBlob && images.length === 0) {
       setError("Write something or add a photo/video.");
       return;
     }
@@ -212,6 +233,7 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
       authorType: user.accountType,
       text: text.trim(),
       image,
+      images: images.map((i) => i.preview),
       video: null,
       thumbnailUrl,
       trimStart,
@@ -270,6 +292,12 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
       };
       if (isChannel) body.channelId = channelId;
 
+      // Attach multi-image data URLs to the request
+      if (images.length > 0) {
+        body.images = images.map((i) => i.preview);
+        // Keep legacy single-image field as first image for backward compat
+        if (!body.image) body.image = images[0].preview;
+      }
       const res = await api.post("/posts", body);
 
       if (!isChannel) {
@@ -364,7 +392,40 @@ function PostComposer({ onClose, onPosted, channelId, channelName }) {
               )}
 
               <div className="flex gap-2 mt-4 flex-wrap">
-                <label className="outline-button cursor-pointer"><ImageIcon size={16} /> Photo<input type="file" accept="image/*" onChange={handleImageChange} className="hidden" /></label>
+                {images.length > 0 && (
+                  <div className="composer-image-grid mt-2 mb-2">
+                    {images.map((img, idx) => (
+                      <div key={idx} className="composer-image-thumb">
+                        <img src={img.preview} alt={`upload-${idx}`} />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(idx)}
+                          className="composer-image-remove"
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    {images.length < MAX_IMAGES && (
+                      <label className="composer-image-add">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleMultiImageChange}
+                          className="hidden"
+                        />
+                        <span>+</span>
+                      </label>
+                    )}
+                  </div>
+                )}
+
+                <label className="outline-button cursor-pointer">
+                  <ImageIcon size={16} /> {images.length > 0 ? `Photos (${images.length}/${MAX_IMAGES})` : "Photos"}
+                  <input type="file" accept="image/*" multiple onChange={handleMultiImageChange} className="hidden" />
+                </label>
                 <label className="outline-button cursor-pointer"><Video size={16} /> Video<input type="file" accept="video/*" onChange={handleVideoChange} className="hidden" /></label>
                 <label className="outline-button cursor-pointer">
                   <Paperclip size={16} /> {attachmentName || "File"}

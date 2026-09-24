@@ -15,7 +15,8 @@ const postSchema = new mongoose.Schema(
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     authorType: { type: String, enum: ["jobseeker", "company", "admin", "ai"], required: true, default: "jobseeker" },
     text: { type: String },
-    image: { type: String },
+    image: { type: String },        // legacy — single image
+    images: [{ type: String }],      // multi-image post (max 10)
     video: { type: String },
     thumbnailUrl: { type: String },
     trimStart: { type: Number, default: 0 },
