@@ -5,8 +5,8 @@ import api from "../api/axios";
 import ForgotPasswordFlow from "../pages/ForgotPasswordFlow";
 import { useNotifications } from "../context/NotificationContext";
 
-function AuthScreen() {
-  const [mode, setMode] = useState("signup");
+function AuthScreen({ initialMode = "signup" }) {
+  const [mode, setMode] = useState(initialMode || "signup");
   const [forgotPassword, setForgotPassword] = useState(false);
   const [accountType, setAccountType] = useState("jobseeker");
   const [showPassword, setShowPassword] = useState(false);

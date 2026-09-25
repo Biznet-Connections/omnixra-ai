@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Sparkles, Send, Paperclip, Mic, ThumbsUp, ThumbsDown, Copy, Check, Share2, Menu, X, Loader2, Smile } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useGuest } from "../context/GuestContext";
 import api from "../api/axios";
 import JobCard from "../components/JobCard";
 import TalentCard from "../components/TalentCard";
@@ -10,6 +11,8 @@ import ChatChips from "../components/ChatChips";
 
 function ChatPage({ initialChatId }) {
   const { user } = useAuth();
+  const { requireAuth } = useGuest();
+  const [guestMessageCount, setGuestMessageCount] = useState(0);
   const isCompany = user?.accountType === "company";
 
   const [messages, setMessages] = useState([
@@ -266,6 +269,14 @@ const startRecording = async () => {
   };
 
   const sendMessage = async (provided) => {
+    // Guest: 1 free message, then require auth
+    if (!user) {
+      if (guestMessageCount >= 1) {
+        requireAuth("ai");
+        return;
+      }
+      setGuestMessageCount(c => c + 1);
+    }
     const text = (provided ?? input).trim();
     if (!text && chatAttachments.length === 0) return;
 
@@ -337,6 +348,15 @@ const startRecording = async () => {
       soundReceive();
       if (d.chatId) setChatId(d.chatId);
     } catch (err) {
+      // ── Guest rate limit → pop the login sheet ──
+      if (err.response?.status === 403 && err.response?.data?.requiresSignup) {
+        // Remove the user's last message + typing indicator
+        setMessages(prev => prev.filter(m => m !== userMsg));
+        setTyping(false);
+        requireAuth("ai");
+        return;
+      }
+
       const errMsg = !navigator.onLine
         ? "You're offline. Check your internet connection and try again."
         : (err.response?.data?.message || "I'm having trouble. Please try again in a moment.");

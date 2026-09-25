@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { MapPin, DollarSign, Clock3, ExternalLink, Send, Bookmark, Share2, Check, Rocket } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useGuest } from "../context/GuestContext";
 import api from "../api/axios";
 import PremiumModal from "./PremiumModal";
 import ApplyMethodModal from "./ApplyMethodModal";
@@ -15,6 +16,7 @@ import { shareJob } from "../utils/share";
 
 function JobCard({ job, tab = "omnixra" }) {
   const { user } = useAuth();
+  const { requireAuth } = useGuest();
   const [saved, setSaved] = useState(false);
   const [applied, setApplied] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -52,6 +54,10 @@ function JobCard({ job, tab = "omnixra" }) {
   };
 
   const handleApplyClick = async () => {
+    if (!user) {
+      requireAuth("apply", { jobTitle: job.title, company: job.company });
+      return;
+    }
     // Unified apply flow for all tabs — opens the ApplyMethodModal
     try {
       const res = await api.get(`/jobs/${job._id}/applicants`).catch(() => null);
@@ -106,6 +112,10 @@ function JobCard({ job, tab = "omnixra" }) {
   };
 
   const handlePushCV = () => {
+    if (!user) {
+      requireAuth("pushcv", { jobTitle: job.title, company: job.company });
+      return;
+    }
     if (!hasTier(user, "starter")) {
       setLockedFeature("Push CV");
       setShowLocked(true);

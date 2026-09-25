@@ -41,6 +41,8 @@ import AdminAnnouncements from "./pages/AdminAnnouncements";
 import AdminSettings from "./pages/AdminSettings";
 import PostComposer from "./components/PostComposer";
 import { useAuth } from "./context/AuthContext";
+import { useGuest } from "./context/GuestContext";
+import LoginPromptSheet from "./components/LoginPromptSheet";
 import { PostsProvider } from "./context/PostsContext";
 import { FollowingProvider } from "./context/FollowingContext";
 import { SocketProvider } from "./context/SocketContext";
@@ -87,6 +89,12 @@ function AppContent() {
   const [channelSlug, setChannelSlug] = useState(null);
   const [history, setHistory] = useState([]);
   const { user, setUser, loading: authLoading, pendingVerification } = useAuth();
+  const { prompt: guestPrompt, closePrompt: closeGuestPrompt } = useGuest();
+  const [authSheetMode, setAuthSheetMode] = useState(null);
+
+  // Pages a guest can browse without auth
+  const GUEST_ALLOWED_PAGES = ["home", "jobs", "companies", "channel", "shared-ai", "myai"];
+  const isGuestPage = !user && GUEST_ALLOWED_PAGES.includes(page);
 
   // â”€â”€ Helper functions â”€â”€
   const navigate = (to) => {
@@ -361,7 +369,16 @@ function AppContent() {
   if (!user && isAdminLoginPath) {
     return <AdminLogin onSuccess={() => setPage("admin")} />;
   }
-  if (!user) return <AuthScreen />;
+  // Guests can browse certain pages — others fall through to auth
+  // Guest opened auth via sheet → always show AuthScreen in that mode
+  if (!user && authSheetMode) {
+    return <AuthScreen initialMode={authSheetMode} />;
+  }
+
+  // Guest-gated page → default signup
+  if (!user && !isGuestPage) {
+    return <AuthScreen initialMode="signup" />;
+  }
 
   // â”€â”€ Pending email verification â†’ show VerifyEmailScreen â”€â”€
   if (pendingVerification && !user) {
@@ -460,6 +477,11 @@ const isAdminPage = page === "admin" || page === "admin-login" || page.startsWit
       </main>
       {!isAdminPage && <BottomNav page={page} setPage={handleNavClick} />}
       {showPostComposer && <PostComposer onClose={() => setShowPostComposer(false)} />}
+      <LoginPromptSheet
+        prompt={guestPrompt}
+        onClose={closeGuestPrompt}
+        onOpenAuth={(mode) => setAuthSheetMode(mode)}
+      />
     </div>
   );
 }

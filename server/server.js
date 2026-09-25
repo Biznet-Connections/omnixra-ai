@@ -1,5 +1,7 @@
 ﻿import express from "express";
 import { getWarningThreshold } from "./utils/subscriptionDurations.js";
+import { botGuard } from "./middleware/botGuard.js";
+import { guestRateLimit } from "./middleware/guestRateLimit.js";
 import cors from "cors";
 import compression from "compression";
 import dotenv from "dotenv";
@@ -71,6 +73,10 @@ app.use(cors({
 app.use(compression({ threshold: 1024, level: 6 }));
 app.use(express.json({ limit: "50mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// ── Bot guard + guest rate limit (before all routes) ──
+app.use(botGuard);
+app.use(guestRateLimit);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/oauth", oauthRoutes);

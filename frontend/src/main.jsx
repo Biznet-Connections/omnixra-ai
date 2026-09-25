@@ -6,6 +6,7 @@ import "./index.css";
 import "./utils/terminalLog";
 import { setupNativeUX } from "./utils/native";
 import { NotificationProvider } from "./context/NotificationContext";
+import GuestWrapper from "./context/GuestWrapper";
 
 console.log("🔥 main.jsx loaded");
 
@@ -101,7 +102,9 @@ if ("serviceWorker" in navigator) {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <AuthProvider>
     <NotificationProvider>
+      <GuestWrapper>
         <App />
-      </NotificationProvider>
+      </GuestWrapper>
+    </NotificationProvider>
   </AuthProvider>
 );

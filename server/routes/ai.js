@@ -1,5 +1,7 @@
 ﻿import express from "express";
 import { protect } from "../middleware/auth.js";
+import { optionalAuth } from "../middleware/optionalAuth.js";
+import { checkGuestAiLimit } from "../middleware/guestAiLimit.js";
 import { searchJobs, countJobs, searchUsers, countUsers, enrichJobsWithMatch } from "../utils/aiTools.js";
 import { askChat, askOpenAIVision, transcribeAudio } from "../utils/aiProviders.js";
 import { askAI } from "../utils/aiService.js";
@@ -144,7 +146,17 @@ router.post("/jobs", protect, async (req, res) => {
   }
 });
 
-router.post("/chat", protect, async (req, res) => {
+router.post("/chat", optionalAuth, async (req, res) => {
+  const isGuest = !req.user;
+  if (isGuest) {
+    const limit = checkGuestAiLimit(req);
+    if (!limit.allowed) {
+      return res.status(403).json({
+        message: "Sign up to keep chatting with Omnixra AI.",
+        requiresSignup: true,
+      });
+    }
+  }
   try {
     const { messages, chatId } = req.body;
     const now = new Date();
@@ -174,16 +186,16 @@ router.post("/chat", protect, async (req, res) => {
                    : isFormal ? "FORMAL: reply professionally, no slang."
                    : "Neutral: match user's tone naturally.";
 
-    const isCompany = req.user.accountType === "company";
-    const userCategory = req.user.category || "General";
-    const userLocation = req.user.location || "Zimbabwe";
-    const userSkills = (req.user.skills || []).join(", ") || "none set";
-    const firstName = (req.user.name || "").split(" ")[0] || "";
-    const cvReady = req.user.cvReady === true ? "yes" : req.user.cvReady === false ? "no" : "unknown";
-    const yearsExp = req.user.yearsExperience != null ? `${req.user.yearsExperience} yrs` : "unknown";
-    const availability = req.user.availability || "unknown";
-    const expectedSalary = req.user.expectedSalary || "unknown";
-    const asked = Array.isArray(req.user.aiQualifiersAsked) ? req.user.aiQualifiersAsked : [];
+    const isCompany = req.user ? req.user.accountType === "company" : false;
+    const userCategory = req.user?.category || "General";
+    const userLocation = req.user?.location || "Zimbabwe";
+    const userSkills = (req.user?.skills || []).join(", ") || "none set";
+    const firstName = (req.user?.name || "").split(" ")[0] || "";
+    const cvReady = req.user?.cvReady === true ? "yes" : req.user?.cvReady === false ? "no" : "unknown";
+    const yearsExp = req.user?.yearsExperience != null ? `${req.user.yearsExperience} yrs` : "unknown";
+    const availability = req.user?.availability || "unknown";
+    const expectedSalary = req.user?.expectedSalary || "unknown";
+    const asked = Array.isArray(req.user?.aiQualifiersAsked) ? req.user.aiQualifiersAsked : [];
 
     // ── Real DB stats to give the AI context ──
     let dbContext = "";
@@ -554,7 +566,7 @@ ${dbContext}`;
         const { name, args = {} } = parsed.tool_call;
         if (name === "search_jobs") {
           const jobs = await searchJobs({ ...args, limit: 5 });
-          out.jobs = enrichJobsWithMatch(jobs, req.user);
+          out.jobs = enrichJobsWithMatch(jobs, req.user || {});
           out.text = out.text || `Found ${out.jobs.length} jobs matching your search.`;
         } else if (name === "search_users") {
           const users = await searchUsers({ ...args, limit: 5 });
@@ -588,12 +600,13 @@ ${dbContext}`;
     });
 
     let chat;
-    if (chatId) chat = await Chat.findOne({ _id: chatId, user: req.user._id });
+    if (chatId && req.user) chat = await Chat.findOne({ _id: chatId, user: req.user._id });
     if (chat) {
       chat.messages = newMsgs;
       if (!chat.title || chat.title === "New chat") chat.title = lastUserText.slice(0, 60) || "New chat";
       await chat.save();
-    } else {
+    } else if (req.user) {
+      // Logged-in user with no existing chat — create one
       chat = await Chat.create({
         user: req.user._id,
         title: lastUserText.slice(0, 60) || "New chat",
@@ -601,6 +614,7 @@ ${dbContext}`;
         shared: false,
       });
     }
+    // Guests: no chat persistence — chat stays undefined
 
     // ── Track follow-up state ──
     try {
@@ -646,7 +660,7 @@ ${dbContext}`;
       console.warn("[ai/chat] followup state update failed:", e.message);
     }
 
-    res.json({ ...out, chatId: chat._id });
+    res.json({ ...out, chatId: chat ? chat._id : null });
   } catch (error) {
     console.error("[ai/chat] error:", error);
     res.status(500).json({ message: error.message });
@@ -654,6 +668,47 @@ ${dbContext}`;
 });
 
 // SHARE AI message
+// ── AI POST ENHANCE — plain text out (no JSON) ──
+router.post("/enhance", protect, async (req, res) => {
+  try {
+    const text = String(req.body?.text || "").trim();
+    if (!text) return res.status(400).json({ message: "No text provided" });
+    if (text.length > 3000) return res.status(400).json({ message: "Text too long" });
+
+    const result = await askChat(
+      [
+        {
+          role: "system",
+          content:
+            "You are a social media writing expert for a professional network in Zimbabwe. " +
+            "Rewrite the user's post to be more engaging, clear, and impactful. " +
+            "Keep it natural — no corporate fluff, no hashtag spam. " +
+            "Max 2 sentences plus up to 3 relevant hashtags. " +
+            "Return ONLY the final post text as plain text. " +
+            "Do NOT return JSON. Do NOT add prefixes, quotes, or explanations.",
+        },
+        { role: "user", content: text },
+      ],
+      { temperature: 0.8, maxTokens: 200, jsonMode: false }
+    );
+
+    let enhanced = (result?.text || "").trim();
+    // Strip accidental code fences or quotes
+    enhanced = enhanced
+      .replace(/^```[a-z]*\s*/i, "")
+      .replace(/\s*```$/, "")
+      .replace(/^["'`]|["'`]$/g, "")
+      .trim();
+
+    if (!enhanced) return res.status(500).json({ message: "Empty enhance result" });
+
+    res.json({ text: enhanced });
+  } catch (e) {
+    console.error("[ai/enhance]", e.message);
+    res.status(500).json({ message: "Enhance failed" });
+  }
+});
+
 router.post("/share/:chatId", protect, async (req, res) => {
   try {
     const chat = await Chat.findById(req.params.chatId);

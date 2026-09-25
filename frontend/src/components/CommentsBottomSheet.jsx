@@ -4,6 +4,7 @@ import api from "../api/axios";
 import { playSound } from "../utils/helpers";
 import { useSocket } from "../context/SocketContext";
 import { useAuth } from "../context/AuthContext";
+import { useGuest } from "../context/GuestContext";
 import MentionAutocomplete from "./MentionAutocomplete";
 import EmojiPicker from "./EmojiPicker";
 import MentionRenderer from "./MentionRenderer";
@@ -12,6 +13,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
   const realId = post._originalId || post._id;
   const { joinPost, leavePost } = useSocket();
   const { user } = useAuth();
+  const { requireAuth } = useGuest();
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -143,6 +145,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
   }, [realId]);
 
   const handleAddComment = async () => {
+    if (!user) { requireAuth("comment"); return; }
     if (!commentText.trim()) return;
     const text = commentText.trim();
     setCommentText("");
@@ -188,6 +191,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
   };
 
   const handleReply = async (commentId) => {
+    if (!user) { requireAuth("comment"); return; }
     if (!replyText.trim()) return;
     const text = replyText.trim();
     setReplyText("");
@@ -223,6 +227,7 @@ function CommentsBottomSheet({ post, onClose, onUpdate, focusCommentId }) {
   };
 
   const handleLikeComment = async (commentId) => {
+    if (!user) { requireAuth("like"); return; }
     setComments(prev => prev.map(c =>
       c._id === commentId ? { ...c, likes: (c.likes || 0) + 1 } : c
     ));

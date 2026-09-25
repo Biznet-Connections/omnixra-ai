@@ -2,6 +2,7 @@
 import { Heart, MessageCircle, Share2, Bookmark, Ellipsis, Check, Trash2, UserPlus, Building2, Lock, Pencil, Rocket, Download, FileText, MapPin } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import { useGuest } from "../context/GuestContext";
 import { useFollowing } from "../context/FollowingContext";
 import CommentsBottomSheet from "./CommentsBottomSheet";
 import ImageCarousel from "./ImageCarousel";
@@ -48,6 +49,7 @@ function ShimmerImage({ src, alt = "" }) {
 }
 function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onViewProfile, focusCommentId }) {
   const { user } = useAuth();
+  const { requireAuth } = useGuest();
   const realId = post._originalId || post._id;
   const [liked, setLiked] = useState(() => {
     try {
@@ -116,6 +118,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   const isPending = post.pending;
 
   const handleLike = async () => {
+    if (!user) { requireAuth("like"); return; }
     if (isLikePending || isPending) {
       logLike("BLOCKED (pending)");
       return;
@@ -208,6 +211,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   };
 
   const handleFollow = async () => {
+    if (!user) { requireAuth("follow", { name: post.author?.name }); return; }
     if (isPending) return;
     if (!post.author?._id) return;
     playSound("follow");
@@ -225,6 +229,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
   };
 
   const handleSave = async () => {
+    if (!user) { requireAuth("save"); return; }
     if (isPending) return;
 
     const newSaved = !saved;
@@ -457,7 +462,7 @@ function PostCard({ post, onUpdate, onDelete, isUploading, uploadProgress, onVie
               <button onClick={handleLike} className={`post-action-icon ${liked ? "post-action-liked" : ""}`}>
                 <Heart size={20} fill={liked ? "currentColor" : "none"} />
               </button>
-              <button onClick={() => setShowComments(true)} className="post-action-icon"><MessageCircle size={20} /></button>
+              <button onClick={() => { if (!user) { requireAuth("comment"); return; } setShowComments(true); }} className="post-action-icon"><MessageCircle size={20} /></button>
               <button onClick={handleShare} className="post-action-icon">{copied ? <Check size={20} /> : <Share2 size={20} />}</button>
               <button onClick={handleSave} className={`post-action-icon ${saved ? "post-action-liked" : ""}`}>
                 <Bookmark size={20} fill={saved ? "currentColor" : "none"} />

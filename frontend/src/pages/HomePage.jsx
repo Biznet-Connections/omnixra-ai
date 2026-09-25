@@ -137,6 +137,7 @@ function HomePage({ setPage, setSelectedUserId, focusPostId, focusCommentId }) {
   const [notifUnread, setNotifUnread] = useState(0);
 
   useEffect(() => {
+    if (!user) return;  // guests have no notifications
     let cancelled = false;
     const fetchUnread = async () => {
       try {
@@ -149,10 +150,11 @@ function HomePage({ setPage, setSelectedUserId, focusPostId, focusCommentId }) {
     const onRefresh = () => fetchUnread();
     window.addEventListener("push-foreground", onRefresh);
     return () => { cancelled = true; clearInterval(id); window.removeEventListener("push-foreground", onRefresh); };
-  }, []);
+  }, [user?._id]);
 
   // Unread count for Inbox badge
   useEffect(() => {
+    if (!user) return;  // guests have no inbox
     fetchUnreadCount();
     const handleUnreadCount = (event) =>
       setUnreadCount(event.detail?.count || 0);
