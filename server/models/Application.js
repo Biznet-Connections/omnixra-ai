@@ -25,6 +25,13 @@ const applicationSchema = new mongoose.Schema(
     pushedCV: { type: Boolean, default: false },
     cvAttachment: { type: String },
     cvName: { type: String },
+
+    // ── Boost (revenue feature) ──
+    boosted: { type: Boolean, default: false },
+    boostedAt: { type: Date },
+    boostedRank: { type: Number },       // frozen rank shown to user
+    boostSkipCount: { type: Number, default: 0 },  // how many times they declined
+    boostSkippedAt: { type: Date },
   },
   { timestamps: true }
 );

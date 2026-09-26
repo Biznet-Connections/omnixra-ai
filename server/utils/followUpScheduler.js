@@ -5,7 +5,7 @@ import { sendPushToUser } from "./fcm.js";
 
 const SCHEDULER_INTERVAL_MS = 60 * 1000;    // run every 60s
 const MAX_NUDGES_PER_THREAD = 2;
-const NUDGE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;  // 7 days between nudges
+const NUDGE_COOLDOWN_MS = parseInt(process.env.AI_FOLLOWUP_COOLDOWN_MS || String(7 * 24 * 60 * 60 * 1000));
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;  // if active in last 5 min, skip
 const IGNORED_NUDGE_LIMIT = 3;               // after 3 ignored, back off 30 days
 

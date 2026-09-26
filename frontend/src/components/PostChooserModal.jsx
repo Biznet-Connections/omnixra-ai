@@ -22,7 +22,7 @@ export default function PostChooserModal({ onClose, onPickJob, onPickUpdate, onP
                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">FREE</span>
                 </div>
                 <div className="text-[11px] text-slate-500 mt-0.5">
-                  Reach thousands of jobseekers in Zimbabwe
+                  Reach thousands of jobseekers worldwide
                 </div>
               </div>
             </div>

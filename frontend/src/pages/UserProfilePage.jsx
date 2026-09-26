@@ -3,6 +3,7 @@ import { ArrowLeft, MapPin, ShieldCheck, UserPlus, MessageCircle, Lock, X, Check
 import api from "../api/axios";
 import PaidMessageModal from "../components/PaidMessageModal";
 import { useAuth } from "../context/AuthContext";
+import { useGuest } from "../context/GuestContext";
 import LoadingDots from "../components/LoadingDots";
 import ModernVideoPlayer from "../components/ModernVideoPlayer";
 import VerifiedBadge from "../components/VerifiedBadge";
@@ -10,6 +11,7 @@ import AIAvatar from "../components/AIAvatar";
 
 function UserProfilePage({ userId, setPage }) {
   const { user: currentUser } = useAuth();
+  const { requireAuth } = useGuest();
 
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -67,6 +69,7 @@ function UserProfilePage({ userId, setPage }) {
   }, [userId]);
 
   const handleFollow = async () => {
+    if (!currentUser) { requireAuth("follow", { name: user?.name }); return; }
     const newFollowing = !following;
     setFollowing(newFollowing);
     try {
@@ -119,6 +122,7 @@ function UserProfilePage({ userId, setPage }) {
   };
 
   const handleMessage = async () => {
+    if (!currentUser) { requireAuth("message", { name: user?.name }); return; }
     // If viewer is a company and target is a jobseeker → paid DM flow
     const viewerIsCompany = currentUser?.accountType === "company";
     const targetIsJobseeker = profile?.accountType === "jobseeker" || !profile?.accountType;

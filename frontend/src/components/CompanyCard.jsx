@@ -8,10 +8,12 @@ import { hasTier } from "../utils/tierHelpers";
 import InboxHRModal from "./InboxHRModal";
 import ProfilePushModal from "./ProfilePushModal";
 import { useAuth } from "../context/AuthContext";
+import { useGuest } from "../context/GuestContext";
 import VerifiedBadge from "./VerifiedBadge";
 
 function CompanyCard({ company, setPage }) {
   const { user } = useAuth();
+  const { requireAuth } = useGuest();
   const [showPremium, setShowPremium] = useState(false);
   const [showLocked, setShowLocked] = useState(false);
   const [lockedFeature, setLockedFeature] = useState("");
@@ -21,6 +23,7 @@ function CompanyCard({ company, setPage }) {
   const [followed, setFollowed] = useState(false);
 
   const handleInboxHR = () => {
+    if (!user) { requireAuth("message", { name: company?.name }); return; }
     if (!hasTier(user, "starter")) {
       setLockedFeature("Inbox HR");
       setShowLocked(true);
@@ -30,6 +33,7 @@ function CompanyCard({ company, setPage }) {
   };
 
   const handlePushProfile = () => {
+    if (!user) { requireAuth("pushcv", { company: company?.name }); return; }
     if (!hasTier(user, "starter")) {
       setLockedFeature("Push My Profile");
       setShowLocked(true);
@@ -39,8 +43,9 @@ function CompanyCard({ company, setPage }) {
   };
 
   const handleAskAI = () => {
+    if (!user) { requireAuth("ai"); return; }
     const name = company?.name || "this company";
-    const prompt = `Tell me about ${name} — what they do, what jobs they have open, and whether I should reach out. My profile: ${user?.category || "General"}, ${user?.location || "Zimbabwe"}`;
+    const prompt = `Tell me about ${name} — what they do, what jobs they have open, and whether I should reach out. My profile: ${user?.category || "General"}, ${user?.location || "Worldwide"}`;
     sessionStorage.setItem("ai_auto_prompt", prompt);
     setPage?.("myai");
   };
@@ -77,7 +82,10 @@ function CompanyCard({ company, setPage }) {
             </div>
           </div>
           <button
-            onClick={() => setFollowed(!followed)}
+            onClick={() => {
+              if (!user) { requireAuth("follow", { name: company?.name }); return; }
+              setFollowed(!followed);
+            }}
             className={`connect-button ${followed ? "connected" : ""}`}
           >
             {followed ? "Following" : "Follow"}

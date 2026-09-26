@@ -36,7 +36,7 @@ function ProfessionalsPage({ setPage, setSelectedUserId }) {
   };
 
   const handleAskAI = (talent) => {
-    const prompt = `Tell me about ${talent.name} — their background, skills, and whether they'd be a good fit for my company. Location: ${talent.location || "Zimbabwe"}, Skills: ${(talent.skills || []).join(", ") || "N/A"}`;
+    const prompt = `Tell me about ${talent.name} — their background, skills, and whether they'd be a good fit for my company. Location: ${talent.location || "Worldwide"}, Skills: ${(talent.skills || []).join(", ") || "N/A"}`;
     sessionStorage.setItem("ai_auto_prompt", prompt);
     setPage("myai");
   };

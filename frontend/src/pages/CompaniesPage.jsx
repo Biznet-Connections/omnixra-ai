@@ -167,7 +167,7 @@ function CompaniesPage({ setPage }) {
     <div className="page-scroll">
       <div className="page-container">
         <h1 className="page-title">Discover companies</h1>
-        <p className="page-subtitle">Explore employers in Zimbabwe and beyond.</p>
+        <p className="page-subtitle">Explore employers worldwide.</p>
 
         {loading ? (
           <div className="flex justify-center mt-10"><LoadingDots /></div>

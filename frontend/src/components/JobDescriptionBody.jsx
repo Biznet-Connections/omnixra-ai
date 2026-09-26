@@ -9,14 +9,35 @@ function preclean(description) {
   // 1. Strip leading "Expires: <date>" metadata line
   t = t.replace(/^\s*Expires[:\s]+[\d\w\s]+?(?=[A-Z]|$)/i, "").trim();
 
-  // 2. Remove "job Description" label that leaks from the meta widget
+  // 2. Remove "job Description" label
   t = t.replace(/\bjob\s*Description\b/gi, "").trim();
 
-  // 3. Insert spaces between jammed uppercase sequences:
-  //    "FUNDVACANCY" → "FUND VACANCY", "NOTICEApplications" → "NOTICE Applications"
+  // 3. STRIP navigation junk
+  t = t.replace(/Jobs\s+Categories\s+Search for CVs/gi, " ");
+  t = t.replace(/Search for CVs/gi, " ");
+  t = t.replace(/Jobseeker Register CV/gi, " ");
+  t = t.replace(/Employer Register \/ Post Jobs/gi, " ");
+  t = t.replace(/Candidate Sign ?Up\/Register/gi, " ");
+  t = t.replace(/Employer Sign ?Up\/Register/gi, " ");
+  t = t.replace(/Ads ?by ?google.*?push\(\{\}\);?/gi, " ");
+  t = t.replace(/\(adsbygoogle[^)]*\)\.push\(\{\}\);/gi, " ");
+  t = t.replace(/Similar Jobs/gi, " ");
+  t = t.replace(/Browse Candidates/gi, " ");
+  t = t.replace(/Add Resume \/ Curriculum Vitae/gi, " ");
+  t = t.replace(/Terms and Privacy Policy/gi, " ");
+  t = t.replace(/Register as a Job Seeker/gi, " ");
+  t = t.replace(/Register as an Employer/gi, " ");
+  t = t.replace(/Other Jobs in same location\.*\.*/gi, " ");
+  t = t.replace(/Job Summary/gi, " ");
+  t = t.replace(/Location\s+Harare/gi, " ");
+
+  // 4. Collapse repeated "Expires DD MMM YYYY" lines
+  t = t.replace(/(Expires \d{1,2} \w+ \d{4}\s*)+/gi, " ");
+
+  // 5. Fix jammed uppercase
   t = t.replace(/([A-Z]{2,})([A-Z][a-z])/g, "$1 $2");
 
-  // 4. Collapse repeated whitespace
+  // 6. Collapse whitespace
   t = t.replace(/[ \t]+/g, " ");
   t = t.replace(/\n{3,}/g, "\n\n");
 
@@ -27,11 +48,25 @@ function preclean(description) {
 function parseSections(description) {
   if (!description || typeof description !== "string") return [];
 
-  // Pre-clean the description
+  // Pre-clean
   const cleaned = preclean(description);
 
-  // Split on the separator we generate
-  const chunks = cleaned.split(/\n?─{5,}\n?/);
+  // Try to split on separators first
+  let chunks = cleaned.split(/\n?─{5,}\n?/);
+
+  // If no separators, split on common section headers
+  if (chunks.length === 1) {
+    const headerRx = /\n?\s*(Duties and Responsibilities|Qualifications and Experience|Requirements:?|Responsibilities:?|How to Apply|About the Role|Job Description|Key Responsibilities|Skills Required|Education Required|Experience Required|Benefits)\s*\n?/gi;
+    const parts = cleaned.split(headerRx);
+    // parts = [prefix, header1, body1, header2, body2, ...]
+    chunks = [];
+    if (parts[0] && parts[0].trim()) chunks.push(parts[0].trim());
+    for (let i = 1; i < parts.length; i += 2) {
+      const header = parts[i];
+      const body = parts[i + 1] || "";
+      if (header) chunks.push(header.trim() + "\n" + body.trim());
+    }
+  }
 
   const sections = [];
   for (const raw of chunks) {

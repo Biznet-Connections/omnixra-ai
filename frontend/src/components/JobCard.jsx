@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MapPin, DollarSign, Clock3, ExternalLink, Send, Bookmark, Share2, Check, Rocket } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useGuest } from "../context/GuestContext";
 import api from "../api/axios";
 import PremiumModal from "./PremiumModal";
 import ApplyMethodModal from "./ApplyMethodModal";
-import ApplyComposerPage from "../pages/ApplyComposerPage";
+import ApplyFlowPage from "../pages/ApplyFlowPage";
 import PushCVModal from "./PushCVModal";
 import LockedFeatureModal from "./LockedFeatureModal";
 import PaymentModal from "./PaymentModal";
@@ -17,14 +17,34 @@ import { shareJob } from "../utils/share";
 function JobCard({ job, tab = "omnixra" }) {
   const { user } = useAuth();
   const { requireAuth } = useGuest();
+
+  // Check if user already applied to this job
+  useEffect(() => {
+    if (!user || !job?._id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get(`/jobs/${job._id}/applied`);
+        if (!cancelled && res.data?.applied) {
+          setApplied(true);
+        }
+      } catch { /* silent */ } finally {
+        if (!cancelled) setAppliedChecked(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [job?._id, user]);
   const [saved, setSaved] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [appliedChecked, setAppliedChecked] = useState(false);
   const [applying, setApplying] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
   const [showApplyMethod, setShowApplyMethod] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
   const [showPushCV, setShowPushCV] = useState(false);
   const [showLocked, setShowLocked] = useState(false);
+  const [showBoostPlans, setShowBoostPlans] = useState(false);
+  const [rankSnapshot, setRankSnapshot] = useState(null);
   const [lockedFeature, setLockedFeature] = useState("This feature");
   const [activePlan, setActivePlan] = useState(null);
   const [applicantCount, setApplicantCount] = useState(0);
@@ -58,12 +78,8 @@ function JobCard({ job, tab = "omnixra" }) {
       requireAuth("apply", { jobTitle: job.title, company: job.company });
       return;
     }
-    // Unified apply flow for all tabs — opens the ApplyMethodModal
-    try {
-      const res = await api.get(`/jobs/${job._id}/applicants`).catch(() => null);
-      if (res?.data?.count) setApplicantCount(res.data.count);
-    } catch {}
-    setShowApplyMethod(true);
+    // Direct to the full apply flow — no more modal
+    setShowComposer(true);
   };
 
   const handlePickGmail = () => {
@@ -144,11 +160,11 @@ function JobCard({ job, tab = "omnixra" }) {
   return (
     <>
       <div className="job-card compact-card">
-        <div className="flex gap-3">
+        <div className="flex gap-3 min-w-0">
           <div className="job-logo bg-gradient-to-br from-indigo-500 to-blue-600">{job.company?.[0] || "C"}</div>
           <div className="flex-1 min-w-0">
-            <div className="flex justify-between gap-3">
-              <div>
+            <div className="flex justify-between gap-3 min-w-0">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="font-semibold text-sm truncate">{job.title}</div>
                   {job.priorityUntil && new Date(job.priorityUntil) > new Date() && (
@@ -157,9 +173,9 @@ function JobCard({ job, tab = "omnixra" }) {
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] text-slate-600 mt-1">{job.company}</div>
+                <div className="text-[11px] text-slate-600 mt-1 truncate">{job.company}</div>
                 {job.source === "scraped" && (
-                  <div className="text-[9px] text-slate-500/70 mt-0.5 italic">
+                  <div className="text-[9px] text-slate-500/70 mt-0.5 italic truncate">
                     via {job.sourceUrl?.includes("iharare") ? "iharare" : job.sourceUrl?.includes("vacancymail") ? "vacancymail" : job.sourceUrl?.includes("zimbojobs") ? "zimbojobs" : "external"}
                   </div>
                 )}
@@ -178,25 +194,25 @@ function JobCard({ job, tab = "omnixra" }) {
               <div className={`match-badge ${matchColor}`}>{match}% Match</div>
             </div>
             <div className="flex flex-wrap gap-3 mt-3 text-[10px] text-slate-600">
-              <span className="flex items-center gap-1"><MapPin size={11} />{job.location}</span>
+              <span className="flex items-center gap-1 min-w-0"><MapPin size={11} className="flex-shrink-0" /><span className="truncate">{job.location}</span></span>
               {job.salary && <span className="flex items-center gap-1"><DollarSign size={11} />{job.salary}</span>}
               {job.deadline && <span className="flex items-center gap-1"><Clock3 size={11} />{new Date(job.deadline).toLocaleDateString()}</span>}
             </div>
+            {typeof job.appliedCount === "number" && job.appliedCount >= 20 && (
+              <div className="job-fomo-badge">🔥 {job.appliedCount} applied this week</div>
+            )}
           </div>
         </div>
         <div className="card-actions">
           <button onClick={() => setShowDetail(true)} className="outline-button"><ExternalLink size={13} />View</button>
-          <button onClick={handleApplyClick} className={`apply-button ${applied ? "applied" : ""}`}>
+          <button onClick={handleApplyClick} disabled={applied} className={`apply-button ${applied ? "applied" : ""}`} style={applied ? { opacity: 0.6, cursor: "not-allowed" } : {}}>
             {applied ? <Check size={13} /> : <Send size={13} />} {applied ? "Applied" : "Apply"}
           </button>
           <button onClick={() => setSaved(!saved)} className={`save-button ${saved ? "save-active" : ""}`}>
             <Bookmark size={15} fill={saved ? "currentColor" : "none"} />
           </button>
           <button onClick={handleShare} className="outline-button"><Share2 size={13} />Share</button>
-          <button onClick={handlePushCV} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
-          {tab === "remote" && (
-            <button onClick={handleRemotePushCV} className="outline-button text-amber-400"><Rocket size={13} />Push CV</button>
-          )}
+
         </div>
       </div>
 
@@ -219,10 +235,37 @@ function JobCard({ job, tab = "omnixra" }) {
         />
       )}
       {showComposer && (
-        <ApplyComposerPage
+        <ApplyFlowPage
           job={job}
           onClose={() => setShowComposer(false)}
-          onSuccess={() => { setShowComposer(false); setApplied(true); }}
+          onSuccess={async (result) => {
+            const action = result?.action;
+            if (action === "boost") {
+              // User just paid for a plan → apply the boost now
+              try {
+                await api.post(`/jobs/${job._id}/boost`);
+                setShowComposer(false);
+                setApplied(true);
+              } catch (e) {
+                setShowComposer(false);
+                setApplied(true);
+              }
+              return;
+            }
+            if (action === "skip") {
+              setShowComposer(false);
+              setApplied(true);
+              return;
+            }
+            if (action === "done") {
+              setShowComposer(false);
+              setApplied(true);
+              return;
+            }
+            // Default — just applied
+            setShowComposer(false);
+            setApplied(true);
+          }}
         />
       )}
       {showLocked && (
@@ -235,7 +278,10 @@ function JobCard({ job, tab = "omnixra" }) {
           onSeePricing={() => { setShowLocked(false); setShowPremium(true); }}
         />
       )}
-      {showPremium && (
+      {showBoostPlans && (
+        <PremiumModal onClose={() => { setShowBoostPlans(false); setApplied(true); }} />
+      )}
+{showPremium && (
         <PremiumModal onClose={() => setShowPremium(false)} />
       )}
       {activePlan && (
@@ -303,12 +349,7 @@ function JobCard({ job, tab = "omnixra" }) {
               >
                 Apply Now
               </button>
-              <button
-                onClick={() => { setShowDetail(false); handlePushCV(); }}
-                className="outline-button text-amber-400"
-              >
-                <Rocket size={13} /> Push CV
-              </button>
+
               <button onClick={handleShare} className="outline-button">Share</button>
             </div>
           </div>

@@ -48,4 +48,16 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET a single remote job by slug
+router.get("/slug/:slug", async (req, res) => {
+  try {
+    const RemoteJob = (await import("../models/RemoteJob.js")).default;
+    const job = await RemoteJob.findOne({ slug: req.params.slug }).lean();
+    if (!job) return res.status(404).json({ message: "Not found" });
+    res.json(job);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
 export default router;

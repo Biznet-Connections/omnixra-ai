@@ -1,4 +1,5 @@
 import React from "react";
+import { useGuest } from "../context/GuestContext";
 import { Home, Sparkles, PlusCircle, Briefcase, Building2, Users, Inbox } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import PostChooserModal from "./PostChooserModal";
@@ -7,6 +8,7 @@ function BottomNav({ page, setPage }) {
   const { user } = useAuth();
   const isCompany = user?.accountType === "company";
   const [showPostChooser, setShowPostChooser] = React.useState(false);
+  const { requireAuth } = useGuest();
 
   const navItems = isCompany
     ? [
@@ -27,9 +29,9 @@ function BottomNav({ page, setPage }) {
   const handleClick = (itemId) => {
     console.log("=== BOTTOM NAV CLICKED ===");
     console.log("Item:", itemId);
-    if (itemId === "post" && isCompany) {
-      setShowPostChooser(true);
-      return;
+    if (itemId === "post") {
+      if (!user) { requireAuth("post"); return; }
+      if (isCompany) { setShowPostChooser(true); return; }
     }
     setPage(itemId);
   };

@@ -121,6 +121,11 @@ export function botGuard(req, res, next) {
   const ua = req.headers["user-agent"] || "";
   const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip;
 
+  // 0. Bypass for localhost (internal services, cron, tests)
+  if (ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1") {
+    return next();
+  }
+
   // 1. Already banned?
   if (isBanned(ip)) {
     return res.status(403).send("Forbidden");

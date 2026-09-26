@@ -81,7 +81,7 @@ export default function ProfilePushModal({ company, onClose, onOpenChat }) {
             <div className="min-w-0">
               <div className="text-sm font-semibold truncate">{user?.name}</div>
               <div className="text-xs text-slate-500 flex items-center gap-1">
-                <MapPin size={10} /> {user?.location || "Zimbabwe"}
+                <MapPin size={10} /> {user?.location || "Worldwide"}
               </div>
             </div>
           </div>

@@ -131,7 +131,7 @@ export default function AIMatchingModal({ job, onClose, setPage, onPurchaseCredi
                       )}
                     </div>
                     <div className="text-[10px] text-slate-500 mt-0.5 truncate">
-                      {c.headline || c.category || "Professional"} · {c.location || "Zimbabwe"}
+                      {c.headline || c.category || "Professional"} · {c.location || "Worldwide"}
                     </div>
                     {c.reason && (
                       <div className="text-[10px] text-indigo-300/70 mt-1 italic">

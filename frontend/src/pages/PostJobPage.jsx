@@ -97,7 +97,7 @@ export default function PostJobPage({ setPage }) {
           <h1 className="page-title">Post a Job</h1>
           <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">FREE</span>
         </div>
-        <p className="page-subtitle">Reach thousands of jobseekers across Zimbabwe.</p>
+        <p className="page-subtitle">Reach thousands of jobseekers worldwide.</p>
 
         <div className="space-y-4 mt-7">
           <div>

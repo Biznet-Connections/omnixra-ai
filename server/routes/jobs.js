@@ -7,6 +7,8 @@ import Job from "../models/Job.js";
 import Application from "../models/Application.js";
 import { protect } from "../middleware/auth.js";
 import { cacheShort } from "../middleware/cache.js";
+import { getApplicantRank } from "../utils/applicantRank.js";
+import ScrapedJob from "../models/ScrapedJob.js";
 
 const router = express.Router();
 
@@ -143,7 +145,7 @@ router.post("/:id/apply", protect, async (req, res) => {
 });
 
 // ── APPLY VIA OMNIXRA (Starter+) ──
-router.post("/:id/apply-omnixra", protect, requireTier("starter"), async (req, res) => {
+router.post("/:id/apply-omnixra", protect, async (req, res) => {
   try {
     const { message, cvAttachment, cvName } = req.body;
     if (!message?.trim()) return res.status(400).json({ message: "Message required" });
@@ -152,12 +154,35 @@ router.post("/:id/apply-omnixra", protect, requireTier("starter"), async (req, r
     if (req.params.id.startsWith("generated-")) {
       job = { _id: req.params.id, title: "Generated Job", company: "Company", companyId: null };
     } else {
+      // Try Job first
       job = await Job.findById(req.params.id);
+      // Fall back to ScrapedJob (external/local jobs)
+      if (!job) {
+        job = await ScrapedJob.findById(req.params.id);
+      }
+      // Fall back to RemoteJob (in case of remote apply)
+      if (!job) {
+        try {
+          const RemoteJob = (await import("../models/RemoteJob.js")).default;
+          job = await RemoteJob.findById(req.params.id);
+        } catch {}
+      }
       if (!job) return res.status(404).json({ message: "Job not found" });
     }
 
     const existing = await Application.findOne({ jobId: req.params.id, userId: req.user._id });
-    if (existing) return res.status(400).json({ message: "You already applied to this job." });
+    if (existing) {
+      // Return rank so the frontend can still show the "You're #X" screen
+      const rank = await getApplicantRank({ userId: req.user._id, jobId: req.params.id });
+      return res.status(200).json({
+        message: "Already applied",
+        application: existing,
+        rank,
+        total: rank.total,
+        boosted: rank.boosted,
+        alreadyApplied: true,
+      });
+    }
 
     const target = await resolveCompanyTarget({
       companyId: job.companyId,
@@ -226,14 +251,26 @@ router.post("/:id/apply-omnixra", protect, requireTier("starter"), async (req, r
       application.deliveredAt = result.success ? new Date() : null;
       await application.save();
 
+      const emailRank = await getApplicantRank({ userId: req.user._id, jobId: req.params.id });
       return res.status(201).json({
         message: result.success ? "Application sent by email" : "Application saved (email failed)",
         application,
         method: "email",
+        rank: emailRank,
+        total: emailRank.total,
+        boosted: emailRank.boosted,
       });
     }
 
-    return res.status(201).json({ message: "Application saved", application, method: "saved" });
+    const fallbackRank = await getApplicantRank({ userId: req.user._id, jobId: req.params.id });
+    return res.status(201).json({
+      message: "Application saved",
+      application,
+      method: "saved",
+      rank: fallbackRank,
+      total: fallbackRank.total,
+      boosted: fallbackRank.boosted,
+    });
   } catch (error) {
     console.error("Apply-omnixra error:", error);
     res.status(500).json({ message: error.message });
@@ -241,6 +278,75 @@ router.post("/:id/apply-omnixra", protect, requireTier("starter"), async (req, r
 });
 
 // ── LOG GMAIL APPLICATION (free) ──
+
+// ── GET RANK — current user's position for this job ──
+router.get("/:id/rank", protect, async (req, res) => {
+  try {
+    const rank = await getApplicantRank({ userId: req.user._id, jobId: req.params.id });
+    res.json(rank);
+  } catch (e) {
+    console.error("[rank]", e.message);
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── CHECK IF USER ALREADY APPLIED ──
+router.get("/:id/applied", protect, async (req, res) => {
+  try {
+    const app = await Application.findOne({
+      jobId: req.params.id,
+      userId: req.user._id,
+    }).select("_id status boosted boostedRank createdAt").lean();
+    res.json({
+      applied: !!app,
+      status: app?.status || null,
+      boosted: app?.boosted || false,
+      boostedRank: app?.boostedRank || null,
+      appliedAt: app?.createdAt || null,
+    });
+  } catch (e) {
+    res.json({ applied: false });
+  }
+});
+
+// ── BOOST — jump user's application to top 10 (Starter+) ──
+router.post("/:id/boost", protect, requireTier("starter"), async (req, res) => {
+  try {
+    const app = await Application.findOne({ jobId: req.params.id, userId: req.user._id });
+    if (!app) return res.status(404).json({ message: "Application not found. Apply first." });
+    if (app.boosted) {
+      const rank = await getApplicantRank({ userId: req.user._id, jobId: req.params.id });
+      return res.json({ ok: true, alreadyBoosted: true, ...rank });
+    }
+    app.boosted = true;
+    app.boostedAt = new Date();
+    await app.save();
+
+    const rank = await getApplicantRank({ userId: req.user._id, jobId: req.params.id });
+    app.boostedRank = rank.rank;
+    await app.save();
+
+    res.json({ ok: true, ...rank });
+  } catch (e) {
+    console.error("[boost]", e.message);
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ── SKIP BOOST — user declined, track it for 24h cooldown ──
+router.post("/:id/skip-boost", protect, async (req, res) => {
+  try {
+    const app = await Application.findOne({ jobId: req.params.id, userId: req.user._id });
+    if (!app) return res.json({ ok: true });
+    app.boostSkipCount = (app.boostSkipCount || 0) + 1;
+    app.boostSkippedAt = new Date();
+    await app.save();
+    res.json({ ok: true, skipCount: app.boostSkipCount });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
 router.post("/:id/apply-gmail-log", protect, async (req, res) => {
   try {
     const { message } = req.body;
@@ -280,7 +386,19 @@ router.post("/:id/push-cv", protect, requireTier("starter"), async (req, res) =>
     if (req.params.id.startsWith("generated-")) {
       job = { _id: req.params.id, title: "Generated Job", company: "Company", companyId: null };
     } else {
+      // Try Job first
       job = await Job.findById(req.params.id);
+      // Fall back to ScrapedJob (external/local jobs)
+      if (!job) {
+        job = await ScrapedJob.findById(req.params.id);
+      }
+      // Fall back to RemoteJob (in case of remote apply)
+      if (!job) {
+        try {
+          const RemoteJob = (await import("../models/RemoteJob.js")).default;
+          job = await RemoteJob.findById(req.params.id);
+        } catch {}
+      }
       if (!job) return res.status(404).json({ message: "Job not found" });
     }
 

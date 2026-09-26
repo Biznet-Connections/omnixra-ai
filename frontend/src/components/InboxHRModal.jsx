@@ -8,7 +8,7 @@ import { useAuth } from "../context/AuthContext";
 const buildTemplates = (user, companyName) => [
   {
     label: "Introduce yourself",
-    text: `Hi ${companyName} team,\n\nI'm ${user?.name || ""}, a ${user?.category || "professional"} based in ${user?.location || "Zimbabwe"}. I'm very interested in any opportunities you may have.\n\nBest regards,\n${user?.name || ""}`,
+    text: `Hi ${companyName} team,\n\nI'm ${user?.name || ""}, a ${user?.category || "professional"} based in ${user?.location || "Worldwide"}. I'm very interested in any opportunities you may have.\n\nBest regards,\n${user?.name || ""}`,
   },
   {
     label: "Ask about openings",

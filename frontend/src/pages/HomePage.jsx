@@ -11,6 +11,7 @@ import { useNetworkRefresh } from "../utils/useNetworkRefresh";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import EmptyState from "../components/EmptyState";
 import { useAuth } from "../context/AuthContext";
+import { useGuest } from "../context/GuestContext";
 import api from "../api/axios";
 import CompanyHome from "../components/CompanyHome";
 
@@ -72,6 +73,13 @@ function HomePage({ setPage, setSelectedUserId, focusPostId, focusCommentId }) {
   const sentinelRef = useRef(null);
   const loadingTimerRef = useRef(null);
   const { user } = useAuth();
+  const { requireAuth } = useGuest();
+
+  // Guest-aware nav — gate personal pages behind sheet
+  const goIfLoggedIn = (action, page) => () => {
+    if (!user) { requireAuth(action); return; }
+    setPage(page);
+  };
 
   // Enable native pull-to-refresh ONLY on Home
   usePullToRefresh(true);
@@ -245,22 +253,22 @@ function HomePage({ setPage, setSelectedUserId, focusPostId, focusCommentId }) {
 
   const quickActions = user?.accountType === "company"
     ? [
-        { icon: User, label: "Profile", action: () => setShowProfileMenu(true) },
-        { icon: Briefcase, label: "My Jobs", action: () => setPage("my-job-posts") },
-        { icon: FileText, label: "Applications", action: () => setPage("applications") },
-        { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
-        { icon: Bell, label: "Alerts", action: () => setPage("notifications"), badge: notifUnread },
-        { icon: BarChart3, label: "Dashboard", action: () => setPage("company-dashboard") },
+        { icon: User, label: "Profile", action: () => { if (!user) { requireAuth("profile"); return; } setShowProfileMenu(true); } },
+        { icon: Briefcase, label: "My Jobs", action: goIfLoggedIn("myjobs", "my-job-posts") },
+        { icon: FileText, label: "Applications", action: goIfLoggedIn("applications", "applications") },
+        { icon: MessageCircle, label: "Inbox", action: goIfLoggedIn("inbox", "inbox"), badge: unreadCount },
+        { icon: Bell, label: "Alerts", action: goIfLoggedIn("alerts", "notifications"), badge: notifUnread },
+        { icon: BarChart3, label: "Dashboard", action: goIfLoggedIn("dashboard", "company-dashboard") },
       ]
     : [
-        { icon: User, label: "Profile", action: () => setShowProfileMenu(true) },
+        { icon: User, label: "Profile", action: () => { if (!user) { requireAuth("profile"); return; } setShowProfileMenu(true); } },
         { icon: Search, label: "Discover", action: () => setPage("discover") },
-        { icon: UserCheck, label: "Following", action: () => setPage("following") },
-        { icon: MessageCircle, label: "Inbox", action: () => setPage("inbox"), badge: unreadCount },
-        { icon: Bell, label: "Alerts", action: () => setPage("notifications"), badge: notifUnread },
+        { icon: UserCheck, label: "Following", action: goIfLoggedIn("following", "following") },
+        { icon: MessageCircle, label: "Inbox", action: goIfLoggedIn("inbox", "inbox"), badge: unreadCount },
+        { icon: Bell, label: "Alerts", action: goIfLoggedIn("alerts", "notifications"), badge: notifUnread },
         { icon: Newspaper, label: "News", action: () => setPage("news") },
-        { icon: Briefcase, label: "Applications", action: () => setPage("applications") },
-        { icon: FileText, label: "My Posts", action: () => setPage("my-posts") },
+        { icon: Briefcase, label: "Applications", action: goIfLoggedIn("applications", "applications") },
+        { icon: FileText, label: "My Posts", action: goIfLoggedIn("myposts", "my-posts") },
       ];
 
   return (

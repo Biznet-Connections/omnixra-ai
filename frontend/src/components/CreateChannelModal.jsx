@@ -52,7 +52,7 @@ function CreateChannelModal({ onClose, onCreated }) {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Zimbabwe Tech"
+          placeholder="Tech Innovators"
           maxLength={60}
           className="form-input"
         />

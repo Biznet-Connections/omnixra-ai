@@ -47,8 +47,29 @@ export async function runScraper() {
       job.slug = slugify(`${job.category || "general"}-${job.title}`);
       const existing = await ScrapedJob.findOne({ fingerprint: job.fingerprint });
       if (existing) { duplicates++; continue; }
-      await ScrapedJob.create(job);
+      const created = await ScrapedJob.create(job);
       saved++;
+
+      // Auto-enrich in background (don't block the scrape)
+      (async () => {
+        try {
+          const { aiEnrichScrapedJob } = await import("./aiEnrichScrapedJob.js");
+          const data = await aiEnrichScrapedJob(created);
+          if (data) {
+            if (data.description) created.description = data.description;
+            if (data.requirements?.length) created.requirements = data.requirements;
+            if (data.responsibilities?.length) created.responsibilities = data.responsibilities;
+            if (data.closingDate) created.closingDate = data.closingDate;
+            if (data.salary) created.salary = data.salary;
+            if (data.applicationEmail) created.applicationEmail = data.applicationEmail;
+            if (data.employmentType) created.employmentType = data.employmentType;
+            created.lastChecked = new Date();
+            await created.save();
+          }
+        } catch (e) {
+          console.warn("[auto-enrich] failed:", e.message);
+        }
+      })();
     } catch (error) {
       if (error.code === 11000) duplicates++;
       else console.error(`  ❌ Save error: ${error.message}`);

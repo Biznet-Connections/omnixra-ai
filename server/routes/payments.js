@@ -82,6 +82,32 @@ const CATALOG = {
     description: "80K reach on one post",
     reach: 80000,
   },
+
+  // ── Apply-flow boost plans (job-specific) ──
+  boost_job_starter: {
+    type: "boost_job_starter",
+    amount: 5,
+    label: "Starter",
+    description: "Move to position 1–10 in this queue - 3 days",
+    duration: 3,
+    tier: "starter",
+  },
+  boost_job_plus: {
+    type: "boost_job_plus",
+    amount: 10,
+    label: "Plus",
+    description: "Move to position 1–10 + direct HR contact - 7 days",
+    duration: 7,
+    tier: "plus",
+  },
+  boost_job_pro: {
+    type: "boost_job_pro",
+    amount: 25,
+    label: "Pro",
+    description: "Move to position 1–10 + verified profile + instant alerts - 30 days",
+    duration: 30,
+    tier: "pro",
+  },
 };
 
 /**
@@ -333,11 +359,19 @@ async function activateFeature(payment) {
     const { type, user: userId, metadata } = payment;
     const now = new Date();
 
-    if (type === "starter_biweekly" || type === "plus_biweekly" || type === "pro_monthly") {
-      const days = type === "pro_monthly" ? 30 : 14;
+    const SUBSCRIPTION_TYPES = [
+      "starter_biweekly", "plus_biweekly", "pro_monthly",
+      "boost_job_starter", "boost_job_plus", "boost_job_pro",
+    ];
+    if (SUBSCRIPTION_TYPES.includes(type)) {
+      const days =
+        type === "pro_monthly" || type === "boost_job_pro" ? 30 :
+        type === "boost_job_plus" ? 7 :
+        type === "boost_job_starter" ? 3 :
+        14;
       const tier =
-        type === "starter_biweekly" ? "starter" :
-        type === "plus_biweekly" ? "plus" : "pro";
+        type === "starter_biweekly" || type === "boost_job_starter" ? "starter" :
+        type === "plus_biweekly" || type === "boost_job_plus" ? "plus" : "pro";
 
       await User.findByIdAndUpdate(userId, {
         isPremium: true,

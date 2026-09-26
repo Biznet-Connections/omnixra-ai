@@ -69,6 +69,26 @@ const PLANS = {
     duration: "7 days",
     unlocks: ["80,000 people will see your post"],
   },
+
+  // ── Apply-flow boost plans (job-specific) ──
+  boost_job_starter: {
+    label: "Starter",
+    amount: 5,
+    duration: "3 days",
+    unlocks: ["Move to position 1–10", "AI cover letters (unlimited)", "Auto-apply to matching jobs"],
+  },
+  boost_job_plus: {
+    label: "Plus",
+    amount: 10,
+    duration: "7 days",
+    unlocks: ["Move to position 1–10 + direct HR contact", "Message HR directly", "Companies see you first", "Send profile to companies"],
+  },
+  boost_job_pro: {
+    label: "Pro",
+    amount: 25,
+    duration: "30 days",
+    unlocks: ["Move to position 1–10 + verified profile + instant alerts", "Verified badge", "Instant job alerts", "Priority support", "Free boosts on future jobs"],
+  },
 };
 
 export default function PaymentModal({ planKey, metadata = {}, onClose, onSuccess }) {

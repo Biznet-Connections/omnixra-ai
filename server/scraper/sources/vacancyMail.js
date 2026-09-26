@@ -14,78 +14,59 @@ export async function scrapeVacancyMail(maxPages = 3) {
     try {
       const response = await axios.get(url, {
         timeout: 15000,
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120" },
       });
       const $ = cheerio.load(response.data);
       let pageCount = 0;
 
-      $(".job-listing, .job-item, article, .job-card").each((i, el) => {
+      // VacancyMail: each job is <a class="job-listing" href="/jobs/slug-NUMBER/">
+      $("a.job-listing").each((_, el) => {
         const $el = $(el);
-        const title = $el.find(".job-title, h2, h3, a").first().text().trim();
+        const href = $el.attr("href") || "";
+
+        // MUST match real URL pattern: /jobs/slug-NUMBER/
+        if (!/^\/jobs\/[a-z0-9-]+-\d+\/?$/i.test(href)) return;
+
+        // Title — usually in h3 inside the details div
+        const title = $el.find("h3, .job-listing-title, .job-title").first().text().trim()
+          || $el.find("h4, h2").first().text().trim();
         if (!title || title.length < 3) return;
         if (seenTitles.has(title.toLowerCase())) return;
         seenTitles.add(title.toLowerCase());
 
-        // Company extraction (multi-strategy)
-        let company = $el.find(".company, .employer, .job-company, .company-name, .job-employer").text().trim();
+        // Company — usually has a company-name or logo sibling
+        let company =
+          $el.find(".company-name, .job-listing-company-name, .company").first().text().trim()
+          || "";
 
-        // Strategy 1: "Job Title - Company Name" from h3/h2
-        if (!company || company === "Unknown Company") {
-          const cardTitle = $el.find("h3, h2, .job-title, .job-listing-title, a").first().text().trim();
-          const dashMatch = cardTitle.match(/^.+?\s+[-–—]\s+(.+)$/);
-          if (dashMatch) company = dashMatch[1].trim();
+        // Fallback: find the company name in the details block
+        if (!company) {
+          const detailsText = $el.find(".job-listing-details").text().trim();
+          // Look for "at Company" or a capitalized name after the title
+          const lines = detailsText.split("\n").map(s => s.trim()).filter(Boolean);
+          for (const line of lines) {
+            if (line.toLowerCase() !== title.toLowerCase() && /^[A-Z]/.test(line) && line.length > 2 && line.length < 80) {
+              company = line;
+              break;
+            }
+          }
         }
-
-        // Strategy 2: regex for company suffixes on the listing text (stripping title first)
-        if (!company || company === "Unknown Company") {
-          const listingText = ($el.text() || "").replace(title || "", "").trim();
-          const match = listingText.match(/([A-Z][A-Za-z0-9&\s\.\-]{2,60}?(?:Investment|Investments|Limited|Ltd|Pvt|Holdings|Corporation|Group|Pharmacy|Pharmacies|Services|Health|Trust|Foundation|Council|Hospital|Bank|Insurance|Company|Enterprises))/);
-          if (match) company = match[1].replace(/\s+/g, " ").trim();
-        }
-
-        if (!company || company === "Unknown Company") company = "Unknown Company";
-        company = company.replace(/\s+/g, " ").trim().substring(0, 80);
-
-        // Final cleanup: if company starts with the job title, strip it
-        if (title && company.toLowerCase().startsWith(title.toLowerCase().substring(0, 20))) {
-          const cleaned = company.substring(title.length).trim();
-          if (cleaned) company = cleaned;
-        }
+        company = (company || "Unknown Company").replace(/\s+/g, " ").trim().substring(0, 80);
 
         // Location
-        const location = $el.find(".location, .job-location").text().trim() || "Zimbabwe";
+        const location =
+          $el.find(".job-listing-location, .location, .job-location").first().text().trim()
+          || "Zimbabwe";
 
-        // Description
-        const description = $el.find(".description, .excerpt, .job-description").text().trim() || $el.text().substring(0, 300).replace(/\s+/g, " ").trim();
+        // Description (short snippet from listing)
+        const description =
+          $el.find(".job-listing-description, .description, .excerpt").first().text().trim()
+          || $el.text().substring(0, 400).replace(/\s+/g, " ").trim();
 
-        // Salary
-        const salary = $el.find(".salary, .job-salary").text().trim() || "";
+        // Salary / date snippets if present
+        const salary = $el.find(".job-listing-salary, .salary").first().text().trim() || "";
 
-        // Dates
-        const closingDateText = $el.find(".closing-date, .deadline, .expiry, .job-deadline").text().trim();
-        const postedDateText = $el.find(".posted-date, .date-posted, .job-date").text().trim();
-
-        // Link
-        let link = $el.find("a.job-listing").attr("href") || "";
-        if (!link) {
-          const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").substring(0, 30);
-          $el.find("a").each((_, a) => {
-            const href = $(a).attr("href") || "";
-            if (href.includes(slug) && !link) link = href;
-          });
-        }
-        if (!link) {
-          $el.find("a").each((_, a) => {
-            const href = $(a).attr("href") || "";
-            if (href.includes("/jobs/") && href.length > 15 && !link) link = href;
-          });
-        }
-        if (!link) {
-          const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-          link = `/jobs/${slug}/`;
-        }
-
-        const absoluteUrl = link.startsWith("http") ? link : `https://vacancymail.co.zw${link}`;
+        const absoluteUrl = `https://vacancymail.co.zw${href}`;
 
         jobs.push({
           title,
@@ -96,9 +77,9 @@ export async function scrapeVacancyMail(maxPages = 3) {
           sourceUrl: absoluteUrl,
           description,
           salary,
-          closingDate: closingDateText ? parseDate(closingDateText) : null,
-          postedDate: postedDateText ? parseDate(postedDateText) : new Date(),
-          sourceJobId: `vacancymail-${absoluteUrl.split("/").filter(Boolean).pop()}`
+          closingDate: null,
+          postedDate: new Date(),
+          sourceJobId: `vacancymail-${href.split("/").filter(Boolean).pop()}`,
         });
         pageCount++;
       });
@@ -113,14 +94,4 @@ export async function scrapeVacancyMail(maxPages = 3) {
 
   console.log(`VacancyMail total: ${jobs.length} jobs`);
   return jobs;
-}
-
-function parseDate(dateStr) {
-  try {
-    const cleaned = dateStr.replace(/(st|nd|rd|th)/gi, "").trim();
-    const date = new Date(cleaned);
-    return isNaN(date) ? null : date;
-  } catch {
-    return null;
-  }
 }
