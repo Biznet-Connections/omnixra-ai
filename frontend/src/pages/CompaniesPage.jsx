@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import CompanyCard from "../components/CompanyCard";
+import PushProfileModal from "../components/PushProfileModal";
 import api from "../api/axios";
 import LoadingDots from "../components/LoadingDots";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
@@ -35,6 +36,7 @@ function writeCompaniesCache(payload) {
 }
 
 function CompaniesPage({ setPage }) {
+  const [pushTarget, setPushTarget] = React.useState(null);
   const { online } = useNetworkStatus();
   const cached = typeof window !== "undefined" ? readCompaniesCache() : null;
   const [companies, setCompanies] = useState(cached?.companies || cachedCompanies || []);
@@ -181,7 +183,7 @@ function CompaniesPage({ setPage }) {
           <>
             <div className="company-grid mt-7">
               {companies.map(company => (
-                <CompanyCard key={company._id} company={company} setPage={setPage} />
+                <CompanyCard key={company._id} company={company} setPage={setPage} onPushProfile={setPushTarget} />
               ))}
             </div>
 
@@ -198,6 +200,12 @@ function CompaniesPage({ setPage }) {
           </>
         )}
       </div>
+    
+    {pushTarget ? (
+    
+      <PushProfileModal company={pushTarget} onClose={() => setPushTarget(null)} />
+    
+    ) : null}
     </div>
   );
 }

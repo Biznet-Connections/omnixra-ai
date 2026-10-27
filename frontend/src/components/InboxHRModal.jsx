@@ -4,6 +4,7 @@ import api from "../api/axios";
 import ProgressModal from "./ProgressModal";
 import SuccessModal from "./SuccessModal";
 import { useAuth } from "../context/AuthContext";
+import PremiumModal from "./PremiumModal";
 
 const buildTemplates = (user, companyName) => [
   {
@@ -21,6 +22,23 @@ const buildTemplates = (user, companyName) => [
 ];
 
 export default function InboxHRModal({ company, onClose, onOpenChat }) {
+  const { user: gateUser } = useAuth();
+  const hasHrAccess = () => {
+    const u = gateUser || {};
+    if (!u.subscriptionTier) return false;
+    const exp = u.subscriptionExpiresAt || u.premiumExpiresAt;
+    if (exp && new Date(exp) < new Date()) return false;
+    return u.subscriptionTier === "plus" || u.subscriptionTier === "pro";
+  };
+  if (!hasHrAccess()) {
+    return (
+      <PremiumModal
+        onClose={onClose}
+        reason="message HR directly"
+        mode="inbox-hr"
+      />
+    );
+  }
   const { user } = useAuth();
   const [message, setMessage] = useState("");
   const [step, setStep] = useState("form");

@@ -72,7 +72,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(compression({ threshold: 1024, level: 6 }));
-app.use(express.json({ limit: "50mb" }));
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "2mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ── Bot guard + guest rate limit (before all routes) ──
@@ -442,15 +442,35 @@ server.listen(PORT, () => {
     // Daily AI news â€” disable on secondary instances
     console.log("ðŸ“… [SCHEDULER] DISABLE_AUTO_NEWS =", process.env.DISABLE_AUTO_NEWS);
     if (process.env.DISABLE_AUTO_NEWS !== "true") {
-      console.log("ðŸ“… [SCHEDULER] Calling generateDailyNewsIfNeeded() on startup...");
-      generateDailyNewsIfNeeded();
-      console.log("ðŸ“… [SCHEDULER] Setting up 24h interval for news");
+      // ── AI news: Monday (1) + Thursday (4) at 8am server time by default ──
+      // Configurable via .env: NEWS_DAYS (comma-separated 0=Sun..6=Sat), NEWS_HOUR (0-23)
+      const NEWS_DAYS = (process.env.NEWS_DAYS || "1,4")
+        .split(",").map(d => parseInt(d.trim(), 10)).filter(n => !isNaN(n));
+      const NEWS_HOUR = parseInt(process.env.NEWS_HOUR || "8", 10);
+
+      const shouldRunNewsNow = () => {
+        const now = new Date();
+        return NEWS_DAYS.includes(now.getDay()) && now.getHours() === NEWS_HOUR;
+      };
+
+      // Hourly tick — safe across restarts, only fires at exact hour on scheduled days
       setInterval(() => {
-        console.log("ðŸ“… [SCHEDULER] 24h interval fired");
+        if (shouldRunNewsNow()) {
+          console.log("[SCHEDULER] News day+hour reached (day=" + new Date().getDay() + ", hour=" + new Date().getHours() + ") — running");
+          generateDailyNewsIfNeeded();
+        }
+      }, 60 * 60 * 1000);
+
+      // On startup: only run if today IS a news day AND current hour >= NEWS_HOUR
+      const nowOnBoot = new Date();
+      if (NEWS_DAYS.includes(nowOnBoot.getDay()) && nowOnBoot.getHours() >= NEWS_HOUR) {
+        console.log("[SCHEDULER] Startup catch-up: today is a news day, hour>=" + NEWS_HOUR + " — running");
         generateDailyNewsIfNeeded();
-      }, 24 * 60 * 60 * 1000);
+      } else {
+        console.log("[SCHEDULER] No startup news run (day=" + nowOnBoot.getDay() + ", hour=" + nowOnBoot.getHours() + "; scheduled days=[" + NEWS_DAYS.join(",") + "] hour=" + NEWS_HOUR + ")");
+      }
     } else {
-      console.log("â„¹ï¸  Auto news generation disabled (DISABLE_AUTO_NEWS=true)");
+      console.log("[SCHEDULER] Auto news generation disabled (DISABLE_AUTO_NEWS=true)");
     }
 
     // ðŸ• Job scraper runs 3 times per day: 8am, 12pm, 4pm

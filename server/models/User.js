@@ -6,8 +6,22 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
     password: { type: String, required: true },
-    accountType: { type: String, enum: ["jobseeker", "company", "admin"], default: "jobseeker" },
+    accountType: { type: String, enum: ["jobseeker", "company", "business", "admin"], default: "jobseeker" },
     companyName: { type: String },
+
+    // ── Business Owner fields ──
+    businessName: { type: String },
+    businessSlug: { type: String, index: true, sparse: true },
+    businessCategory: { type: String },
+    businessLocation: { type: String },
+    businessAbout: { type: String },
+    businessLogo: { type: String },
+    businessHours: { type: String },       // e.g. "Mon-Sat 8am-6pm"
+    businessPhone: { type: String },
+    businessWhatsApp: { type: String },
+    businessVerified: { type: Boolean, default: false },
+    businessRating: { type: Number, default: 0 },
+    businessReviewCount: { type: Number, default: 0 },
     location: { type: String },
     headline: { type: String },
     skills: [{ type: String }],
@@ -21,6 +35,8 @@ const userSchema = new mongoose.Schema(
     premiumPlan: { type: String, enum: ["none", "monthly", "yearly"], default: "none" },
     premiumExpiresAt: { type: Date },
     premiumPlan: { type: String, enum: ["none", "monthly", "yearly"], default: "none" },
+    replyCountSinceSubscription: { type: Number, default: 0 },
+    autoPilotEnabled: { type: Boolean, default: false },
     subscriptionTier: {
       type: String,
       enum: ["none", "starter", "plus", "pro"],
@@ -29,6 +45,7 @@ const userSchema = new mongoose.Schema(
     subscriptionExpiresAt: { type: Date },
     expiryWarningSent: { type: Boolean, default: false },
     expiredNotificationSent: { type: Boolean, default: false },
+    isShadow: { type: Boolean, default: false },   // auto-created synthetic company for admin replies
     pushCredits: { type: Number, default: 0 },
 
     // ── Company paid features ──

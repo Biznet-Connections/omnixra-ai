@@ -5,6 +5,7 @@ import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 export default function PaymentCompletePage({ setPage }) {
   const [status, setStatus] = useState("loading");
   const [reference, setReference] = useState("");
+  const [resumeAction, setResumeAction] = useState(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -23,7 +24,22 @@ export default function PaymentCompletePage({ setPage }) {
         if (shortUrl) qs.set("short_url", shortUrl);
         if (paymentRef) qs.set("payment_reference", paymentRef);
         const res = await api.get("/payments/status/" + ref + (qs.toString() ? "?" + qs.toString() : ""));
-        if (res.data.status === "paid") { setStatus("paid"); clearInterval(iv); }
+        if (res.data.status === "paid") { 
+          setStatus("paid"); 
+          clearInterval(iv); 
+          
+          // Check if we have a return state
+          const returnStateStr = sessionStorage.getItem("omnixra_return_state");
+          if (returnStateStr) {
+            try {
+              const returnState = JSON.parse(returnStateStr);
+              // Only use it if it was set in the last 30 minutes
+              if (Date.now() - returnState.timestamp < 30 * 60 * 1000) {
+                setResumeAction(returnState);
+              }
+            } catch (e) { console.error("Bad return state", e); }
+          }
+        }
         else if (res.data.status === "failed") { setStatus("failed"); clearInterval(iv); }
       } catch (e) {}
       if (tries >= maxTries) { clearInterval(iv); setStatus("timeout"); }
@@ -37,6 +53,32 @@ export default function PaymentCompletePage({ setPage }) {
     if (!finalStates.includes(status)) return;
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const isNative = typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.();
+    
+    // If we have a resume action, handle it inside the web app for a second, then go home
+    if (resumeAction) {
+      const t = setTimeout(() => {
+        // Clear it so we dont accidentally run it twice
+        sessionStorage.removeItem("omnixra_return_state");
+        
+        // If it was a CV purchase, we navigate to the jobs page and trigger the resume
+        if (resumeAction.action === "cv_purchased") {
+           setPage("jobs");
+           // We will add an event listener in JobsPage to catch this
+           setTimeout(() => {
+             window.dispatchEvent(new CustomEvent("resume-cv-purchase", { detail: resumeAction }));
+           }, 500);
+        }
+        
+        if (resumeAction.action === "push_profile") {
+          setPage("companies");
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("resume-push-profile", { detail: resumeAction }));
+          }, 500);
+        }
+      }, 1500);
+      return () => clearTimeout(t);
+    }
+
     if (!isMobile || isNative) return;
 
     const params = new URLSearchParams();
@@ -75,7 +117,9 @@ export default function PaymentCompletePage({ setPage }) {
 
       {status === "paid" && (
         <p className="text-sm text-white/60 mb-4 text-center">
-          Your features are now active. {/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? "Returning to app..." : "Head back to the app to use them."}
+          {resumeAction 
+            ? "Payment confirmed. Resuming your application..." 
+            : "Your features are now active."}
         </p>
       )}
 

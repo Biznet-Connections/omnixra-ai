@@ -23,7 +23,7 @@ function BottomNav({ page, setPage }) {
         { id: "myai", label: "My AI", icon: Sparkles },
         { id: "post", label: "Post", icon: PlusCircle },
         { id: "jobs", label: "Jobs", icon: Briefcase },
-        { id: "companies", label: "Companies", icon: Building2 },
+        { id: "inbox", label: "Inbox", icon: Inbox },
       ];
 
   const handleClick = (itemId) => {

@@ -4,8 +4,8 @@ import { useAuth } from "../context/AuthContext";
 import { useGuest } from "../context/GuestContext";
 import api from "../api/axios";
 import PremiumModal from "./PremiumModal";
-import ApplyMethodModal from "./ApplyMethodModal";
 import ApplyFlowPage from "../pages/ApplyFlowPage";
+import SimilarJobsSheet from "./SimilarJobsSheet";
 import PushCVModal from "./PushCVModal";
 import LockedFeatureModal from "./LockedFeatureModal";
 import PaymentModal from "./PaymentModal";
@@ -13,6 +13,17 @@ import JobDescriptionBody from "./JobDescriptionBody";
 import { openGmailCompose, buildApplicationEmail } from "../utils/gmailCompose";
 import { hasTier } from "../utils/tierHelpers";
 import { shareJob } from "../utils/share";
+
+// Display-safe company name: hides placeholders, trims legacy noise.
+const BAD_COMPANY = /^(unknown company|unknown|undefined|null|pending enrichment|n\/a|none)$/i;
+function displayCompany(job) {
+  let c = (job?.company || "").trim();
+  // Strip trailing noise from old rows: " -", " |", " ~~ 0", " –"
+  c = c.replace(/[\s\-–—|~]+\s*\d*\s*$/g, "").trim();
+  c = c.replace(/\s+/g, " ").trim();
+  if (!c || BAD_COMPANY.test(c)) return "Confidential Employer";
+  return c;
+}
 
 function JobCard({ job, tab = "omnixra" }) {
   const { user } = useAuth();
@@ -44,6 +55,7 @@ function JobCard({ job, tab = "omnixra" }) {
   const [showPushCV, setShowPushCV] = useState(false);
   const [showLocked, setShowLocked] = useState(false);
   const [showBoostPlans, setShowBoostPlans] = useState(false);
+  const [similarJob, setSimilarJob] = useState(null);
   const [rankSnapshot, setRankSnapshot] = useState(null);
   const [lockedFeature, setLockedFeature] = useState("This feature");
   const [activePlan, setActivePlan] = useState(null);
@@ -74,11 +86,8 @@ function JobCard({ job, tab = "omnixra" }) {
   };
 
   const handleApplyClick = async () => {
-    if (!user) {
-      requireAuth("apply", { jobTitle: job.title, company: job.company });
-      return;
-    }
-    // Direct to the full apply flow — no more modal
+    if (applied || applying) return;
+    // Go straight to the new ApplyFlowPage composer
     setShowComposer(true);
   };
 
@@ -161,7 +170,7 @@ function JobCard({ job, tab = "omnixra" }) {
     <>
       <div className="job-card compact-card">
         <div className="flex gap-3 min-w-0">
-          <div className="job-logo bg-gradient-to-br from-indigo-500 to-blue-600">{job.company?.[0] || "C"}</div>
+          <div className="job-logo bg-gradient-to-br from-indigo-500 to-blue-600">{displayCompany(job)?.[0] || "C"}</div>
           <div className="flex-1 min-w-0">
             <div className="flex justify-between gap-3 min-w-0">
               <div className="flex-1 min-w-0">
@@ -173,7 +182,7 @@ function JobCard({ job, tab = "omnixra" }) {
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] text-slate-600 mt-1 truncate">{job.company}</div>
+                <div className="text-[11px] text-slate-600 mt-1 truncate">{displayCompany(job)}</div>
                 {job.source === "scraped" && (
                   <div className="text-[9px] text-slate-500/70 mt-0.5 italic truncate">
                     via {job.sourceUrl?.includes("iharare") ? "iharare" : job.sourceUrl?.includes("vacancymail") ? "vacancymail" : job.sourceUrl?.includes("zimbojobs") ? "zimbojobs" : "external"}
@@ -216,17 +225,7 @@ function JobCard({ job, tab = "omnixra" }) {
         </div>
       </div>
 
-      {showApplyMethod && (
-        <ApplyMethodModal
-          job={job}
-          applicantCount={applicantCount}
-          onClose={() => setShowApplyMethod(false)}
-          onPickGmail={handlePickGmail}
-          onPickOmnixra={handlePickOmnixra}
-          onPickAuto={handlePickAuto}
-          onLocked={handleLocked}
-        />
-      )}
+      {/* ApplyMethodModal removed — using ApplyFlowPage directly */}
       {showPushCV && (
         <PushCVModal
           job={job}
@@ -238,6 +237,16 @@ function JobCard({ job, tab = "omnixra" }) {
         <ApplyFlowPage
           job={job}
           onClose={() => setShowComposer(false)}
+          onSimilar={() => {
+            setShowComposer(false);
+            setApplied(true);
+            setSimilarJob(job); // Opens the SimilarJobsSheet
+          }}
+          onInbox={() => {
+            setShowComposer(false);
+            setApplied(true);
+            window.dispatchEvent(new CustomEvent("push-navigate", { detail: { deepLink: "/inbox" } }));
+          }}
           onSuccess={async (result) => {
             const action = result?.action;
             if (action === "boost") {
@@ -301,7 +310,7 @@ function JobCard({ job, tab = "omnixra" }) {
 
             {/* Company + location */}
             <div className="text-sm text-slate-400 mb-3">
-              <span className="font-medium text-slate-200">{job.company || "Unknown Company"}</span>
+              <span className="font-medium text-slate-200">{displayCompany(job)}</span>
               {job.location && <> &middot; {job.location}</>}
             </div>
 
@@ -353,7 +362,14 @@ function JobCard({ job, tab = "omnixra" }) {
               <button onClick={handleShare} className="outline-button">Share</button>
             </div>
           </div>
-        </div>
+        
+      {similarJob ? (
+        <SimilarJobsSheet
+          job={similarJob}
+          onClose={() => setSimilarJob(null)}
+        />
+      ) : null}
+      </div>
       )}
     </>
   );

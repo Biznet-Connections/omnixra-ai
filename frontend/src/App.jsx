@@ -9,6 +9,18 @@ import NotificationsPage from "./pages/NotificationsPage";
 import AuthCallback from "./pages/AuthCallback";
 import VerifyEmailScreen from "./pages/VerifyEmailScreen";
 import CompanySetupScreen from "./pages/CompanySetupScreen";
+import BusinessSetupScreen from "./pages/BusinessSetupScreen";
+import BusinessWelcomeScreen from "./pages/BusinessWelcomeScreen";
+import BusinessDashboard from "./pages/BusinessDashboard";
+import PublicShopPage from "./pages/PublicShopPage";
+import PublicProductDetail from "./pages/PublicProductDetail";
+import EditProductScreen from "./pages/EditProductScreen";
+import BusinessProducts from "./pages/BusinessProducts";
+import BusinessSettings from "./pages/BusinessSettings";
+import ShopSettingsScreen from "./pages/ShopSettingsScreen";
+import PostProductScreen from "./pages/PostProductScreen";
+import BusinessInbox from "./pages/BusinessInbox";
+import BusinessBottomNav from "./components/BusinessBottomNav";
 import ChatPage from "./pages/ChatPage";
 import JobsPage from "./pages/JobsPage";
 import CompaniesPage from "./pages/CompaniesPage";
@@ -28,6 +40,9 @@ import ProfileStatsPage from "./pages/ProfileStatsPage";
 import SavedPostsPage from "./pages/SavedPostsPage";
 import InboxPage from "./pages/InboxPage";
 import ApplicationsPage from "./pages/ApplicationsPage";
+import ApplicationDetailScreen from "./pages/ApplicationDetailScreen";
+import ReplyComposerScreen from "./pages/ReplyComposerScreen";
+import AdminApplications from "./pages/AdminApplications";
 import SharedAIPage from "./pages/SharedAIPage";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -66,6 +81,11 @@ import PaymentCompletePage from "./pages/PaymentCompletePage";
 function AppContent() {
   // â”€â”€ ALL HOOKS AT THE TOP â”€â”€
   const [splashDone, setSplashDone] = useState(false);
+  const [publicShopSlug, setPublicShopSlug] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const m = window.location.pathname.match(/^\/shop\/([^/]+)/);
+    return m ? m[1] : null;
+  });
   const [page, setPage] = useState(() => {
     if (typeof window === "undefined") return "home";
     const path = window.location.pathname;
@@ -76,6 +96,7 @@ function AppContent() {
     if (path.startsWith("/job/")) return "jobs";
     if (path.startsWith("/jobs/") && path.length > "/jobs/".length) return "jobs";
     if (path.startsWith("/premium")) return "premium";
+    if (path.startsWith("/shop/")) return "public-shop";
     if (path.startsWith("/payment-complete")) return "payment-complete";
     return "home";
   });
@@ -93,7 +114,7 @@ function AppContent() {
   const [authSheetMode, setAuthSheetMode] = useState(null);
 
   // Pages a guest can browse without auth
-  const GUEST_ALLOWED_PAGES = ["home", "jobs", "companies", "channel", "shared-ai", "myai", "discover", "news"];
+  const GUEST_ALLOWED_PAGES = ["home", "jobs", "companies", "channel", "shared-ai", "myai", "discover", "news", "public-shop"];
   const isGuestPage = !user && GUEST_ALLOWED_PAGES.includes(page);
 
   // â”€â”€ Helper functions â”€â”€
@@ -359,6 +380,21 @@ function AppContent() {
     return () => clearTimeout(t);
   }, [user]);
 
+  // ── PUBLIC PRODUCT DETAIL — bypasses app shell too ──
+  if (typeof window !== "undefined" && window.location.pathname.match(/^\/shop\/[^/]+\/p\/[^/]+/)) {
+    const parts = window.location.pathname.split("/").filter(Boolean);
+    // /shop/:slug/p/:productId
+    const shopSlug = parts[1];
+    const productId = parts[3];
+    return <PublicProductDetail slug={shopSlug} productId={productId} setPage={() => { window.location.href = "/"; }} />;
+  }
+
+  // ── PUBLIC SHOP — completely bypasses app shell, no auth needed ──
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/shop/")) {
+    const shopSlug = window.location.pathname.replace("/shop/", "").split("/")[0];
+    return <PublicShopPage slug={shopSlug} setPage={() => { window.location.href = "/"; }} />;
+  }
+
   const appReady = splashDone && !authLoading;
   if (!appReady) return <LoadingScreen onFinish={() => setSplashDone(true)} />;
 
@@ -398,6 +434,15 @@ function AppContent() {
   if (needsCompanySetup) {
     return <CompanySetupScreen setPage={setPage} />;
   }
+
+  // ── Business user without business category → setup screen ──
+  const needsBusinessSetup =
+    user &&
+    user.accountType === "business" &&
+    (!user.businessCategory || !user.businessSlug);
+  if (needsBusinessSetup) {
+    return <BusinessSetupScreen setPage={setPage} />;
+  }
   // â”€â”€ Main render helpers â”€â”€
   const renderPage = () => {
     switch (page) {
@@ -419,7 +464,7 @@ function AppContent() {
       />;
       case "professionals": return <ProfessionalsPage setPage={navigate} setSelectedUserId={setSelectedUserId} />;
       case "profile": return <ProfilePage />;
-      case "settings": return <SettingsPage setPage={navigate} />;
+      case "settings": return user?.accountType === "business" ? <BusinessSettings setPage={navigate} /> : <SettingsPage setPage={navigate} />;
       case "my-posts": return <MyPostsPage setPage={navigate} />;
       case "my-jobs": return <ManageJobsPage setPage={navigate} />;
       case "edit-profile": return <EditProfilePage setPage={navigate} />;
@@ -431,13 +476,25 @@ function AppContent() {
       case "companies-viewed": return <CompaniesViewedPage setPage={navigate} />;
       case "profile-stats": return <ProfileStatsPage setPage={navigate} />;
       case "saved-posts": return <SavedPostsPage setPage={navigate} />;
-      case "inbox": return user?.accountType === "company"
+      case "inbox": return user?.accountType === "business" ? <BusinessInbox setPage={navigate} /> : user?.accountType === "company"
         ? <CompanyInboxPage setPage={navigate} setSelectedUserId={setSelectedUserId} />
         : <InboxPage setPage={navigate} />;
+      case "application-detail": return <ApplicationDetailScreen setPage={navigate} />;
+      case "reply-composer": return <ReplyComposerScreen setPage={navigate} />;
       case "applications": return <ApplicationsPage setPage={navigate} />;
       case "my-job-posts": return <MyJobPostsPage setPage={navigate} />;
       case "company-dashboard": return <CompanyDashboardPage setPage={navigate} />;
       case "company-pricing": return <CompanyPricingPage setPage={navigate} />;
+      case "business-welcome": return <BusinessWelcomeScreen setPage={navigate} />;
+      case "business-dashboard": return <BusinessDashboard setPage={navigate} />;
+      case "business-inbox": return <BusinessInbox setPage={navigate} />;
+      case "post-product": return <PostProductScreen setPage={navigate} />;
+      case "edit-product": return <EditProductScreen setPage={navigate} />;
+      case "business-products": return <BusinessProducts setPage={navigate} />;
+      case "business-settings": return <BusinessSettings setPage={navigate} />;
+      case "shop-settings": return <ShopSettingsScreen setPage={navigate} />;
+      case "business-ai": return <ChatPage initialChatId={myAiChatId} />;
+      case "public-shop": return <PublicShopPage slug={publicShopSlug} setPage={navigate} />;
       case "team-members": return <TeamMembersPage setPage={navigate} />;
       case "billing": return <BillingPage setPage={navigate} />;
       case "change-email": return <ChangeEmailPage setPage={navigate} />;
@@ -449,6 +506,7 @@ function AppContent() {
       case "admin-users": return <AdminUsers setPage={navigate} />;
       case "admin-vouchers": return <AdminVouchers setPage={navigate} />;
       case "admin-moderation": return <AdminModeration setPage={navigate} />;
+      case "admin-applications": return <AdminApplications setPage={navigate} />;
       case "admin-jobs": return <AdminJobs setPage={navigate} />;
       case "admin-analytics": return <AdminAnalytics setPage={navigate} />;
       case "admin-announcements": return <AdminAnnouncements setPage={navigate} />;
@@ -475,7 +533,7 @@ const isAdminPage = page === "admin" || page === "admin-login" || page.startsWit
       <main className="app-main">
         <ErrorBoundary key={page}>{renderPage()}</ErrorBoundary>
       </main>
-      {!isAdminPage && <BottomNav page={page} setPage={handleNavClick} />}
+      {!isAdminPage && (user?.accountType === "business" ? <BusinessBottomNav page={page} setPage={handleNavClick} /> : <BottomNav page={page} setPage={handleNavClick} />)}
       {showPostComposer && <PostComposer onClose={() => setShowPostComposer(false)} />}
       <LoginPromptSheet
         prompt={guestPrompt}

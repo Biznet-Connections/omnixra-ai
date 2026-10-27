@@ -6,6 +6,98 @@ import ScrapedJob from "../models/ScrapedJob.js";
 import { slugify } from "../utils/slugify.js";
 import { matchJobsToUsers } from "../utils/notifyBatcher.js";
 
+/**
+ * Enrich a single VacancyMail job: JSON-LD first (free/clean), AI fallback.
+ */
+async function enrichVacancyMailJob(doc) {
+  const { enrichFromVacancyMailJsonLd } = await import("./vacancyMailJsonLd.js");
+  const { aiEnrichScrapedJob } = await import("./aiEnrichScrapedJob.js");
+
+  let patch = {};
+  let usedJsonLd = false;
+  let usedAi = false;
+
+  // ── 1. JSON-LD (0 AI cost) ──
+  try {
+    const ld = await enrichFromVacancyMailJsonLd(doc.sourceUrl);
+    if (ld) {
+      if (ld.description) patch.description = ld.description;
+      if (ld.postedDate) patch.postedDate = ld.postedDate;
+      if (ld.closingDate) patch.closingDate = ld.closingDate;
+      if (ld.salary) patch.salary = ld.salary;
+      if (ld.location) patch.location = ld.location;
+      usedJsonLd = true;
+    }
+  } catch (e) {
+    console.warn("[vacancymail-jsonld] failed:", e.message);
+  }
+
+  // ── 2. AI — for company + requirements + responsibilities ──
+  try {
+    const ai = await aiEnrichScrapedJob(doc);
+    if (ai) {
+      if (ai.company && (!doc.company || /^(pending enrichment|unknown company)$/i.test(doc.company))) {
+        patch.company = ai.company;
+      }
+      if (ai.description) patch.description = ai.description; // AI's version is richer
+      if (ai.requirements?.length) patch.requirements = ai.requirements;
+      if (ai.responsibilities?.length && ai.responsibilities[0] !== "Job Related") {
+        patch.responsibilities = ai.responsibilities;
+      }
+      if (ai.closingDate && !patch.closingDate) patch.closingDate = ai.closingDate;
+      if (ai.salary && !patch.salary) patch.salary = ai.salary;
+      if (ai.applicationEmail) patch.applicationEmail = ai.applicationEmail;
+      if (ai.employmentType) patch.employmentType = ai.employmentType;
+      usedAi = true;
+    }
+  } catch (e) {
+    console.warn("[vacancymail-ai] failed:", e.message);
+  }
+
+  // ── 3. Company final fallback ──
+  if (!patch.company && (!doc.company || /^(pending enrichment|unknown company)$/i.test(doc.company))) {
+    patch.company = "Confidential Employer";
+  }
+
+  patch.enriched = true;
+  patch.enrichedAt = new Date();
+  patch.enrichmentSource = usedJsonLd && usedAi ? "jsonld+ai" : usedJsonLd ? "jsonld" : usedAi ? "ai" : null;
+  patch.lastChecked = new Date();
+
+  return patch;
+}
+
+/**
+ * Generic AI-only enrichment for non-VacancyMail jobs (Iharare, Zimbo, etc.)
+ */
+async function enrichGenericJob(doc) {
+  const { aiEnrichScrapedJob } = await import("./aiEnrichScrapedJob.js");
+  try {
+    const ai = await aiEnrichScrapedJob(doc);
+    if (!ai) return null;
+    const patch = {};
+    if (ai.company && (!doc.company || /^(pending enrichment|unknown company)$/i.test(doc.company))) patch.company = ai.company;
+    if (ai.description) patch.description = ai.description;
+    if (ai.requirements?.length) patch.requirements = ai.requirements;
+    if (ai.responsibilities?.length) patch.responsibilities = ai.responsibilities;
+    if (ai.closingDate) patch.closingDate = ai.closingDate;
+    if (ai.salary) patch.salary = ai.salary;
+    if (ai.applicationEmail) patch.applicationEmail = ai.applicationEmail;
+    if (ai.employmentType) patch.employmentType = ai.employmentType;
+    if (!patch.company && (!doc.company || /^(pending enrichment|unknown company)$/i.test(doc.company))) {
+      patch.company = "Confidential Employer";
+    }
+    patch.enriched = true;
+    patch.enrichedAt = new Date();
+    patch.enrichmentSource = "ai";
+    patch.lastChecked = new Date();
+    return patch;
+  } catch (e) {
+    console.warn("[generic-ai] failed:", e.message);
+    return null;
+  }
+}
+
 export async function runScraper() {
   const startTime = Date.now();
   console.log("╔══════════════════════════════════════════════════╗");
@@ -53,18 +145,14 @@ export async function runScraper() {
       // Auto-enrich in background (don't block the scrape)
       (async () => {
         try {
-          const { aiEnrichScrapedJob } = await import("./aiEnrichScrapedJob.js");
-          const data = await aiEnrichScrapedJob(created);
-          if (data) {
-            if (data.description) created.description = data.description;
-            if (data.requirements?.length) created.requirements = data.requirements;
-            if (data.responsibilities?.length) created.responsibilities = data.responsibilities;
-            if (data.closingDate) created.closingDate = data.closingDate;
-            if (data.salary) created.salary = data.salary;
-            if (data.applicationEmail) created.applicationEmail = data.applicationEmail;
-            if (data.employmentType) created.employmentType = data.employmentType;
-            created.lastChecked = new Date();
-            await created.save();
+          const isVacancyMail = created.source === "VacancyMail";
+          const patch = isVacancyMail
+            ? await enrichVacancyMailJob(created)
+            : await enrichGenericJob(created);
+
+          if (patch && Object.keys(patch).length > 0) {
+            await ScrapedJob.updateOne({ _id: created._id }, { $set: patch });
+            console.log(`  ✨ enriched [${created.source}]: ${created.title} → ${patch.enrichmentSource || "none"}`);
           }
         } catch (e) {
           console.warn("[auto-enrich] failed:", e.message);
@@ -76,15 +164,15 @@ export async function runScraper() {
     }
   }
 
-  // ── Auto-enrich freshly scraped jobs missing company/details ──
+  // ── Legacy auto-enrich pass (kept for safety) ──
   let enrichResult = { enriched: 0, failed: 0 };
   try {
     const { enrichJobs } = await import("./enrichJobs.js");
-    console.log("\n🔎 Auto-enriching jobs missing company/details...");
+    console.log("\n🔎 Auto-enriching remaining jobs missing company/details...");
     enrichResult = await enrichJobs({ onlyMissing: true, limit_count: 40 });
-    console.log(`🔎 Enrichment: ${enrichResult.enriched} fixed, ${enrichResult.failed} failed`);
+    console.log(`🔎 Enrichment pass: ${enrichResult.enriched} fixed, ${enrichResult.failed} failed`);
   } catch (e) {
-    console.warn("Auto-enrich failed:", e.message);
+    console.warn("Auto-enrich pass failed:", e.message);
   }
 
   const totalInDb = await ScrapedJob.countDocuments({});

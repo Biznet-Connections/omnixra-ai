@@ -1,12 +1,20 @@
 ﻿import React from "react";
-import { Home, Sparkles, PlusCircle, Briefcase, Building2, Users, User, Settings, LogOut, Inbox } from "lucide-react";
+import { Home, Sparkles, PlusCircle, Briefcase, Building2, Users, User, Settings, LogOut, Inbox, Package } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 function DesktopSidebar({ page, setPage }) {
   const { user, logout } = useAuth();
   const isCompany = user?.accountType === "company";
+  const isBusiness = user?.accountType === "business";
 
-  const navItems = isCompany
+  const navItems = isBusiness
+    ? [
+        { id: "business-dashboard", label: "Dashboard", icon: Home },
+        { id: "business-products", label: "Products", icon: Package },
+        { id: "post-product", label: "Post", icon: PlusCircle },
+        { id: "inbox", label: "Inbox", icon: Inbox },
+      ]
+    : isCompany
     ? [
         { id: "home", label: "Home", icon: Home },
         { id: "myai", label: "Company AI", icon: Sparkles },
@@ -20,6 +28,7 @@ function DesktopSidebar({ page, setPage }) {
         { id: "post", label: "Post", icon: PlusCircle },
         { id: "jobs", label: "Jobs", icon: Briefcase },
         { id: "companies", label: "Companies", icon: Building2 },
+        { id: "inbox", label: "Inbox", icon: Inbox },
       ];
 
   return (

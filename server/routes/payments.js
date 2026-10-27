@@ -50,23 +50,66 @@ const CATALOG = {
     label: "Company Boost (Monthly)",
     description: "Featured on Companies page for 30 days",
   },
+  cv_one: {
+    type: "cv_one",
+    amount: 1.99,
+    label: "One-Time CV Boost",
+    description: "1 AI-generated CV · matched to your target job",
+  },
+  cv_pack_10: {
+    type: "cv_pack_10",
+    amount: 4.99,
+    label: "Job Hunter CV Pack",
+    description: "10 AI-generated CVs · customize for any job",
+  },
+  cv_monthly: {
+    type: "cv_monthly",
+    amount: 9.99,
+    label: "Pro Seeker CV Subscription",
+    description: "Unlimited AI CVs + cover letters + Auto-Pilot (3/day) · monthly",
+  },
+  auto_starter: {
+    type: "auto_starter",
+    amount: 2.99,
+    label: "Auto-Pilot Starter",
+    description: "10 auto-applies per week · standard matching · 7 days",
+  },
+  auto_plus: {
+    type: "auto_plus",
+    amount: 7.99,
+    label: "Auto-Pilot Plus",
+    description: "Unlimited auto-applies · AI tailors cover letters · monthly",
+  },
+  auto_pro: {
+    type: "auto_pro",
+    amount: 14.99,
+    label: "Auto-Pilot Pro",
+    description: "Unlimited + priority AI matching + direct HR messaging · monthly",
+  },
+  push_profile: {
+    type: "push_profile",
+    amount: 2,
+    label: "Push My Profile",
+    description: "Push your profile to the top of the company's candidate list for 7 days + Featured tag + direct HR notification",
+  },
+
   starter_biweekly: {
     type: "starter_biweekly",
     amount: 5,
     label: "Starter Plan",
-    description: "Inbox HR + Push My Profile - 14 days",
+    description: "Reply to 1 company per day · up to 3 replies · text only · 3 days",
   },
   plus_biweekly: {
     type: "plus_biweekly",
     amount: 10,
     label: "Plus Plan",
-    description: "Everything in Starter + visibility + AI - 14 days",
+    description: "Unlimited replies · attach CV · read receipts · 7 days",
   },
   pro_monthly: {
     type: "pro_monthly",
     amount: 25,
     label: "Pro Plan",
-    description: "Everything in Plus + notifications + badge - monthly",
+    description: "Priority HR inbox · serious candidate badge · 30 days",
   },
   boost_20k: {
     type: "boost_20k",
@@ -382,6 +425,17 @@ async function activateFeature(payment) {
         lastPaymentId: payment._id,
       });
       console.log("[activate] tier:", tier, "user:", userId);
+    } else if (type === "auto_starter" || type === "auto_plus" || type === "auto_pro") {
+      const days = type === "auto_starter" ? 7 : 30;
+      const tier = type === "auto_starter" ? "starter" : (type === "auto_plus" ? "plus" : "pro");
+      await User.findByIdAndUpdate(userId, {
+        isPremium: true,
+        subscriptionTier: tier,
+        subscriptionExpiresAt: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
+        premiumExpiresAt: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
+        autoPilotEnabled: true,
+      });
+      console.log("[activate] Auto-Pilot", type, "for user", userId);
     } else if (type === "ai_matching") {
       // Grant 1 AI match credit
       await User.findByIdAndUpdate(userId, { $inc: { aiMatchCredits: 1 } });

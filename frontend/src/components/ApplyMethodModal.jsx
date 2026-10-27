@@ -8,10 +8,7 @@ export default function ApplyMethodModal({ job, applicantCount = 0, onClose, onP
   const isStarter = hasTier(user, "starter");
 
   const handlePremium = (cb) => {
-    if (!isStarter) {
-      onLocked?.();
-      return;
-    }
+    // Guests and free users can apply. We only gate premium features inside the flow.
     cb?.();
   };
 
@@ -59,12 +56,8 @@ export default function ApplyMethodModal({ job, applicantCount = 0, onClose, onP
 
           {/* Omnixra — Starter+ */}
           <button
-            onClick={() => handlePremium(onPickOmnixra)}
-            className={`w-full p-3 rounded-xl border text-left ${
-              isStarter
-                ? "border-indigo-500/40 bg-indigo-500/[.04] hover:border-indigo-500/60"
-                : "border-white/[.06] bg-white/[.02] hover:border-white/[.15]"
-            }`}
+            onClick={onPickOmnixra}
+            className="w-full p-3 rounded-xl border border-white/[.06] bg-white/[.02] hover:border-white/[.15] text-left"
           >
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
@@ -86,7 +79,7 @@ export default function ApplyMethodModal({ job, applicantCount = 0, onClose, onP
 
           {/* Auto Apply — Starter+ */}
           <button
-            onClick={() => handlePremium(onPickAuto)}
+            onClick={onPickAuto}
             className={`w-full p-3 rounded-xl border text-left ${
               isStarter
                 ? "border-purple-500/40 bg-purple-500/[.04] hover:border-purple-500/60"

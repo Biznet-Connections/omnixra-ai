@@ -10,7 +10,65 @@ import { cacheShort } from "../middleware/cache.js";
 import { getApplicantRank } from "../utils/applicantRank.js";
 import ScrapedJob from "../models/ScrapedJob.js";
 
+
+// AUTO-PATCH: cv-payload
+function normalizeCvPayload(body) {
+  if (!body) return body;
+  const raw = body.cvAttachment;
+  if (typeof raw === "string" && raw.startsWith("data:")) {
+    const err = new Error(
+      "Base64 CV uploads are no longer supported. " +
+      "Request a presigned URL via POST /api/jobs/cv/presign, " +
+      "PUT the file directly to R2, then send cvAttachmentUrl."
+    );
+    err.status = 400;
+    throw err;
+  }
+  if (typeof raw === "string" && /^https?:\/\//.test(raw)) {
+    body.cvAttachmentUrl  = body.cvAttachmentUrl  || raw;
+    body.cvAttachmentName = body.cvAttachmentName || body.cvName || "cv.pdf";
+    body.cvAttachmentSize = body.cvAttachmentSize || 0;
+  }
+  if (body.cvAttachmentUrl) {
+    body.cvAttachment = null;
+  }
+  return body;
+}
+
 const router = express.Router();
+
+// AUTO-PATCH: presigned CV upload endpoint
+import { getPresignedUploadUrl as _gp1, generateKey as _gk1 } from "../utils/r2.js";
+
+router.post("/cv/presign", async (req, res) => {
+  try {
+    const { filename, contentType } = req.body || {};
+    if (!filename || !contentType) {
+      return res.status(400).json({ message: "filename + contentType required" });
+    }
+    const allowed = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      // ── Images (for business products & shop logos) ──
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ];
+    if (!allowed.includes(contentType)) {
+      return res.status(400).json({ message: "File type not allowed" });
+    }
+    const key = _gk1("cvs", filename);
+    const { uploadUrl, publicUrl } = await _gp1(key, contentType, 900);
+    res.json({ uploadUrl, publicUrl, key, expiresIn: 900 });
+  } catch (err) {
+    console.error("presign error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 
 // Calculate REAL match percentage
 function calculateMatch(userCategory, jobCategory, userSkills = []) {
@@ -99,6 +157,9 @@ router.get("/:id", async (req, res) => {
 
 // APPLY TO JOB â€” handle both real and generated jobs
 router.post("/:id/apply", protect, async (req, res) => {
+    try { req.body = normalizeCvPayload(req.body); }
+    catch (e) { return res.status(e.status || 400).json({ message: e.message }); }
+
   console.log(`=== APPLY TO JOB ${req.params.id} ===`);
   try {
     const { message, cvAttachment } = req.body;
@@ -125,12 +186,16 @@ router.post("/:id/apply", protect, async (req, res) => {
       matchPercentage = calculateMatch(req.user.category, job.category, req.user.skills);
     }
 
-    const existing = await Application.findOne({ jobId: req.params.id, userId: req.user._id });
+    const userId = req.user?._id || null;
+    const guestEmail = req.body?.guestEmail?.trim() || null;
+    if (!userId && !guestEmail) return res.status(400).json({ message: "Email required for guest applications" });
+    const existing = userId ? await Application.findOne({ jobId: req.params.id, userId }) : null;
     if (existing) return res.status(400).json({ message: "You already applied to this job." });
 
     const application = await Application.create({
       jobId: req.params.id,
-      userId: req.user._id,
+      userId: userId,
+      guestEmail: userId ? null : guestEmail,
       companyId: job.companyId || null,
       message: message.trim(),
       matchPercentage,
@@ -145,7 +210,10 @@ router.post("/:id/apply", protect, async (req, res) => {
 });
 
 // ── APPLY VIA OMNIXRA (Starter+) ──
-router.post("/:id/apply-omnixra", protect, async (req, res) => {
+router.post("/:id/apply-omnixra", async (req, res) => {
+    try { req.body = normalizeCvPayload(req.body); }
+    catch (e) { return res.status(e.status || 400).json({ message: e.message }); }
+
   try {
     const { message, cvAttachment, cvName } = req.body;
     if (!message?.trim()) return res.status(400).json({ message: "Message required" });
@@ -494,6 +562,9 @@ router.post("/:id/push-cv", protect, requireTier("starter"), async (req, res) =>
 
 // ── APPLY FOR ME (Starter+ — auto-send) ──
 router.post("/:id/apply-for-me", protect, requireTier("starter"), async (req, res) => {
+    try { req.body = normalizeCvPayload(req.body); }
+    catch (e) { return res.status(e.status || 400).json({ message: e.message }); }
+
   console.log(`=== APPLY FOR ME - Job ${req.params.id} ===`);
   try {
     if (!req.user.isPremium) {
@@ -958,3 +1029,216 @@ router.delete("/:id", protect, async (req, res) => {
 });
 export default router;
 
+
+// ═══════════════════════════════════════════════════════════════════
+// APPLICATION FOLDERS (Gmail-style: star / archive / trash / restore)
+// ═══════════════════════════════════════════════════════════════════
+
+// Toggle star
+router.put("/applications/:id/star", protect, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const app = await Application.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!app) return res.status(404).json({ message: "Not found" });
+    app.starred = !app.starred;
+    await app.save();
+    res.json({ ok: true, starred: app.starred });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Toggle archive
+router.put("/applications/:id/archive", protect, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const app = await Application.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!app) return res.status(404).json({ message: "Not found" });
+    app.archived = !app.archived;
+    await app.save();
+    res.json({ ok: true, archived: app.archived });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Move to trash
+router.put("/applications/:id/trash", protect, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const app = await Application.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!app) return res.status(404).json({ message: "Not found" });
+    app.deleted = true;
+    app.deletedAt = new Date();
+    await app.save();
+    res.json({ ok: true, deleted: true });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Restore from trash
+router.put("/applications/:id/restore", protect, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const app = await Application.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!app) return res.status(404).json({ message: "Not found" });
+    app.deleted = false;
+    app.deletedAt = undefined;
+    await app.save();
+    res.json({ ok: true, restored: true });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Permanent delete (only from trash)
+router.delete("/applications/:id", protect, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const app = await Application.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!app) return res.status(404).json({ message: "Not found" });
+    if (!app.deleted) return res.status(400).json({ message: "Move to trash first" });
+    await Application.deleteOne({ _id: app._id });
+    res.json({ ok: true, deleted: true });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Mark application as seen (clears unread dot)
+router.put("/applications/:id/seen", protect, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    await Application.updateOne(
+      { _id: req.params.id, userId: req.user._id },
+      { $set: { lastSeenAt: new Date() } }
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// APPLICATION THREAD — applicant replies + read tracking
+// ═══════════════════════════════════════════════════════════════════
+
+// Applicant replies back to company
+router.post("/applications/:id/reply", protect, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const User = (await import("../models/User.js")).default;
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ message: "Message required" });
+
+    const app = await Application.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!app) return res.status(404).json({ message: "Not found" });
+
+    const reply = {
+      from: "user",
+      senderId: req.user._id,
+      senderName: req.user.name || "Applicant",
+      text: text.trim(),
+      createdAt: new Date(),
+    };
+    app.replies = app.replies || [];
+    app.replies.push(reply);
+    await app.save();
+
+    // Emit to the admin console — reuse the socket room for admin
+    try {
+      const { getIO } = await import("../socket.js");
+      const io = getIO();
+      if (io) {
+        io.emit("application-reply-from-user", {
+          applicationId: String(app._id),
+          from: "user",
+          senderName: reply.senderName,
+          text: reply.text,
+          createdAt: reply.createdAt,
+        });
+      }
+    } catch (e) { console.warn("[user reply emit]", e.message); }
+
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// Mark thread as read by applicant
+router.put("/applications/:id/thread-seen", protect, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const app = await Application.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!app) return res.status(404).json({ message: "Not found" });
+    app.lastSeenAt = new Date();
+    await app.save();
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// DELETE a reply in an application thread (applicant's own or admin)
+router.delete("/applications/:id/reply/:replyId", protect, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const app = await Application.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!app) return res.status(404).json({ message: "Not found" });
+
+    const reply = app.replies.id(req.params.replyId);
+    if (!reply) return res.status(404).json({ message: "Reply not found" });
+
+    // Applicant can only delete their own replies
+    if (reply.from !== "user" || String(reply.senderId) !== String(req.user._id)) {
+      return res.status(403).json({ message: "Can only delete your own messages" });
+    }
+
+    reply.deleteOne();
+    await app.save();
+
+    // Notify admin console to remove it
+    try {
+      const { getIO } = await import("../socket.js");
+      const io = getIO();
+      if (io) {
+        io.emit("application-reply-deleted", {
+          applicationId: String(app._id),
+          replyId: req.params.replyId,
+        });
+      }
+    } catch (e) {}
+
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// SERVER-SIDE UPLOAD — avoids browser CORS on R2
+// Accepts multipart/form-data with a single `file` field
+// ═══════════════════════════════════════════════════════════════════
+import multer from "multer";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
+
+const s3Client = new S3Client({
+  region: "auto",
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
+});
+
+router.post("/upload/file", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No file" });
+
+    const file = req.file;
+    const ext = (file.originalname.split(".").pop() || "").toLowerCase();
+    const key = `uploads/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+
+    await s3Client.send(new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    }));
+
+    const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
+    res.json({ ok: true, url: publicUrl, key });
+  } catch (e) {
+    console.error("[upload/file] error:", e.message);
+    res.status(500).json({ message: e.message });
+  }
+});

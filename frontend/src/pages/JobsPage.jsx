@@ -35,13 +35,15 @@ function writeJobsCache(payload) {
 function JobsPage({ focusJobSlug }) {
   const { user } = useAuth();
   const { online } = useNetworkStatus();
-  const [activeTab, setActiveTab] = useState("omnixra");
+  const [activeTab, setActiveTab] = useState(user ? "omnixra" : "scraped");
+  const [resumeJob, setResumeJob] = useState(null);
   const [deeplinkLoading, setDeeplinkLoading] = useState(false);
   const [omnixraJobs, setOmnixraJobs] = useState([]);
   const [scrapedJobs, setScrapedJobs] = useState([]);
   const [remoteJobs, setRemoteJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState({});
+  const [fetchedTabs, setFetchedTabs] = useState({ omnixra: false, scraped: false, remote: false });
   const [hasMore, setHasMore] = useState({ omnixra: true, scraped: true, remote: true });
   const [pages, setPages] = useState({ omnixra: 1, scraped: 1, remote: 1 });
   const [counts, setCounts] = useState({ omnixra: 0, scraped: 0, remote: 0 });
@@ -64,10 +66,28 @@ function JobsPage({ focusJobSlug }) {
     return jobs.filter(j => j.createdAt && new Date(j.createdAt).getTime() > lastSeen).length;
   };
   const loadingRef = useRef(false);
+  const sentinelRef = useRef(null);
+
+  // Listen for the payment resume event
+  useEffect(() => {
+    const handleResume = (e) => {
+      const detail = e.detail;
+      if (detail.job) {
+        setResumeJob(detail); // triggers the ApplyFlowPage rendering
+      }
+    };
+    window.addEventListener("resume-cv-purchase", handleResume);
+    return () => window.removeEventListener("resume-cv-purchase", handleResume);
+  }, []);
 
   // Initial load: fetch tab 1 (Omnixra)
   useEffect(() => {
-    fetchOmnixra(1);
+    if (user) {
+      fetchOmnixra(1);
+    } else {
+      fetchScraped(1); // Fetch public jobs for guests immediately
+      setLoading(false);
+    }
   }, [user?.category]);
 
 
@@ -175,17 +195,32 @@ function JobsPage({ focusJobSlug }) {
   const fetchOmnixra = async (page = 1) => {
     setTabLoading(prev => ({ ...prev, omnixra: true }));
     try {
-      const res = await api.post(`/ai/jobs?page=1&limit=100`, { query: user?.category || "General" });
-      const data = res.data;
-      setOmnixraJobs(data.jobs || []);
-      setCounts(prev => ({ ...prev, omnixra: data.total || data.jobs?.length || 0 }));
-      setHasMore(prev => ({ ...prev, omnixra: false }));
+      // If no user, fetch public jobs instead of AI matches
+      if (!user) {
+        const res = await api.get('/jobs?page=1&limit=50');
+        setOmnixraJobs(res.data.jobs || res.data || []);
+        setCounts(prev => ({ ...prev, omnixra: res.data.total || 0 }));
+        setHasMore(prev => ({ ...prev, omnixra: false }));
+      } else {
+        // Logged in: fetch AI matches
+        const res = await api.post('/ai/jobs?page=1&limit=100', { query: user?.category || 'General' });
+        const data = res.data;
+        setOmnixraJobs(data.jobs || []);
+        setCounts(prev => ({ ...prev, omnixra: data.total || data.jobs?.length || 0 }));
+        setHasMore(prev => ({ ...prev, omnixra: false }));
+      }
       setLoading(false);
     } catch (err) {
       console.error("Omnixra fetch error:", err);
+      // Final fallback for guests if /jobs fails
+      try {
+        const fallbackRes = await api.get('/scraped-jobs?page=1&limit=50');
+        setOmnixraJobs(fallbackRes.data.jobs || []);
+      } catch (fallbackErr) {}
       setLoading(false);
     } finally {
       setTabLoading(prev => ({ ...prev, omnixra: false }));
+      setFetchedTabs(prev => ({ ...prev, omnixra: true }));
     }
   };
 
@@ -193,16 +228,23 @@ function JobsPage({ focusJobSlug }) {
     if (tabLoading.scraped) return;
     setTabLoading(prev => ({ ...prev, scraped: true }));
     try {
-      // Load ALL scraped jobs at once (no pagination)
-      const res = await api.get(`/scraped-jobs?page=1&limit=500`);
+      // Load 30 at a time, paginate
+      const res = await api.get(`/scraped-jobs?page=${page}&limit=10`);
       const data = res.data;
-      setScrapedJobs(data.jobs || []);
-      setCounts(prev => ({ ...prev, scraped: data.total || data.jobs?.length || 0 }));
-      setHasMore(prev => ({ ...prev, scraped: false }));
+      if (page === 1) {
+        setScrapedJobs(data.jobs || []);
+        setCounts(prev => ({ ...prev, scraped: data.total || data.jobs?.length || 0 }));
+      } else {
+        setScrapedJobs(prev => [...prev, ...(data.jobs || [])]);
+      }
+      setHasMore(prev => ({ ...prev, scraped: data.hasMore ?? ((data.jobs?.length || 0) === 10) }));
+      setPages(prev => ({ ...prev, scraped: page + 1 }));
     } catch (err) {
       console.error("Scraped fetch error:", err);
     } finally {
       setTabLoading(prev => ({ ...prev, scraped: false }));
+      setFetchedTabs(prev => ({ ...prev, scraped: true }));
+      setLoading(false);
     }
   };
 
@@ -224,7 +266,8 @@ function JobsPage({ focusJobSlug }) {
       console.error("Remote fetch error:", err);
     } finally {
       setTabLoading(prev => ({ ...prev, remote: false }));
-    }
+          setFetchedTabs(prev => ({ ...prev, remote: true }));
+}
   };
 
   const switchTab = (tab) => {
@@ -235,36 +278,51 @@ function JobsPage({ focusJobSlug }) {
   };
 
   // Infinite scroll for the active tab
+  
+
+  // Infinite scroll via IntersectionObserver — works inside .page-scroll container
   useEffect(() => {
-    const handleScroll = () => {
-      if (loadingRef.current) return;
-      const scrolled = window.innerHeight + window.scrollY;
-      const nearBottom = scrolled >= document.body.offsetHeight - 500;
+    if (!sentinelRef.current) return;
+    const el = sentinelRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0].isIntersecting) return;
+        if (loadingRef.current) return;
+        if (!hasMore[activeTab]) return;
 
-      if (!nearBottom || !hasMore[activeTab]) return;
-      loadingRef.current = true;
-      setTimeout(() => { loadingRef.current = false; }, 500);
+        loadingRef.current = true;
+        setTimeout(() => { loadingRef.current = false; }, 500);
 
-      if (activeTab === "omnixra") fetchOmnixra(pages.omnixra);
-      if (activeTab === "scraped") fetchScraped(pages.scraped);
-      if (activeTab === "remote") fetchRemote(pages.remote);
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+        if (activeTab === "omnixra") fetchOmnixra(pages.omnixra);
+        if (activeTab === "scraped") fetchScraped(pages.scraped);
+        if (activeTab === "remote") fetchRemote(pages.remote);
+      },
+      { root: null, rootMargin: "400px", threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [activeTab, pages, hasMore]);
 
   const tabs = [
-    { id: "omnixra", icon: Sparkles, label: "Omnixra Jobs", count: getUnreadCount("omnixra", omnixraJobs), color: "#8b5cf6" },
-    { id: "scraped", icon: Globe, label: "Local Jobs", count: getUnreadCount("scraped", scrapedJobs), color: "#06b6d4" },
-    { id: "remote", icon: Compass, label: "Remote", count: getUnreadCount("remote", remoteJobs), color: "#10b981" }
+    ...(user ? [{ id: "omnixra", icon: Sparkles, label: "My Matches", count: getUnreadCount("omnixra", omnixraJobs), color: "#8b5cf6" }] : []),
+    { id: "scraped", icon: Globe, label: "Omnixra Jobs", count: getUnreadCount("scraped", scrapedJobs), color: "#06b6d4" },
+    { id: "remote", icon: Compass, label: "Foreign", count: getUnreadCount("remote", remoteJobs), color: "#10b981" }
   ];
 
   const currentJobs = activeTab === "omnixra" ? omnixraJobs : activeTab === "scraped" ? scrapedJobs : remoteJobs;
   const isCurrentTabLoading = tabLoading[activeTab] || (activeTab === "omnixra" && loading);
 
   return (
-    <div className="page-scroll">
+    <>
+      {resumeJob ? (
+        <ApplyFlowPage
+          job={resumeJob.job}
+          initialDraft={resumeJob.draft}
+          onClose={() => setResumeJob(null)}
+          onSuccess={() => setResumeJob(null)}
+        />
+      ) : null}
+      <div className="page-scroll">
       <div className="page-container">
         <h1 className="page-title">Find your next opportunity</h1>
         <p className="page-subtitle">Jobs from Omnixra AI, our network, and around the world.</p>
@@ -308,11 +366,16 @@ function JobsPage({ focusJobSlug }) {
               {activeTab === "omnixra" ? "Loading jobs for you..." : activeTab === "scraped" ? "Loading jobs from other sites..." : "Loading remote jobs..."}
             </span>
           </div>
-        ) : currentJobs.length === 0 ? (
+        ) : currentJobs.length === 0 && !tabLoading[activeTab] && !loading ? (
           <div className="empty-state mt-7">
             <div className="empty-icon">{navigator.onLine ? "💼" : "📡"}</div>
             <h2 className="text-sm font-semibold mt-4">{navigator.onLine ? "No jobs available" : "You are offline"}</h2>
             <p className="text-xs text-slate-700 mt-2">{navigator.onLine ? "Check back soon." : "Check your internet connection and try again."}</p>
+          </div>
+        ) : currentJobs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center mt-20">
+            <LoadingDots />
+            <span className="text-xs text-slate-600 mt-4">Still loading…</span>
           </div>
         ) : (
           <>
@@ -328,8 +391,13 @@ function JobsPage({ focusJobSlug }) {
                 </div>
               ))}
             </div>
+            {/* Infinite scroll sentinel — when this scrolls into view, load more */}
+            <div ref={sentinelRef} style={{ height: 1 }} aria-hidden="true" />
             {tabLoading[activeTab] && (
               <div className="flex justify-center py-6"><LoadingDots /></div>
+            )}
+            {!hasMore[activeTab] && currentJobs.length > 0 && (
+              <p className="text-center text-xs opacity-50 py-6">You've reached the end</p>
             )}
           </>
         )}
@@ -337,7 +405,7 @@ function JobsPage({ focusJobSlug }) {
         )}
       </div>
     </div>
+    </>
   );
 }
-
 export default JobsPage;

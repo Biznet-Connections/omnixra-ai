@@ -9,6 +9,7 @@ import { notifyPostAuthor, notifyNewFollower } from "../utils/notify.js";
 import { notifyComment, notifyMention } from "../utils/createNotification.js";
 import Channel from "../models/Channel.js";
 import Notification from "../models/Notification.js";
+import optionalAuth from "../middleware/optionalAuth.js";
 
 const router = express.Router();
 
@@ -288,14 +289,29 @@ router.get("/my-posts", protect, async (req, res) => {
 });
 
 // GET COMMENTS for a post
-router.get("/:id/comments", async (req, res) => {
+router.get("/:id/comments", optionalAuth, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id)
       .populate("comments.user", "name profilePicture profilePicLocked")
       .populate("comments.replies.user", "name profilePicture profilePicLocked")
       .lean();
     if (!post) return res.status(404).json({ message: "Post not found" });
-    res.json({ comments: post.comments || [] });
+
+    // Hide comments/replies authored by the viewer (self-consistency for synthetic engagement)
+    const viewerId = req.user?._id?.toString();
+    const stripUser = (c) => {
+      const authorId = c.user?._id?.toString() || c.user?.toString();
+      return authorId !== viewerId;
+    };
+
+    const visible = (post.comments || [])
+      .filter(stripUser)
+      .map(c => ({
+        ...c,
+        replies: (c.replies || []).filter(stripUser),
+      }));
+
+    res.json({ comments: visible });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

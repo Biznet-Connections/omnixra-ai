@@ -25,3 +25,15 @@ google-services.json
 *.env.bak*
 .env.save
 .env
+
+# Scratch scripts & one-off jobs
+server/*.mjs
+server/scripts/
+server/_pre_migration_backup/
+
+# Big binary folders
+server/mongodb-database-tools-*/
+
+# Backup files
+*.bak
+*.bak.*

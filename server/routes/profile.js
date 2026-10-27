@@ -2,6 +2,7 @@ import express from "express";
 import User from "../models/User.js";
 import Post from "../models/Post.js";
 import { protect } from "../middleware/auth.js";
+import optionalAuth from "../middleware/optionalAuth.js";
 
 const router = express.Router();
 
@@ -184,6 +185,16 @@ router.put("/follow-company/:companyId", protect, async (req, res) => {
   }
 });
 
+// GET followed companies for current user
+router.get("/following-companies", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("following").lean();
+    res.json({ following: (user?.following || []).map(String) });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // CONNECT (legacy - for backwards compatibility)
 router.put("/connect/:userId", protect, async (req, res) => {
   try {
@@ -272,3 +283,377 @@ router.get("/suggested-connections", protect, async (req, res) => {
 });
 
 export default router;
+
+// ═══════════════════════════════════════════════════════════════════
+// BUSINESS SETUP — save business profile details
+// ═══════════════════════════════════════════════════════════════════
+
+router.put("/business/setup", protect, async (req, res) => {
+  try {
+    const { businessName, businessCategory, businessLocation, businessPhone, businessWhatsApp, businessHours, businessAbout, businessLogo, businessSlug } = req.body;
+    if (req.user.accountType !== "business") {
+      return res.status(403).json({ message: "Business accounts only" });
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: {
+          ...(businessName !== undefined && { businessName }),
+          ...(businessCategory !== undefined && { businessCategory }),
+          ...(businessLocation !== undefined && { businessLocation }),
+          ...(businessPhone !== undefined && { businessPhone }),
+          ...(businessWhatsApp !== undefined && { businessWhatsApp }),
+          ...(businessHours !== undefined && { businessHours }),
+          ...(businessAbout !== undefined && { businessAbout }),
+          ...(businessLogo !== undefined && { businessLogo }),
+          ...(businessSlug !== undefined && { businessSlug }),
+        },
+      },
+      { new: true }
+    ).select("-password");
+
+    res.json({ user: updated });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// PUBLIC SHOP — no auth required, returns shop info + products
+// ═══════════════════════════════════════════════════════════════════
+router.get("/public/shop/:slug", async (req, res) => {
+  try {
+    const user = await User.findOne({
+      businessSlug: req.params.slug,
+      accountType: "business",
+    }).select("businessName businessSlug businessCategory businessLocation businessAbout businessLogo businessPhone businessWhatsApp businessHours businessVerified businessRating businessReviewCount").lean();
+
+    if (!user) return res.status(404).json({ message: "Shop not found" });
+
+    // Products will come from a future "Product" model — return empty for now
+    let products = [];
+    try {
+      const Product = (await import("../models/Product.js")).default;
+      products = await Product.find({ sellerId: user._id, status: "active" }).select("name price images").limit(50).lean();
+    } catch {}
+
+    res.json({ user, products });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════
+// CREATE A PRODUCT — business owners only
+// ═══════════════════════════════════════════════════════════════════
+router.post("/business/product", protect, async (req, res) => {
+  try {
+    if (req.user.accountType !== "business") {
+      return res.status(403).json({ message: "Business accounts only" });
+    }
+
+    const { name, price, description, images, category } = req.body;
+    if (!name?.trim() || !price) {
+      return res.status(400).json({ message: "Name and price are required" });
+    }
+
+    const Product = (await import("../models/Product.js")).default;
+
+    const product = await Product.create({
+      sellerId: req.user._id,
+      name: name.trim(),
+      price: Number(price),
+      description: description?.trim() || "",
+      images: Array.isArray(images) ? images.slice(0, 5) : [],
+      category: category || req.user.businessCategory || "Other",
+      status: "active",
+    });
+
+    console.log("[product] created:", product._id, "by", req.user._id);
+    res.json({ ok: true, product });
+  } catch (e) {
+    console.error("[product/create] error:", e.message);
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// GET MY PRODUCTS — business owners only
+// ═══════════════════════════════════════════════════════════════════
+router.get("/business/products", protect, async (req, res) => {
+  try {
+    if (req.user.accountType !== "business") {
+      return res.status(403).json({ message: "Business accounts only" });
+    }
+    const Product = (await import("../models/Product.js")).default;
+    const products = await Product.find({ sellerId: req.user._id })
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({ products });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// PUBLIC PRODUCT DETAIL — no auth, for guest browsing
+// ═══════════════════════════════════════════════════════════════════
+router.get("/public/shop/:slug/product/:productId", async (req, res) => {
+  try {
+    const User = (await import("../models/User.js")).default;
+    const Product = (await import("../models/Product.js")).default;
+
+    const shop = await User.findOne({
+      businessSlug: req.params.slug,
+      accountType: "business",
+    }).select("_id businessName businessSlug businessLocation businessVerified businessPhone businessWhatsApp businessLogo").lean();
+
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
+
+    const product = await Product.findOne({
+      _id: req.params.productId,
+      sellerId: shop._id,
+      status: "active",
+    }).lean();
+
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    // Increment views
+    await Product.updateOne({ _id: product._id }, { $inc: { views: 1 } });
+
+    res.json({ product, shop });
+  } catch (e) {
+    console.error("[public/product] error:", e.message);
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// UPDATE PRODUCT — business owners only
+// ═══════════════════════════════════════════════════════════════════
+router.put("/business/product/:id", protect, async (req, res) => {
+  try {
+    if (req.user.accountType !== "business") {
+      return res.status(403).json({ message: "Business accounts only" });
+    }
+    const Product = (await import("../models/Product.js")).default;
+    const product = await Product.findOne({ _id: req.params.id, sellerId: req.user._id });
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    const { name, price, description, images, status } = req.body;
+    if (name !== undefined) product.name = name.trim();
+    if (price !== undefined) product.price = Number(price);
+    if (description !== undefined) product.description = description.trim();
+    if (images !== undefined) product.images = Array.isArray(images) ? images.slice(0, 5) : product.images;
+    if (status !== undefined && ["active", "sold", "draft", "archived"].includes(status)) {
+      product.status = status;
+    }
+
+    await product.save();
+    res.json({ ok: true, product });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// DELETE PRODUCT — business owners only
+// ═══════════════════════════════════════════════════════════════════
+router.delete("/business/product/:id", protect, async (req, res) => {
+  try {
+    if (req.user.accountType !== "business") {
+      return res.status(403).json({ message: "Business accounts only" });
+    }
+    const Product = (await import("../models/Product.js")).default;
+    const result = await Product.deleteOne({ _id: req.params.id, sellerId: req.user._id });
+    if (result.deletedCount === 0) return res.status(404).json({ message: "Product not found" });
+    res.json({ ok: true, deleted: true });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// PUBLIC MESSAGE — send without requiring contact (soft-ask later)
+// ═══════════════════════════════════════════════════════════════════
+router.post("/public/shop/:slug/message", optionalAuth, async (req, res) => {
+  try {
+    const User = (await import("../models/User.js")).default;
+    const Product = (await import("../models/Product.js")).default;
+    const Notification = (await import("../models/Notification.js")).default;
+
+    const { productId, text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ message: "Message required" });
+
+    const shop = await User.findOne({
+      businessSlug: req.params.slug,
+      accountType: "business",
+    }).select("_id businessName fcmTokens").lean();
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
+
+    let product = null;
+    if (productId) {
+      product = await Product.findOne({ _id: productId, sellerId: shop._id }).lean();
+      if (product) await Product.updateOne({ _id: product._id }, { $inc: { inquiries: 1 } });
+    }
+
+    const senderId = req.user?._id || null;
+    const senderName = req.user?.name || "Anonymous";
+    const senderEmail = req.user?.email || null;
+
+    // Create the notification (message goes through immediately)
+    const preview = product
+      ? `Re: ${product.name} — ${text.slice(0, 80)}`
+      : text.slice(0, 80);
+
+    const notif = await Notification.create({
+      user: shop._id,
+      type: "message",
+      title: senderId 
+        ? `New inquiry from ${senderName}`
+        : `New inquiry from Guest (no contact yet)`,
+      text: text.trim(),
+      preview,
+      deepLink: "/inbox",
+      metadata: {
+        // null until buyer attaches contact info
+        replyEmail: senderEmail,
+        replyWhatsApp: null,
+        replyPhone: null,
+        senderId,
+        productId: product?._id || null,
+        productName: product?.name || null,
+        source: "public-shop",
+        hasReplyContact: !!senderEmail,
+      },
+    });
+
+    // If logged in → also create/reuse a Conversation
+    if (senderId) {
+      try {
+        const Conversation = (await import("../models/Conversation.js")).default;
+        let conv = await Conversation.findOne({ participants: { $all: [senderId, shop._id] } });
+        if (!conv) {
+          conv = await Conversation.create({
+            participants: [senderId, shop._id],
+            messages: [],
+            lastMessageAt: new Date(),
+          });
+        }
+        conv.messages.push({
+          sender: senderId,
+          text: text.trim(),
+          readBy: [senderId],
+          createdAt: new Date(),
+        });
+        conv.lastMessageAt = new Date();
+        await conv.save();
+
+        try {
+          const { emitNewMessage } = await import("../socket.js");
+          emitNewMessage(String(shop._id), {
+            conversationId: String(conv._id),
+            message: conv.messages[conv.messages.length - 1],
+          });
+        } catch {}
+      } catch (e) {}
+    }
+
+    // Push notification (best effort)
+    try {
+      const shopFull = await User.findById(shop._id).select("fcmTokens").lean();
+      if (shopFull?.fcmTokens?.length) {
+        const { sendPushToUser } = await import("../utils/fcm.js");
+        await sendPushToUser(shopFull, {
+          title: `New inquiry from ${senderName}`,
+          body: text.slice(0, 100),
+          data: { type: "message", deepLink: "/inbox" },
+        });
+      }
+    } catch {}
+
+    res.json({
+      ok: true,
+      messageId: String(notif._id),
+      hasReplyContact: !!senderEmail,
+      message: "Message sent!",
+    });
+  } catch (e) {
+    console.error("[public message] error:", e.message);
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// ATTACH CONTACT TO MESSAGE — buyer says how they want to be reached
+// ═══════════════════════════════════════════════════════════════════
+router.put("/public/message/:messageId/contact", async (req, res) => {
+  try {
+    const Notification = (await import("../models/Notification.js")).default;
+    const User = (await import("../models/User.js")).default;
+
+    const { replyVia, value } = req.body;
+    if (!replyVia || !value) return res.status(400).json({ message: "replyVia + value required" });
+    if (!["email", "whatsapp", "call"].includes(replyVia)) {
+      return res.status(400).json({ message: "Invalid replyVia" });
+    }
+
+    const notif = await Notification.findById(req.params.messageId);
+    if (!notif) return res.status(404).json({ message: "Message not found" });
+
+    const metadata = { ...(notif.metadata || {}), hasReplyContact: true };
+    if (replyVia === "email") metadata.replyEmail = value;
+    if (replyVia === "whatsapp") metadata.replyWhatsApp = value;
+    if (replyVia === "call") metadata.replyPhone = value;
+
+    notif.metadata = metadata;
+    notif.markModified("metadata");
+
+    // Update the display title to include the contact — so seller sees who it's from
+    // If they were "Anonymous", show the email/phone now
+    const senderDisplay =
+      notif.metadata?.guestName && notif.metadata.guestName !== "Anonymous"
+        ? notif.metadata.guestName
+        : replyVia === "email"
+          ? value
+          : replyVia === "whatsapp"
+            ? "WhatsApp: " + value
+            : "Call: " + value;
+
+    notif.title = `New inquiry from ${senderDisplay}`;
+
+    // Append contact info to the preview so seller sees it in the list
+    const productContext = notif.metadata?.productName
+      ? `Re: ${notif.metadata.productName}`
+      : "";
+    const replyLabel =
+      replyVia === "email" ? "📧 " + value :
+      replyVia === "whatsapp" ? "💬 " + value :
+      "📞 " + value;
+    notif.preview = productContext
+      ? `${productContext} — ${notif.text?.slice(0, 40) || ""} — Reply: ${replyLabel}`
+      : `${replyLabel} — ${notif.text?.slice(0, 60) || ""}`;
+
+    await notif.save();
+
+    // Push the seller again to let them know they can now reply
+    try {
+      const shop = await User.findById(notif.user).select("fcmTokens").lean();
+      if (shop?.fcmTokens?.length) {
+        const { sendPushToUser } = await import("../utils/fcm.js");
+        const channel = replyVia === "email" ? "email" : replyVia === "whatsapp" ? "WhatsApp" : "phone";
+        await sendPushToUser(shop, {
+          title: "Buyer added contact info",
+          body: `Reply via ${channel}: ${value}`,
+          data: { type: "message", deepLink: "/inbox" },
+        });
+      }
+    } catch {}
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});

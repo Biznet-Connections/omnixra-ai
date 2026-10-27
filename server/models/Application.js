@@ -24,6 +24,9 @@ const applicationSchema = new mongoose.Schema(
 
     pushedCV: { type: Boolean, default: false },
     cvAttachment: { type: String },
+    cvAttachmentUrl: { type: String, default: null },
+    cvAttachmentName: { type: String, default: null },
+    cvAttachmentSize: { type: Number, default: 0 },
     cvName: { type: String },
 
     // ── Boost (revenue feature) ──
@@ -32,6 +35,26 @@ const applicationSchema = new mongoose.Schema(
     boostedRank: { type: Number },       // frozen rank shown to user
     boostSkipCount: { type: Number, default: 0 },  // how many times they declined
     boostSkippedAt: { type: Date },
+    // ── Inbox folders (Gmail-style) ──
+    starred: { type: Boolean, default: false },
+    archived: { type: Boolean, default: false },
+    deleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
+    lastSeenAt: { type: Date },
+    lastStatusAt: { type: Date },
+
+    // ── Application thread (like Gmail thread) ──
+    replies: [
+      {
+        from: { type: String, enum: ["company", "user"], required: true },
+        senderId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        senderName: { type: String },
+        text: { type: String, required: true },
+        readAt: { type: Date },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+
   },
   { timestamps: true }
 );

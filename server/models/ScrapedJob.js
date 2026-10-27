@@ -30,7 +30,12 @@ const scrapedJobSchema = new mongoose.Schema(
     lastChecked: { type: Date, default: Date.now },
     dateScraped: { type: Date, default: Date.now },
     slug: { type: String },
-    active: { type: Boolean, default: true }
+    active: { type: Boolean, default: true },
+
+    // ── JSON-LD / enrichment tracking ──
+    enriched: { type: Boolean, default: false },
+    enrichedAt: { type: Date },
+    enrichmentSource: { type: String }, // "jsonld" | "ai" | "jsonld+ai" | null
   },
   { timestamps: true }
 );

@@ -7,8 +7,7 @@ const paymentSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: [
-        "starter_biweekly",
+      enum: ["starter_biweekly",
         "plus_biweekly",
         "pro_monthly",
         "boost_20k",
@@ -21,8 +20,7 @@ const paymentSchema = new mongoose.Schema(
         "company_boost_monthly",
         "boost_job_starter",
         "boost_job_plus",
-        "boost_job_pro",
-      ],
+        "boost_job_pro", "push_profile", "cv_one", "cv_pack_10", "cv_monthly", "auto_starter", "auto_plus", "auto_pro"],
     },
     plan: { type: String, default: null },
     amount: { type: Number, required: true },

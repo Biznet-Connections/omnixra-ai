@@ -117,6 +117,14 @@ export const SocketProvider = ({ children }) => {
       window.dispatchEvent(new CustomEvent("socket-user-offline", { detail: { userId, lastSeen } }));
     });
 
+    newSocket.on("application-updated", (data) => {
+      window.dispatchEvent(new CustomEvent("socket-application-updated", { detail: data }));
+    });
+
+    newSocket.on("application-reply", (data) => {
+      window.dispatchEvent(new CustomEvent("socket-application-reply", { detail: data }));
+    });
+
     newSocket.on("unread-count", ({ count }) => {
       window.dispatchEvent(new CustomEvent("socket-unread-count", { detail: { count } }));
     });

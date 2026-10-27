@@ -13,64 +13,50 @@ export async function scrapeVacancyMail(maxPages = 3) {
 
     try {
       const response = await axios.get(url, {
-        timeout: 15000,
+        timeout: 30000,
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120" },
       });
       const $ = cheerio.load(response.data);
       let pageCount = 0;
 
-      // VacancyMail: each job is <a class="job-listing" href="/jobs/slug-NUMBER/">
       $("a.job-listing").each((_, el) => {
         const $el = $(el);
         const href = $el.attr("href") || "";
 
-        // MUST match real URL pattern: /jobs/slug-NUMBER/
         if (!/^\/jobs\/[a-z0-9-]+-\d+\/?$/i.test(href)) return;
 
-        // Title — usually in h3 inside the details div
         const title = $el.find("h3, .job-listing-title, .job-title").first().text().trim()
           || $el.find("h4, h2").first().text().trim();
         if (!title || title.length < 3) return;
         if (seenTitles.has(title.toLowerCase())) return;
         seenTitles.add(title.toLowerCase());
 
-        // Company — usually has a company-name or logo sibling
+        // Company — try selectors first (usually absent on VacancyMail), else null
         let company =
           $el.find(".company-name, .job-listing-company-name, .company").first().text().trim()
-          || "";
+          || null;
 
-        // Fallback: find the company name in the details block
-        if (!company) {
-          const detailsText = $el.find(".job-listing-details").text().trim();
-          // Look for "at Company" or a capitalized name after the title
-          const lines = detailsText.split("\n").map(s => s.trim()).filter(Boolean);
-          for (const line of lines) {
-            if (line.toLowerCase() !== title.toLowerCase() && /^[A-Z]/.test(line) && line.length > 2 && line.length < 80) {
-              company = line;
-              break;
-            }
-          }
+        // Reject obvious placeholders so downstream knows it needs enrichment
+        if (company && /^(vacancymail|unknown company|unknown)$/i.test(company)) {
+          company = null;
         }
-        company = (company || "Unknown Company").replace(/\s+/g, " ").trim().substring(0, 80);
 
-        // Location
         const location =
           $el.find(".job-listing-location, .location, .job-location").first().text().trim()
           || "Zimbabwe";
 
-        // Description (short snippet from listing)
         const description =
           $el.find(".job-listing-description, .description, .excerpt").first().text().trim()
-          || $el.text().substring(0, 400).replace(/\s+/g, " ").trim();
+          || "";
 
-        // Salary / date snippets if present
         const salary = $el.find(".job-listing-salary, .salary").first().text().trim() || "";
 
         const absoluteUrl = `https://vacancymail.co.zw${href}`;
 
         jobs.push({
           title,
-          company,
+          // Use placeholder so schema (required: true) accepts it, but mark for enrichment
+          company: company || "Pending Enrichment",
           location,
           applicationUrl: absoluteUrl,
           source: "VacancyMail",

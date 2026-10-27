@@ -1259,9 +1259,17 @@ export default router;
 
 
 
-router.post("/apply-cover-letter", protect, async (req, res) => {
+router.post("/apply-cover-letter", async (req, res) => {
   try {
-    const { jobId } = req.body;
+    const { jobId, currentDraft } = req.body;
+    
+    // If there's a draft, tell the AI to enhance it instead of starting fresh
+    if (currentDraft && currentDraft.trim().length > 10) {
+      // Assuming there's an OpenAI/DeepSeek call below, we need to adjust the prompt.
+      // For now, let's inject a special marker so we know it's an enhancement.
+      req.body.isEnhancement = true;
+    }
+    
     if (!jobId) return res.status(400).json({ message: "jobId required" });
 
     let job = null;
@@ -1270,22 +1278,36 @@ router.post("/apply-cover-letter", protect, async (req, res) => {
     }
     const jobTitle = job?.title || "the advertised role";
     const company = job?.company || "your company";
-    const category = job?.category || req.user.category || "General";
+    const category = job?.category || (req.user?.category) || "General";
 
     const { askAI } = await import("../utils/aiService.js");
+    // Safe user fallback for guests
+    const u = req.user || {};
+    const applicantName = u.name || "the applicant";
+    const applicantLocation = u.location || "Zimbabwe";
+    const applicantCategory = u.category || "General";
+    const applicantSkills = (u.skills || []).join(", ") || "General";
+    const applicantHeadline = u.headline || "Job seeker";
+
+    // If user provided a draft, tell the AI to enhance it
+    const isEnhancement = currentDraft && currentDraft.trim().length > 10;
+    const draftInstruction = isEnhancement
+      ? `\n\nIMPORTANT: The applicant has written a rough draft below. POLISH and PROFESSIONALLY REWRITE it while keeping their core message:\n---\n${currentDraft}\n---\n`
+      : "";
+
     const prompt = `Write a professional cover letter for a job application.
-Applicant: ${req.user.name}
-Location: ${req.user.location || "Zimbabwe"}
-Category: ${req.user.category || "General"}
-Skills: ${(req.user.skills || []).join(", ") || "General"}
-Headline: ${req.user.headline || "Job seeker"}
+Applicant: ${applicantName}
+Location: ${applicantLocation}
+Category: ${applicantCategory}
+Skills: ${applicantSkills}
+Headline: ${applicantHeadline}
 Position: ${jobTitle}
-Company: ${company}
+Company: ${company}${draftInstruction}
 
 Rules:
 - Keep it under 200 words
 - Start with "Dear Hiring Manager,"
-- End with "Yours faithfully,\n${req.user.name}"
+- End with "Yours faithfully,\n${req.user?.name || "the applicant"}"
 - Be confident but not arrogant
 - Reference the position and company
 - No emojis

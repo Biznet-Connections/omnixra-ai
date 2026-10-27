@@ -23,6 +23,7 @@ function writeLocal(list) {
 export function FollowingProvider({ children }) {
   const { user } = useAuth();
   const [ids, setIds] = useState(() => readLocal());
+  const [companyIds, setCompanyIds] = useState([]);
   const [ready, setReady] = useState(false);
   // Hydrate from backend on login (source of truth)
   useEffect(() => {
@@ -37,6 +38,12 @@ export function FollowingProvider({ children }) {
         const merged = Array.from(new Set([...readLocal(), ...server]));
         setIds(merged);
         writeLocal(merged);
+        // Also hydrate followed companies
+        try {
+          const cRes = await api.get("/profile/following-companies");
+          const cIds = (cRes.data?.following || []).map(String);
+          if (!cancelled) setCompanyIds(cIds);
+        } catch (ce) { console.warn("[following] company hydrate failed:", ce.message); }
       } catch (e) {
         console.warn("[following] hydrate failed:", e.message);
       } finally {
@@ -100,8 +107,33 @@ export function FollowingProvider({ children }) {
     }
   }, []);
 
-  return (
-    <FollowingContext.Provider value={{ isFollowing, follow, unfollow, followingIds: ids, ready }}>
+  const isFollowingCompany = useCallback((companyId) => {
+    if (!companyId) return false;
+    return companyIds.includes(String(companyId));
+  }, [companyIds]);
+
+  const toggleFollowCompany = useCallback(async (companyId) => {
+    const id = String(companyId);
+    if (!id) return;
+    // Optimistic
+    const wasFollowing = companyIds.includes(id);
+    setCompanyIds(prev => wasFollowing ? prev.filter(x => x !== id) : [...prev, id]);
+    try {
+      const r = await api.put(`/profile/follow-company/${id}`);
+      const followed = !!r.data?.followed;
+      setCompanyIds(prev => followed
+        ? (prev.includes(id) ? prev : [...prev, id])
+        : prev.filter(x => x !== id)
+      );
+    } catch (e) {
+      // Revert
+      setCompanyIds(prev => wasFollowing ? [...prev, id] : prev.filter(x => x !== id));
+      console.error("toggleFollowCompany failed:", e.message);
+    }
+  }, [companyIds]);
+
+return (
+    <FollowingContext.Provider value={{ isFollowing, follow, unfollow, followingIds: ids, ready, isFollowingCompany, toggleFollowCompany, companyIds }}>
       {children}
     </FollowingContext.Provider>
   );

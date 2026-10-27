@@ -1,22 +1,32 @@
 import React, { useState } from "react";
 import { X, Send, Paperclip } from "lucide-react";
 import api from "../api/axios";
+import { uploadCvToR2 } from "../utils/uploadCv";
 
 function ApplyModal({ job, onClose, onApplied }) {
   const [message, setMessage] = useState("");
   const [cvFile, setCvFile] = useState(null);
   const [cvName, setCvName] = useState("");
+  const [uploadingCv, setUploadingCv] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
-    setCvName(file.name);
-    const reader = new FileReader();
-    reader.onloadend = () => setCvFile(reader.result);
-    reader.readAsDataURL(file);
+    try {
+      setUploadingCv(true);
+      const { cvAttachmentUrl, cvAttachmentName, cvAttachmentSize } = await uploadCvToR2(file);
+      setCvFile({ url: cvAttachmentUrl, name: cvAttachmentName, size: cvAttachmentSize });
+      setCvName(cvAttachmentName);
+    } catch (err) {
+      console.error("CV upload failed:", err);
+      setError?.(err.message || "CV upload failed");
+      alert(err.message || "CV upload failed");
+    } finally {
+      setUploadingCv(false);
+    }
   };
 
   const handleApply = async () => {
@@ -24,7 +34,7 @@ function ApplyModal({ job, onClose, onApplied }) {
       setError("Please write a message to apply.");
       return;
     }
-    api.post(`/jobs/${job._id}/apply`, { message, cvAttachment: cvFile })
+    api.post(`/jobs/${job._id}/apply`, { message, cvAttachmentUrl: cvFile?.url })
       .then(res => { onApplied?.(res.data.application); })
       .catch(err => { console.warn("Apply failed:", err.message); });
     onClose();
@@ -52,7 +62,7 @@ function ApplyModal({ job, onClose, onApplied }) {
           <label className="form-label">Attach CV (optional)</label>
           <label className="outline-button cursor-pointer w-full justify-center">
             <Paperclip size={16} />
-            {cvName || "Choose File"}
+            {uploadingCv ? "Uploading…" : (cvName || "Choose File")}
             <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={handleFileChange} className="hidden" />
           </label>
         </div>

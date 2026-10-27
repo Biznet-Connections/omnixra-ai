@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from "react";
-import { UserCheck, Newspaper, Briefcase, User, FileText, MessageCircle, Search, BarChart3, Inbox, Bell } from "lucide-react";
+import { UserCheck, Newspaper, Briefcase, User, FileText, MessageCircle, Search, BarChart3, Inbox, Bell, Building2, Package, Link2 } from "lucide-react";
 import PostCard from "../components/PostCard";
 import ProfileMenu from "../components/ProfileMenu";
 import LoadingDots from "../components/LoadingDots";
@@ -251,7 +251,14 @@ function HomePage({ setPage, setSelectedUserId, focusPostId, focusCommentId }) {
     }
   };
 
-  const quickActions = user?.accountType === "company"
+  const quickActions = user?.accountType === "business"
+    ? [
+        { icon: User, label: "Profile", action: () => { if (!user) { requireAuth("profile"); return; } setShowProfileMenu(true); } },
+        { icon: Package, label: "Products", action: () => setPage("business-products") },
+        { icon: Link2, label: "Shop Link", action: () => setPage("business-welcome") },
+        { icon: Bell, label: "Alerts", action: goIfLoggedIn("alerts", "notifications"), badge: notifUnread },
+      ]
+    : user?.accountType === "company"
     ? [
         { icon: User, label: "Profile", action: () => { if (!user) { requireAuth("profile"); return; } setShowProfileMenu(true); } },
         { icon: Briefcase, label: "My Jobs", action: goIfLoggedIn("myjobs", "my-job-posts") },
@@ -264,10 +271,9 @@ function HomePage({ setPage, setSelectedUserId, focusPostId, focusCommentId }) {
         { icon: User, label: "Profile", action: () => { if (!user) { requireAuth("profile"); return; } setShowProfileMenu(true); } },
         { icon: Search, label: "Discover", action: () => setPage("discover") },
         { icon: UserCheck, label: "Following", action: goIfLoggedIn("following", "following") },
-        { icon: MessageCircle, label: "Inbox", action: goIfLoggedIn("inbox", "inbox"), badge: unreadCount },
+        { icon: Building2, label: "Companies", action: () => setPage("companies") },
         { icon: Bell, label: "Alerts", action: goIfLoggedIn("alerts", "notifications"), badge: notifUnread },
         { icon: Newspaper, label: "News", action: () => setPage("news") },
-        { icon: Briefcase, label: "Applications", action: goIfLoggedIn("applications", "applications") },
         { icon: FileText, label: "My Posts", action: goIfLoggedIn("myposts", "my-posts") },
       ];
 

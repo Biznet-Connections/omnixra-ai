@@ -20,6 +20,8 @@ function ChatPage({ initialChatId }) {
       role: "assistant",
       text: isCompany
         ? `Hello ${user?.name} 👋\n\nTell me the job you're hiring for, or the kind of person you're looking for.`
+        : user?.accountType === "business"
+        ? `Hey 👋 I'm your Business AI. I can write product descriptions, suggest pricing, and help you grow your shop.`
         : `Hey 👋 I'm Omnixra, your AI employment assistant. I can find jobs, improve your CV, and help you build your career.`,
     },
   ]);
@@ -408,11 +410,23 @@ const startRecording = async () => {
       role: "assistant",
       text: isCompany
         ? `Hello ${user?.name} 👋\n\nTell me the job you're hiring for, or the kind of person you're looking for.`
+        : user?.accountType === "business"
+        ? `Hey 👋 I'm your Business AI. I can write product descriptions, suggest pricing, and help you grow your shop.`
         : `Hey 👋 I'm Omnixra, your AI employment assistant. What can I help you with today?`,
     }]);
   };
 
   const getSuggestions = () => {
+    // Business owners get business-focused suggestions
+    if (typeof user !== "undefined" && user?.accountType === "business") {
+      return [
+        "Write a product description",
+        "Suggest a price for my product",
+        "Give me marketing ideas",
+        "How do I respond to a customer?",
+      ];
+    }
+
     if (isCompany) return ["Find candidates", "Draft a job post", "Analyze my talent pool", "Bulk message"];
     const category = (user?.category || "General").toLowerCase();
     if (category.includes("it") || category.includes("software") || category.includes("network")) return ["Find IT jobs", "Improve my CV", "Find remote jobs", "Create CV"];
@@ -475,8 +489,12 @@ const startRecording = async () => {
         <div className="chat-container">
           <div className="chat-welcome">
             <div className="welcome-orb float"><Sparkles size={25} /></div>
-            <h1>{isCompany ? "What kind of person are you hiring?" : "What can Omnixra do for you?"}</h1>
-            <p>{isCompany ? "Find talent, draft job posts, and manage candidates with AI." : "Search opportunities, improve your career and more."}</p>
+            <h1>{isCompany ? "What kind of person are you hiring?" : user?.accountType === "business" ? "Let's grow your business together" : "What can Omnixra do for you?"}</h1>
+            <p>{isCompany 
+              ? "Find talent, draft job posts, and manage candidates with AI." 
+              : user?.accountType === "business" 
+                ? "Manage your shop, write product descriptions, and grow your business."
+                : "Search opportunities, improve your career and more."}</p>
           </div>
 
           <div className="space-y-7 mt-9">

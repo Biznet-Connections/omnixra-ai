@@ -2,13 +2,14 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import { askChat } from "../utils/aiProviders.js";
 
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120";
+
 // Strip HTML → clean text
 function htmlToText(html) {
   try {
     const $ = cheerio.load(html);
-    // Remove scripts, styles, nav, footer
     $("script, style, nav, footer, header, noscript, iframe").remove();
-    // Get main content text
     const text = $("body").text() || "";
     return text.replace(/\s+/g, " ").trim().slice(0, 5000);
   } catch {
@@ -16,13 +17,16 @@ function htmlToText(html) {
   }
 }
 
+const BAD_COMPANIES = /^(vacancymail|unknown company|unknown|null|undefined|nil|none|n\/a|n\.a\.?)$/i;
+
 // Extract structured data from raw page text via AI
 async function aiExtractFromText({ text, title, company, source }) {
   const prompt = `You are a job posting parser for Zimbabwe. Extract structured data from this raw page text.
 
 Respond with ONLY valid JSON (no prose, no fences):
 {
-  "description": "clean 2-3 paragraph role summary (NO junk, NO nav links, 400-800 chars)",
+  "company": "real employer name or null",
+  "description": "clean 2-3 paragraph role summary (NO junk, NO nav links, 300-800 chars)",
   "requirements": ["req1", "req2", ...],
   "responsibilities": ["duty1", "duty2", ...],
   "closingDate": "YYYY-MM-DD or null",
@@ -30,6 +34,12 @@ Respond with ONLY valid JSON (no prose, no fences):
   "applicationEmail": "email or null",
   "employmentType": "Full-time / Part-time / Contract / Internship or null"
 }
+
+CRITICAL — COMPANY RULES:
+- Return the REAL hiring company name if stated in the text (e.g. "Impala Car Rental", "Econet Wireless", "Delta Beverages").
+- If the text does NOT name the employer, return null.
+- NEVER return "VacancyMail", "Unknown Company", "Confidential", the job board name, or the job title.
+- If only an email is present and no company name, return null.
 
 CRITICAL — STRIP ALL OF THESE FROM description:
 - Navigation: "Search for CVs", "Jobseeker Register", "Employer Register", "Login", "Sign Up"
@@ -60,7 +70,7 @@ ${text}`;
       { role: "system", content: "You are a precise JSON-only job parser. Reply with valid JSON only." },
       { role: "user", content: prompt },
     ],
-    { temperature: 0.2, maxTokens: 800, jsonMode: true }
+    { temperature: 0.2, maxTokens: 900, jsonMode: true }
   );
 
   let raw = result?.text || "";
@@ -78,9 +88,7 @@ export async function aiEnrichScrapedJob(job) {
   try {
     const response = await axios.get(url, {
       timeout: 20000,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120",
-      },
+      headers: { "User-Agent": UA },
       maxRedirects: 5,
     });
 
@@ -101,6 +109,15 @@ export async function aiEnrichScrapedJob(job) {
 
     // Sanitize
     const out = {};
+
+    // Company — only accept if it's a real name
+    if (ai.company && typeof ai.company === "string") {
+      const c = ai.company.trim().slice(0, 120);
+      if (c && !BAD_COMPANIES.test(c)) {
+        out.company = c;
+      }
+    }
+
     if (ai.description && typeof ai.description === "string" && ai.description.length > 50) {
       out.description = ai.description.slice(0, 5000);
     }
@@ -114,7 +131,8 @@ export async function aiEnrichScrapedJob(job) {
       out.closingDate = new Date(ai.closingDate);
     }
     if (ai.salary && typeof ai.salary === "string") {
-      out.salary = ai.salary.trim().slice(0, 80);
+      const s = ai.salary.trim();
+      if (s && s.toUpperCase() !== "TBA") out.salary = s.slice(0, 80);
     }
     if (ai.applicationEmail && /@/.test(ai.applicationEmail)) {
       out.applicationEmail = ai.applicationEmail.trim();

@@ -146,6 +146,9 @@ function AuthScreen({ initialMode = "signup" }) {
     if (accountType === "company") {
       return isValidName(formData.companyName) && isValidEmail(formData.email) && isValidPassword(formData.password);
     }
+    if (accountType === "business") {
+      return isValidName(formData.businessName) && isValidEmail(formData.email) && isValidPassword(formData.password);
+    }
     return isValidName(formData.firstName) && isValidName(formData.lastName) && isValidEmail(formData.email) && isValidPassword(formData.password);
   })();
 
@@ -237,7 +240,9 @@ function AuthScreen({ initialMode = "signup" }) {
         }
         const name = accountType === "company"
           ? formData.companyName
-          : `${formData.firstName} ${formData.lastName}`.trim();
+          : accountType === "business"
+            ? formData.businessName
+            : `${formData.firstName} ${formData.lastName}`.trim();
         const location = `${formData.city}, ${formData.country}`;
 
         await signup({
@@ -246,6 +251,7 @@ function AuthScreen({ initialMode = "signup" }) {
           password: formData.password,
           accountType,
           companyName: accountType === "company" ? formData.companyName : undefined,
+          businessName: accountType === "business" ? formData.businessName : undefined,
           location,
           country: formData.country,
           city: formData.city,
@@ -278,7 +284,7 @@ function AuthScreen({ initialMode = "signup" }) {
       <div className="auth-wizard" ref={scrollRef}>
         <div className="auth-success-screen">
           <div className="auth-success-orb">✓</div>
-          <h2 className="auth-wizard-title">Welcome, {formData.firstName || formData.companyName || "friend"}! 🎉</h2>
+          <h2 className="auth-wizard-title">Welcome, {formData.businessName || formData.firstName || formData.companyName || "friend"}! 🎉</h2>
           <p className="auth-wizard-sub">Setting up your profile…</p>
           <div style={{ marginTop: 20 }}>
             <div className="btn-loading">
@@ -433,6 +439,14 @@ function AuthScreen({ initialMode = "signup" }) {
                   <span className="auth-role-emoji">🏢</span>
                   <span className="auth-role-name">Company</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountType("business")}
+                  className={`auth-role-btn ${accountType === "business" ? "active" : ""}`}
+                >
+                  <span className="auth-role-emoji">🏪</span>
+                  <span className="auth-role-name">Business Owner</span>
+                </button>
               </div>
             </div>
 
@@ -467,7 +481,7 @@ function AuthScreen({ initialMode = "signup" }) {
                   )}
                 </div>
               </div>
-            ) : (
+            ) : accountType === "company" ? (
               <div className="auth-field">
                 <label className="auth-field-label">Company name</label>
                 <input
@@ -477,6 +491,18 @@ function AuthScreen({ initialMode = "signup" }) {
                   value={formData.companyName}
                   onChange={handleChange}
                   placeholder="e.g. First Mutual Holdings"
+                />
+              </div>
+            ) : (
+              <div className="auth-field">
+                <label className="auth-field-label">Business name</label>
+                <input
+                  name="businessName"
+                  autoComplete="organization"
+                  autoCapitalize="words"
+                  value={formData.businessName || ""}
+                  onChange={handleChange}
+                  placeholder="e.g. Tafara's Hardware"
                 />
               </div>
             )}
@@ -673,7 +699,11 @@ function AuthScreen({ initialMode = "signup" }) {
 
             <div className="auth-review-card">
               <div className="auth-review-name">
-                {accountType === "company" ? formData.companyName : `${formData.firstName} ${formData.lastName}`}
+                {accountType === "company" 
+  ? formData.companyName 
+  : accountType === "business" 
+    ? formData.businessName 
+    : `${formData.firstName} ${formData.lastName}`.trim() || formData.email}
               </div>
               <div className="auth-review-row">
                 <Mail size={12} /> {formData.email}

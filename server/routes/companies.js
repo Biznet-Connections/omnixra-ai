@@ -178,7 +178,7 @@ router.get("/:id/posts", async (req, res) => {
 export default router;
 
 // ── CONTACT COMPANY (Inbox HR / Push My Profile) — Starter+ ──
-router.post("/:id/contact", protect, requireTier("starter"), async (req, res) => {
+router.post("/:id/contact", protect, requireTier("plus"), async (req, res) => {
   try {
     const { mode = "inbox", message = "" } = req.body; // mode: "inbox" | "push_profile"
     const Company = (await import("../models/Company.js")).default;

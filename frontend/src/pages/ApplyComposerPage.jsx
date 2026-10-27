@@ -1,11 +1,13 @@
 ﻿import React, { useState, useEffect } from "react";
 import { X, Send, Paperclip, Sparkles, Loader2, CheckCircle, ArrowLeft } from "lucide-react";
 import api from "../api/axios";
+import { uploadCvToR2 } from "../utils/uploadCv";
 
 export default function ApplyComposerPage({ job, onClose, onSuccess }) {
   const [message, setMessage] = useState("");
   const [cvFile, setCvFile] = useState(null);
   const [cvName, setCvName] = useState("");
+  const [uploadingCv, setUploadingCv] = useState(false);
   const [generating, setGenerating] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -32,13 +34,21 @@ export default function ApplyComposerPage({ job, onClose, onSuccess }) {
     return () => { cancelled = true; };
   }, [job._id, job.title, job.company]);
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
-    setCvName(file.name);
-    const reader = new FileReader();
-    reader.onloadend = () => setCvFile(reader.result);
-    reader.readAsDataURL(file);
+    try {
+      setUploadingCv(true);
+      const { cvAttachmentUrl, cvAttachmentName, cvAttachmentSize } = await uploadCvToR2(file);
+      setCvFile({ url: cvAttachmentUrl, name: cvAttachmentName, size: cvAttachmentSize });
+      setCvName(cvAttachmentName);
+    } catch (err) {
+      console.error("CV upload failed:", err);
+      setError?.(err.message || "CV upload failed");
+      alert(err.message || "CV upload failed");
+    } finally {
+      setUploadingCv(false);
+    }
   };
 
   const regenerate = async () => {
@@ -64,8 +74,7 @@ export default function ApplyComposerPage({ job, onClose, onSuccess }) {
     try {
       const res = await api.post(`/jobs/${job._id}/apply-omnixra`, {
         message,
-        cvAttachment: cvFile,
-        cvName: cvName || null,
+        cvAttachmentUrl: cvFile?.url,
       });
       setDeliveredVia(res.data.method === "dm" ? "Omnixra inbox" : res.data.deliveredTo || "email");
       setSuccess(true);
@@ -154,7 +163,7 @@ export default function ApplyComposerPage({ job, onClose, onSuccess }) {
           <label className="form-label">CV attachment</label>
           <label className="outline-button cursor-pointer w-full justify-center">
             <Paperclip size={14} />
-            {cvName || "Attach CV"}
+            {uploadingCv ? "Uploading…" : (cvName || "Attach CV")}
             <input type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} className="hidden" />
           </label>
         </div>

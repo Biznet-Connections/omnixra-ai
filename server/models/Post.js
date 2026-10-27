@@ -18,6 +18,7 @@ const postSchema = new mongoose.Schema(
     image: { type: String },        // legacy — single image
     images: [{ type: String }],      // multi-image post (max 10)
     video: { type: String },
+    videoUrl: { type: String, default: null },
     thumbnailUrl: { type: String },
     trimStart: { type: Number, default: 0 },
     trimEnd: { type: Number, default: 0 },

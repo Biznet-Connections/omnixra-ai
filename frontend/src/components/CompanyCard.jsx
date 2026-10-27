@@ -1,6 +1,7 @@
 ﻿import React, { useState } from "react";
-import { ShieldCheck, MapPin, Briefcase, Mail, Rocket, Sparkles, UserCheck, FileText, Building2 } from "lucide-react";
+import { ShieldCheck, MapPin, Briefcase, Mail, Rocket, Sparkles, UserCheck, FileText, Building2, UserPlus } from "lucide-react";
 import api from "../api/axios";
+import { useFollowing } from "../context/FollowingContext";
 import PremiumModal from "./PremiumModal";
 import LockedFeatureModal from "./LockedFeatureModal";
 import PaymentModal from "./PaymentModal";
@@ -11,7 +12,8 @@ import { useAuth } from "../context/AuthContext";
 import { useGuest } from "../context/GuestContext";
 import VerifiedBadge from "./VerifiedBadge";
 
-function CompanyCard({ company, setPage }) {
+function CompanyCard({ company, setPage, onPushProfile }) {
+  const { isFollowingCompany, toggleFollowCompany } = useFollowing();
   const { user } = useAuth();
   const { requireAuth } = useGuest();
   const [showPremium, setShowPremium] = useState(false);
@@ -21,6 +23,10 @@ function CompanyCard({ company, setPage }) {
   const [showInbox, setShowInbox] = useState(false);
   const [showProfilePush, setShowProfilePush] = useState(false);
   const [followed, setFollowed] = useState(false);
+  const handleFollow = async (e) => {
+    e.stopPropagation();
+    await toggleFollowCompany(company._id);
+  };
 
   const handleInboxHR = () => {
     if (!user) { requireAuth("message", { name: company?.name }); return; }
@@ -81,44 +87,24 @@ function CompanyCard({ company, setPage }) {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="company-card-actions">
           <button
-            onClick={() => {
-              if (!user) { requireAuth("follow", { name: company?.name }); return; }
-              setFollowed(!followed);
-            }}
-            className={`connect-button ${followed ? "connected" : ""}`}
+            className="company-action-btn"
+            onClick={(e) => { e.stopPropagation(); handleViewPosts(); }}
           >
-            {followed ? "Following" : "Follow"}
-          </button>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="stat-mini">
-            <div className="text-sm font-semibold">Open</div>
-            <div className="text-[9px] text-slate-700">positions</div>
-          </div>
-          <div className="stat-mini">
-            <div className="text-sm font-semibold">{company.jobs || "—"}</div>
-            <div className="text-[9px] text-slate-700">jobs</div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 mt-4">
-          <button onClick={handleInboxHR} className="outline-button">
-            <Mail size={13} />
-            Inbox HR
-          </button>
-          <button onClick={handlePushProfile} className="outline-button">
-            <Rocket size={13} />
-            Push My Profile
-          </button>
-          <button onClick={handleAskAI} className="outline-button text-indigo-400">
-            <Sparkles size={13} />
-            Ask AI
-          </button>
-          <button onClick={handleViewPosts} className="outline-button">
-            <FileText size={13} />
             Posts
+          </button>
+          <button
+            className="company-action-btn"
+            onClick={handleFollow}
+          >{isFollowingCompany(company._id) ? "Following" : "Follow"}</button>
+          <button
+            className="company-action-btn"
+            onClick={(e) => { e.stopPropagation(); onPushProfile && onPushProfile(company); }}
+          >
+            Push Profile
           </button>
         </div>
       </div>

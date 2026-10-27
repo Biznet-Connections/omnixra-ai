@@ -225,3 +225,266 @@ router.post("/generate-ai-jobs", protect, adminOnly, async (req, res) => {
 });
 
 export default router;
+
+// ═══════════════════════════════════════════════════════════════════
+// ADMIN APPLICATIONS CONSOLE (Phase 2)
+// ═══════════════════════════════════════════════════════════════════
+
+// GET all applications (paginated, filterable)
+router.get("/applications", protect, adminOnly, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 50);
+    const skip = (page - 1) * limit;
+
+    const filter = {};
+    if (req.query.status && req.query.status !== "all") filter.status = req.query.status;
+
+    if (req.query.q) {
+      const rx = new RegExp(req.query.q.trim(), "i");
+      // match job title, company name, or user name/email via lookup
+      filter.$or = [
+        { companyName: rx },
+      ];
+    }
+
+    const [apps, total] = await Promise.all([
+      Application.find(filter)
+        .populate("jobId", "title company location")
+        .populate("userId", "name email profilePicture")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Application.countDocuments(filter),
+    ]);
+
+    // client-side text filter for user name / email / job title
+    let items = apps;
+    if (req.query.q) {
+      const q = req.query.q.trim().toLowerCase();
+      items = apps.filter(a =>
+        (a.userId?.name || "").toLowerCase().includes(q) ||
+        (a.userId?.email || "").toLowerCase().includes(q) ||
+        (a.jobId?.title || "").toLowerCase().includes(q) ||
+        (a.companyName || "").toLowerCase().includes(q)
+      );
+    }
+
+    res.json({ items, total, page, pages: Math.ceil(total / limit) });
+  } catch (e) {
+    console.error("[admin/applications]", e.message);
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// GET single application detail
+router.get("/applications/:id", protect, adminOnly, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const app = await Application.findById(req.params.id)
+      .populate("jobId", "title company location salary category type")
+      .populate("userId", "name email profilePicture headline location")
+      .populate("companyId", "name industry")
+      .populate("companyUserId", "name email profilePicture")
+      .lean();
+    if (!app) return res.status(404).json({ message: "Application not found" });
+    res.json(app);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// UPDATE status (fires socket + push to applicant)
+router.put("/applications/:id/status", protect, adminOnly, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const { status } = req.body;
+    const valid = ["applied", "viewed", "interview", "shortlisted", "rejected"];
+    if (!valid.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const app = await Application.findById(req.params.id);
+    if (!app) return res.status(404).json({ message: "Application not found" });
+
+    app.status = status;
+    if (status === "viewed" && !app.viewedAt) app.viewedAt = new Date();
+    await app.save();
+
+    // Real-time socket to the applicant
+    try {
+      const { getIO } = await import("../socket.js");
+      const io = getIO();
+      if (io) {
+        io.to(String(app.userId)).emit("application-updated", {
+          applicationId: String(app._id),
+          status: app.status,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch (e) { console.warn("[status emit]", e.message); }
+
+    // Push notification
+    try {
+      const User = (await import("../models/User.js")).default;
+      const applicant = await User.findById(app.userId).select("fcmTokens").lean();
+      if (applicant && applicant.fcmTokens?.length) {
+        const { sendPushToUser } = await import("../utils/fcm.js");
+        const label = {
+          viewed: "Your application was viewed",
+          interview: "You got an interview request!",
+          shortlisted: "You've been shortlisted!",
+          rejected: "Application update",
+        }[status] || "Application update";
+        await sendPushToUser(applicant, {
+          title: label,
+          body: `${app.companyName || "Company"} · tap to view`,
+          data: { type: "application", deepLink: "/inbox" },
+        });
+      }
+    } catch (e) { console.warn("[status push]", e.message); }
+
+    res.json({ ok: true, status: app.status });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// REPLY as the company — stores in application thread (no Conversation)
+router.post("/applications/:id/reply", protect, adminOnly, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const User = (await import("../models/User.js")).default;
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ message: "Message required" });
+
+    const app = await Application.findById(req.params.id);
+    if (!app) return res.status(404).json({ message: "Application not found" });
+
+    // Resolve company sender (real first, then shadow)
+    let senderId = app.companyUserId;
+    let senderName = app.companyName || "Company";
+
+    if (!senderId && app.companyId) {
+      const co = await User.findById(app.companyId).select("_id name").lean();
+      if (co) { senderId = co._id; senderName = co.name || senderName; }
+    }
+    if (!senderId && app.companyName) {
+      const co = await User.findOne({
+        name: app.companyName, accountType: "company", isShadow: { $ne: true },
+      }).select("_id name").lean();
+      if (co) { senderId = co._id; senderName = co.name || senderName; }
+    }
+
+    // Shadow auto-create
+    if (!senderId && app.companyName) {
+      const slug = app.companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "company";
+      const shadowEmail = `shadow-${slug}@omnixra.shadow`;
+      let shadow = await User.findOne({ email: shadowEmail }).select("_id name").lean();
+      if (!shadow) {
+        const bcrypt = (await import("bcryptjs")).default;
+        const hash = await bcrypt.hash(Math.random().toString(36).slice(2) + Date.now(), 8);
+        const created = await User.create({
+          name: app.companyName, email: shadowEmail, password: hash,
+          accountType: "company", companyName: app.companyName, verified: true, isShadow: true,
+        });
+        senderId = created._id; senderName = created.name;
+        console.log(`[admin reply] created shadow company "${app.companyName}"`);
+      } else {
+        senderId = shadow._id; senderName = shadow.name || senderName;
+      }
+    }
+
+    // Last resort
+    if (!senderId) {
+      const supportEmail = "support@omnixra.ai";
+      let support = await User.findOne({ email: supportEmail }).select("_id name").lean();
+      if (!support) {
+        const bcrypt = (await import("bcryptjs")).default;
+        const hash = await bcrypt.hash(Math.random().toString(36).slice(2) + Date.now(), 8);
+        const created = await User.create({
+          name: "Omnixra Support", email: supportEmail, password: hash,
+          accountType: "admin", verified: true,
+        });
+        senderId = created._id; senderName = created.name;
+      } else { senderId = support._id; senderName = support.name || "Omnixra Support"; }
+    }
+
+    // Push to thread
+    const reply = {
+      from: "company",
+      senderId,
+      senderName,
+      text: text.trim(),
+      verified: true,
+      createdAt: new Date(),
+    };
+    app.replies = app.replies || [];
+    app.replies.push(reply);
+    app.lastStatusAt = new Date(); // reuse for unread marker
+    await app.save();
+
+    // Realtime socket
+    try {
+      const { getIO } = await import("../socket.js");
+      const io = getIO();
+      if (io) {
+        io.to(String(app.userId)).emit("application-reply", {
+          applicationId: String(app._id),
+          from: "company",
+          senderName,
+          text: reply.text,
+          createdAt: reply.createdAt,
+        });
+      }
+    } catch (e) { console.warn("[reply emit]", e.message); }
+
+    // Push notification
+    try {
+      const applicant = await User.findById(app.userId).select("fcmTokens").lean();
+      if (applicant && applicant.fcmTokens?.length) {
+        const { sendPushToUser } = await import("../utils/fcm.js");
+        await sendPushToUser(applicant, {
+          title: senderName,
+          body: text.trim().slice(0, 90),
+          data: { type: "application_reply", deepLink: "/inbox" },
+        });
+      }
+    } catch (e) { console.warn("[reply push]", e.message); }
+
+    res.json({ ok: true, replyId: String(app.replies[app.replies.length - 1]._id || Date.now()) });
+  } catch (e) {
+    console.error("[admin reply]", e.message);
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// DELETE any reply from an application thread (admin)
+router.delete("/applications/:id/reply/:replyId", protect, adminOnly, async (req, res) => {
+  try {
+    const Application = (await import("../models/Application.js")).default;
+    const app = await Application.findById(req.params.id);
+    if (!app) return res.status(404).json({ message: "Not found" });
+
+    const reply = app.replies.id(req.params.replyId);
+    if (!reply) return res.status(404).json({ message: "Reply not found" });
+
+    reply.deleteOne();
+    await app.save();
+
+    try {
+      const { getIO } = await import("../socket.js");
+      const io = getIO();
+      if (io) {
+        io.to(String(app.userId)).emit("application-reply-deleted", {
+          applicationId: String(app._id),
+          replyId: req.params.replyId,
+        });
+      }
+    } catch (e) {}
+
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
